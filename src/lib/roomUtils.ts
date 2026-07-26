@@ -11,6 +11,8 @@ export interface PlaybackState {
 export interface RoomState {
   currentlyPlaying: string;
   playback: PlaybackState;
+  hostUid?: string;
+  isFullscreen?: boolean;
 }
 
 export interface QueueItem {
@@ -22,19 +24,23 @@ export interface QueueItem {
 }
 
 export interface MemberCommand {
-  type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume';
+  type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen';
   createdAt: number;
   payload?: {
     url?: string;
     volume?: number;
     positionMs?: number;
     itemId?: string;
+    queueOrder?: string[];
+    targetUid?: string;
+    purgeQueue?: boolean;
   };
 }
 
 export interface MemberRecord {
   uid: string;
   joinedAt: number;
+  nickname?: string;
   command?: MemberCommand | null;
 }
 

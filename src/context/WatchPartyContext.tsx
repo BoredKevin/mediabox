@@ -56,6 +56,8 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     roomStateRef.current = roomState;
   }, [roomState]);
 
+  const hostUidRef = useRef<string | null>(null);
+
   const queueRefState = useRef<QueueItem[]>([]);
   useEffect(() => {
     queueRefState.current = queue;
@@ -79,7 +81,11 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // 1. Shared state
     const unsubState = onValue(stateRefNode, (snapshot) => {
       if (snapshot.exists()) {
-        setRoomState(snapshot.val());
+        const stateVal = snapshot.val();
+        setRoomState(stateVal);
+        if (stateVal.hostUid) {
+          hostUidRef.current = stateVal.hostUid;
+        }
       }
     });
 
@@ -97,15 +103,30 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     });
 
-    // 3. Members & pending member commands
+    // 3. Members & pending member commands & host election
     const unsubMembers = onValue(membersRefNode, (snapshot) => {
       if (!snapshot.exists()) {
         setMemberCount(0);
+        hostUidRef.current = null;
+        update(ref(database, `rooms/${roomCode}/state`), { hostUid: null });
         return;
       }
 
       const membersData = snapshot.val();
-      setMemberCount(Object.keys(membersData).length);
+      const memberEntries = Object.entries(membersData).map(([uid, m]: [string, any]) => ({
+        uid,
+        joinedAt: m?.joinedAt || 0,
+      }));
+
+      memberEntries.sort((a, b) => a.joinedAt - b.joinedAt);
+      const electedHostUid = memberEntries.length > 0 ? memberEntries[0].uid : null;
+      hostUidRef.current = electedHostUid;
+
+      if (roomStateRef.current?.hostUid !== electedHostUid && electedHostUid) {
+        update(ref(database, `rooms/${roomCode}/state`), { hostUid: electedHostUid });
+      }
+
+      setMemberCount(memberEntries.length);
 
       Object.entries(membersData).forEach(([memberUid, member]: [string, any]) => {
         if (member && member.command) {
@@ -168,8 +189,47 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       } else if (type === 'removeFromQueue' && payload && payload.itemId) {
         const queueItem = queueRefState.current.find((item) => item.id === payload.itemId);
-        if (queueItem && (queueItem.addedBy === memberUid || memberUid === user?.uid)) {
+        if (queueItem && (queueItem.addedBy === memberUid || memberUid === user?.uid || memberUid === hostUidRef.current)) {
           await remove(ref(database, `rooms/${roomCode}/queue/${payload.itemId}`));
+        }
+      } else if (type === 'forceSkip') {
+        if (memberUid === hostUidRef.current || memberUid === user?.uid) {
+          await handlePlayNextInQueue();
+        } else {
+          console.warn('[TV Host] Rejected forceSkip command from non-host member:', memberUid);
+        }
+      } else if (type === 'forceRemoveFromQueue' && payload && payload.itemId) {
+        if (memberUid === hostUidRef.current || memberUid === user?.uid) {
+          await remove(ref(database, `rooms/${roomCode}/queue/${payload.itemId}`));
+        } else {
+          console.warn('[TV Host] Rejected forceRemoveFromQueue command from non-host member:', memberUid);
+        }
+      } else if (type === 'reorderQueue' && payload && Array.isArray(payload.queueOrder)) {
+        if (memberUid === hostUidRef.current || memberUid === user?.uid) {
+          const baseTime = Date.now();
+          const updates: Record<string, any> = {};
+          payload.queueOrder.forEach((itemId: string, index: number) => {
+            updates[`${itemId}/addedAt`] = baseTime + index * 1000;
+          });
+          if (Object.keys(updates).length > 0) {
+            await update(ref(database, `rooms/${roomCode}/queue`), updates);
+          }
+        } else {
+          console.warn('[TV Host] Rejected reorderQueue command from non-host member:', memberUid);
+        }
+      } else if (type === 'kickMember' && payload && payload.targetUid) {
+        if (memberUid === hostUidRef.current || memberUid === user?.uid) {
+          const targetUid = payload.targetUid;
+          await remove(ref(database, `rooms/${roomCode}/members/${targetUid}`));
+
+          if (payload.purgeQueue !== false) {
+            const memberQueueItems = queueRefState.current.filter((item) => item.addedBy === targetUid);
+            for (const item of memberQueueItems) {
+              await remove(ref(database, `rooms/${roomCode}/queue/${item.id}`));
+            }
+          }
+        } else {
+          console.warn('[TV Host] Rejected kickMember command from non-host member:', memberUid);
         }
       }
     } catch (err) {
