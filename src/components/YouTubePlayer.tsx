@@ -27,6 +27,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const onEndedRef = useRef(onEnded);
+  const isPlayingRef = useRef(isPlaying);
   const [embedError, setEmbedError] = useState<string | null>(null);
   const [needsUserInteraction, setNeedsUserInteraction] = useState<boolean>(false);
 
@@ -35,6 +36,10 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   useEffect(() => {
     onEndedRef.current = onEnded;
   }, [onEnded]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   // Load YouTube IFrame API script dynamically if not present
   useEffect(() => {
@@ -109,7 +114,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
               } else {
                 event.target.unMute();
               }
-              if (isPlaying) {
+              if (isPlayingRef.current) {
                 const playPromise = event.target.playVideo();
                 if (playPromise && typeof playPromise.catch === 'function') {
                   playPromise.catch(() => {
@@ -134,6 +139,19 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             if (event.data === 1) {
               // Playing
               setNeedsUserInteraction(false);
+            }
+            // If YouTube iframe transitions to CUED (5), UNSTARTED (-1), or PAUSED (2) while TV expects playing:
+            if (isPlayingRef.current && (event.data === 5 || event.data === -1 || event.data === 2)) {
+              try {
+                const playPromise = event.target.playVideo();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                  playPromise.catch(() => {
+                    setNeedsUserInteraction(true);
+                  });
+                }
+              } catch (e) {
+                console.warn('[YouTubePlayer] Autoplay enforce error:', e);
+              }
             }
           },
           onError: (event: any) => {

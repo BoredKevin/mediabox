@@ -71,7 +71,7 @@ export const createRoomAtomic = async (tvUid: string): Promise<string> => {
           createdAt: Date.now(),
         },
         state: {
-          currentlyPlaying: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          currentlyPlaying: '',
           playback: {
             status: 'playing',
             positionMs: 0,
