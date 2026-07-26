@@ -3,7 +3,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useWatchParty } from '@/context/WatchPartyContext';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import { Card } from '@/components/ui/card';
-import { Tv, X, Copy, Check, ExternalLink, Smartphone, Clock } from 'lucide-react';
+import { pad } from '@/lib/utils';
+import { Tv, X, Copy, Check, ExternalLink, Smartphone, Clock, Minimize } from 'lucide-react';
 
 export const MediaBox: React.FC = () => {
   const {
@@ -16,9 +17,32 @@ export const MediaBox: React.FC = () => {
     copyRemoteLink,
     remoteUrl,
     handlePlayNextInQueue,
+    handleToggleFullscreen,
   } = useWatchParty();
 
   const [secondsLeft, setSecondsLeft] = useState<number>(30);
+
+  // Live time display for top-right clock overlay in fullscreen
+  const [clockTime, setClockTime] = useState(() => {
+    const now = new Date();
+    return {
+      hours: pad(now.getHours()),
+      minutes: pad(now.getMinutes()),
+      seconds: pad(now.getSeconds()),
+    };
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      setClockTime({
+        hours: pad(now.getHours()),
+        minutes: pad(now.getMinutes()),
+        seconds: pad(now.getSeconds()),
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Countdown timer display for QR modal auto-disappear
   useEffect(() => {
@@ -33,9 +57,24 @@ export const MediaBox: React.FC = () => {
 
   const isPlaying = roomState?.playback?.status === 'playing';
   const volume = roomState?.playback?.volume ?? 80;
+  const isFullscreen = Boolean(roomState?.isFullscreen);
 
   return (
-    <Card className="aspect-video w-full p-0 overflow-hidden rounded-none border border-slate-800 bg-slate-950 flex flex-col relative">
+    <Card
+      className={`p-0 overflow-hidden rounded-none border border-slate-800 bg-slate-950 flex flex-col relative transition-all duration-300 ${isFullscreen
+        ? 'fixed inset-0 z-50 w-screen h-screen border-none bg-black'
+        : 'aspect-video w-full'
+        }`}
+    >
+      {isFullscreen && (
+        <div className="absolute top-4 left-4 z-40 bg-slate-950/70 border border-slate-800/80 backdrop-blur-md px-4 py-2 font-mono text-xl sm:text-2xl font-bold tracking-widest text-slate-100 opacity-80 hover:opacity-100 transition-opacity flex items-center gap-2 shadow-2xl pointer-events-none select-none">
+          <Clock className="w-5 h-5 text-[#00c8d4]" />
+          <span>
+            {clockTime.hours}:{clockTime.minutes}:{clockTime.seconds}
+          </span>
+        </div>
+      )}
+
       {/* Main Video Player Area */}
       <div className="flex-1 w-full bg-black relative flex items-center justify-center overflow-hidden h-full">
         {roomState?.currentlyPlaying ? (

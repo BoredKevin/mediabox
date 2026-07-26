@@ -23,6 +23,7 @@ interface WatchPartyContextType {
   handlePlayNextInQueue: () => Promise<void>;
   handleRemoveQueueItem: (itemId: string) => Promise<void>;
   handleAddUrlHost: (url: string) => Promise<boolean>;
+  handleToggleFullscreen: () => Promise<void>;
   copyRemoteLink: () => void;
 }
 
@@ -57,6 +58,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [roomState]);
 
   const hostUidRef = useRef<string | null>(null);
+  const lastFullscreenToggleRef = useRef<number>(0);
 
   const queueRefState = useRef<QueueItem[]>([]);
   useEffect(() => {
@@ -231,6 +233,17 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         } else {
           console.warn('[TV Host] Rejected kickMember command from non-host member:', memberUid);
         }
+      } else if (type === 'toggleFullscreen') {
+        const now = Date.now();
+        if (now - lastFullscreenToggleRef.current < 5000) {
+          console.warn('[TV Host] Cooldown active (5s) for toggleFullscreen command from member:', memberUid);
+        } else {
+          lastFullscreenToggleRef.current = now;
+          const nextFullscreen = !roomStateRef.current?.isFullscreen;
+          await update(ref(database, `rooms/${roomCode}/state`), {
+            isFullscreen: nextFullscreen,
+          });
+        }
       }
     } catch (err) {
       console.error('[TV Host] Error executing member command:', err);
@@ -350,6 +363,20 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const handleToggleFullscreen = async () => {
+    if (!roomCode) return;
+    const now = Date.now();
+    if (now - lastFullscreenToggleRef.current < 5000) {
+      console.warn('[TV Host] Cooldown active (5s) for handleToggleFullscreen');
+      return;
+    }
+    lastFullscreenToggleRef.current = now;
+    const nextFullscreen = !roomStateRef.current?.isFullscreen;
+    await update(ref(database, `rooms/${roomCode}/state`), {
+      isFullscreen: nextFullscreen,
+    });
+  };
+
   return (
     <WatchPartyContext.Provider
       value={{
@@ -371,6 +398,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handlePlayNextInQueue,
         handleRemoveQueueItem,
         handleAddUrlHost,
+        handleToggleFullscreen,
         copyRemoteLink,
       }}
     >

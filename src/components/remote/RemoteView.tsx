@@ -25,6 +25,8 @@ import {
   User,
   UserX,
   Edit3,
+  Maximize,
+  Minimize,
 } from 'lucide-react';
 
 interface ToastMessage {
@@ -252,8 +254,23 @@ export const RemoteView: React.FC = () => {
     }
   };
 
+  // Cooldown state for fullscreen toggle
+  const [fullscreenCooldown, setFullscreenCooldown] = useState<boolean>(false);
+
+  const handleToggleFullscreenClick = () => {
+    if (fullscreenCooldown) {
+      showToast('Fullscreen toggle cooldown active (5s). Please wait...', 'info');
+      return;
+    }
+    sendCommand('toggleFullscreen');
+    setFullscreenCooldown(true);
+    setTimeout(() => {
+      setFullscreenCooldown(false);
+    }, 5000);
+  };
+
   const sendCommand = async (
-    type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember',
+    type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen',
     payload?: any
   ) => {
     if (!activeRoomCode || !user) return;
@@ -276,6 +293,7 @@ export const RemoteView: React.FC = () => {
         reorderQueue: 'Queue reorder command sent!',
         forceRemoveFromQueue: 'Remove item command sent!',
         kickMember: 'Kick member command sent!',
+        toggleFullscreen: 'Toggle TV fullscreen command sent!',
       };
       showToast(labelMap[type] || `Sent ${type} command!`, 'success');
     } catch (err: any) {
@@ -598,6 +616,40 @@ export const RemoteView: React.FC = () => {
                 onMouseUp={handleVolumeCommit}
                 className="w-full accent-[#00c8d4] bg-slate-950 cursor-pointer h-2 rounded-none"
               />
+            </div>
+
+            {/* Fullscreen Toggle Row for All Members */}
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+              <span className="text-xs text-slate-300 flex items-center gap-1.5 font-medium">
+                {roomState?.isFullscreen ? (
+                  <Minimize className="w-4 h-4 text-[#00c8d4]" />
+                ) : (
+                  <Maximize className="w-4 h-4 text-slate-400" />
+                )}
+                TV Display Mode
+              </span>
+              <button
+                onClick={handleToggleFullscreenClick}
+                disabled={fullscreenCooldown}
+                className={`px-3 py-1.5 border text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
+                  roomState?.isFullscreen
+                    ? 'bg-cyan-950/80 border-[#00c8d4] text-[#00c8d4] shadow-[0_0_10px_rgba(0,200,212,0.3)]'
+                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+                }`}
+                title="Toggle TV Fullscreen (5s cooldown)"
+              >
+                {roomState?.isFullscreen ? (
+                  <>
+                    <Minimize className="w-3.5 h-3.5" />
+                    <span>Exit Fullscreen</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize className="w-3.5 h-3.5 text-[#00c8d4]" />
+                    <span>Fullscreen TV</span>
+                  </>
+                )}
+              </button>
             </div>
           </Card>
 
