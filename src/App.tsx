@@ -28,6 +28,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <WatchPartyProvider>
+      <LanguageSwitcher className="fixed top-4 right-18 sm:right-20 z-40" hideOnFullscreen />
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8">
         <div className="w-full max-w-[1800px] flex-1 flex flex-col justify-between gap-3 sm:gap-4 md:gap-5">
           <Header theme={theme} toggleTheme={toggleTheme} />
@@ -54,7 +55,6 @@ const Dashboard: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <LanguageProvider>
-      <LanguageSwitcher className="fixed top-4 right-18 sm:right-20 z-50" />
       <HashRouter>
         <Routes>
           <Route path="/" element={<Dashboard />} />

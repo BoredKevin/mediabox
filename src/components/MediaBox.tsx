@@ -64,15 +64,19 @@ export const MediaBox: React.FC = () => {
   return (
     <Card
       className={`p-0 overflow-hidden rounded-none border border-slate-800 bg-slate-950 flex flex-col relative transition-all duration-300 ${isFullscreen
-        ? 'fixed inset-0 z-50 w-screen h-screen border-none bg-black'
+        ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black'
         : 'aspect-video w-full'
         }`}
     >
       {isFullscreen && (
-        <div className="absolute top-4 left-4 z-40 bg-slate-950/70 border border-slate-800/80 backdrop-blur-md px-4 py-2 font-mono text-xl sm:text-2xl font-bold tracking-widest text-slate-100 opacity-80 hover:opacity-100 transition-opacity flex items-center gap-2 shadow-2xl pointer-events-none select-none">
-          <Clock className="w-5 h-5 text-[#00c8d4]" />
+        <div className="absolute top-4 left-4 z-[110] bg-slate-950/80 border border-slate-800/80 backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-5xl font-normal tracking-wider text-slate-100 opacity-80 hover:opacity-100 transition-opacity flex items-center gap-2 shadow-lg pointer-events-none select-none">
+          <Clock className="w-4 h-4 text-[#00c8d4]" />
           <span>
-            {clockTime.hours}:{clockTime.minutes}:{clockTime.seconds}
+            {clockTime.hours}
+            <span className="text-[#00c8d4] opacity-80 animate-blink">:</span>
+            {clockTime.minutes}
+            <span className="text-[#00c8d4] opacity-80 animate-blink">:</span>
+            {clockTime.seconds}
           </span>
         </div>
       )}
