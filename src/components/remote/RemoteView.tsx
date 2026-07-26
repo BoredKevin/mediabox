@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ref, onValue, set, update, remove, off } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
-import { ensureAnonymousAuth, database } from '@/lib/firebase';
+import { ensureAnonymousAuth, signInWithGoogle, logoutUser, database } from '@/lib/firebase';
 import { checkRoomExists, RoomState, QueueItem, parseYouTubeVideoId } from '@/lib/roomUtils';
 import { Card } from '@/components/ui/card';
 import {
@@ -27,6 +27,10 @@ import {
   Edit3,
   Maximize,
   Minimize,
+  Shield,
+  ShieldAlert,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 
 interface ToastMessage {
@@ -54,6 +58,10 @@ export const RemoteView: React.FC = () => {
   const [membersList, setMembersList] = useState<MemberInfo[]>([]);
   const [queueInputUrl, setQueueInputUrl] = useState('');
 
+  // Admin state
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [adminsList, setAdminsList] = useState<string[]>([]);
+
   // Nickname state
   const [myNickname, setMyNickname] = useState<string>('');
   const [isEditingNickname, setIsEditingNickname] = useState<boolean>(false);
@@ -62,8 +70,9 @@ export const RemoteView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Host status helper
+  // Host & Admin status helpers
   const isHost = Boolean(user && roomState?.hostUid === user.uid);
+  const isHostOrAdmin = isHost || isAdmin;
 
   // Slider drag states for volume control
   const [localVolume, setLocalVolume] = useState<number | null>(null);
@@ -113,6 +122,24 @@ export const RemoteView: React.FC = () => {
         showToast('Failed to authenticate with Firebase.', 'error');
       });
   }, []);
+
+  // Subscribe to RTDB admins node to verify admin status
+  useEffect(() => {
+    if (!user) return;
+    const adminsRefNode = ref(database, 'admins');
+    const unsubAdmins = onValue(adminsRefNode, (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        const uids = Object.keys(val);
+        setAdminsList(uids);
+        setIsAdmin(uids.includes(user.uid));
+      } else {
+        setAdminsList([]);
+        setIsAdmin(false);
+      }
+    });
+    return () => off(adminsRefNode);
+  }, [user]);
 
   // Auto-join if room code parameter present in URL
   useEffect(() => {
@@ -236,6 +263,31 @@ export const RemoteView: React.FC = () => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const u = await signInWithGoogle();
+      setUser(u);
+      showToast(`Signed in as ${u.displayName || u.email || 'Google User'}!`, 'success');
+    } catch (err: any) {
+      console.error('Google Sign In Error:', err);
+      showToast(err.message || 'Google Sign In failed.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      const anon = await ensureAnonymousAuth();
+      setUser(anon);
+      showToast('Signed out from Google.', 'info');
+    } catch (err: any) {
+      console.error('Logout error:', err);
+    }
+  };
+
   const handleSaveNickname = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!activeRoomCode || !user) return;
@@ -270,10 +322,17 @@ export const RemoteView: React.FC = () => {
   };
 
   const sendCommand = async (
-    type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen',
+    type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen' | 'clearQueue' | 'toggleRoomLock',
     payload?: any
   ) => {
     if (!activeRoomCode || !user) return;
+
+    if (roomState?.isLocked && !isHostOrAdmin) {
+      if (type === 'addToQueue' || type === 'play' || type === 'pause' || type === 'adjustVolume') {
+        showToast('Room controls are locked by the Admin.', 'error');
+        return;
+      }
+    }
 
     try {
       const commandRefNode = ref(database, `rooms/${activeRoomCode}/members/${user.uid}/command`);
@@ -294,6 +353,8 @@ export const RemoteView: React.FC = () => {
         forceRemoveFromQueue: 'Remove item command sent!',
         kickMember: 'Kick member command sent!',
         toggleFullscreen: 'Toggle TV fullscreen command sent!',
+        clearQueue: 'Clear queue command sent!',
+        toggleRoomLock: roomState?.isLocked ? 'Room unlocked!' : 'Room locked!',
       };
       showToast(labelMap[type] || `Sent ${type} command!`, 'success');
     } catch (err: any) {
@@ -306,7 +367,7 @@ export const RemoteView: React.FC = () => {
     if (!activeRoomCode || !user) return;
     const isMyEntry = itemAddedBy === user.uid;
 
-    if (isHost && !isMyEntry) {
+    if (isHostOrAdmin && !isMyEntry) {
       sendCommand('forceRemoveFromQueue', { itemId });
       return;
     }
@@ -322,14 +383,14 @@ export const RemoteView: React.FC = () => {
   };
 
   const handleKickMember = (targetUid: string) => {
-    if (!isHost || targetUid === user?.uid) return;
+    if (!isHostOrAdmin || targetUid === user?.uid) return;
     if (confirm('Are you sure you want to kick this member and purge their video requests?')) {
       sendCommand('kickMember', { targetUid, purgeQueue: true });
     }
   };
 
   const handleMoveQueueItem = (index: number, direction: 'up' | 'down') => {
-    if (!isHost || queue.length <= 1) return;
+    if (!isHostOrAdmin || queue.length <= 1) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= queue.length) return;
 
@@ -341,9 +402,26 @@ export const RemoteView: React.FC = () => {
     sendCommand('reorderQueue', { queueOrder: newOrderIds });
   };
 
+  const handleClearQueueAdmin = () => {
+    if (!isHostOrAdmin) return;
+    if (confirm('Are you sure you want to clear all videos from the queue?')) {
+      sendCommand('clearQueue');
+    }
+  };
+
+  const handleToggleRoomLockAdmin = () => {
+    if (!isHostOrAdmin) return;
+    sendCommand('toggleRoomLock');
+  };
+
   const handleAddQueueSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!queueInputUrl.trim()) return;
+
+    if (roomState?.isLocked && !isHostOrAdmin) {
+      showToast('Room controls are locked by Admin. Unable to add videos.', 'error');
+      return;
+    }
 
     const ytId = parseYouTubeVideoId(queueInputUrl.trim());
     if (!ytId) {
@@ -449,8 +527,13 @@ export const RemoteView: React.FC = () => {
                 <span className="font-mono text-xl font-bold text-[#00c8d4] tracking-widest">{activeRoomCode}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2.5">
-              {isHost ? (
+            <div className="flex items-center gap-2">
+              {isAdmin ? (
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-purple-950/90 border border-purple-500/70 text-xs font-bold text-purple-300 uppercase tracking-wider shadow-[0_0_12px_rgba(168,85,247,0.4)]">
+                  <Shield className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />
+                  Admin
+                </span>
+              ) : isHost ? (
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-950/80 border border-amber-500/60 text-xs font-bold text-amber-300 uppercase tracking-wider shadow-[0_0_10px_rgba(245,158,11,0.2)]">
                   <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                   Host
@@ -458,6 +541,11 @@ export const RemoteView: React.FC = () => {
               ) : (
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 border border-slate-800 text-xs text-slate-400 uppercase tracking-wider">
                   Member
+                </span>
+              )}
+              {roomState?.isLocked && (
+                <span className="flex items-center gap-1 px-2 py-1 bg-red-950/80 border border-red-800 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                  <Lock className="w-3 h-3" />
                 </span>
               )}
               <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 border border-slate-800 text-xs text-slate-300">
@@ -474,57 +562,145 @@ export const RemoteView: React.FC = () => {
             </div>
           </div>
 
-          {/* Profile & Nickname Card */}
-          <Card className="p-3 bg-slate-900 border-slate-800 rounded-none mb-5 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs">
-              <User className="w-4 h-4 text-[#00c8d4] flex-shrink-0" />
-              <span className="text-slate-400">Nickname:</span>
-              {!isEditingNickname ? (
-                <span className="font-mono font-bold text-slate-100">
-                  {myNickname || `Guest (${user?.uid.substring(0, 4)})`}
-                </span>
+          {/* Profile & Google Auth Card */}
+          <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-200 uppercase tracking-wider">
+                <User className="w-4 h-4 text-[#00c8d4]" />
+                Account Profile
+              </div>
+
+              {user?.isAnonymous === false ? (
+                <button
+                  onClick={handleLogout}
+                  className="text-[10px] font-semibold text-slate-400 hover:text-red-400 uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <LogOut className="w-3 h-3" />
+                  Sign Out
+                </button>
               ) : (
-                <form onSubmit={handleSaveNickname} className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    maxLength={25}
-                    value={nicknameInput}
-                    onChange={(e) => setNicknameInput(e.target.value)}
-                    placeholder="Enter nickname..."
-                    className="px-2 py-1 bg-slate-950 border border-slate-700 font-mono text-xs text-slate-100 focus:outline-none focus:border-[#00c8d4] w-32 sm:w-40"
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    className="px-2 py-1 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase text-[10px] tracking-wider cursor-pointer"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingNickname(false)}
-                    className="px-2 py-1 bg-slate-800 text-slate-400 hover:text-slate-200 text-[10px] cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </form>
+                <button
+                  onClick={handleGoogleSignIn}
+                  className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-700 hover:border-[#00c8d4] text-slate-100 text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>Sign in with Google</span>
+                </button>
               )}
             </div>
 
-            {!isEditingNickname && (
-              <button
-                onClick={() => {
-                  setNicknameInput(myNickname);
-                  setIsEditingNickname(true);
-                }}
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer border border-slate-700"
-                title="Edit your nickname"
-              >
-                <Edit3 className="w-3 h-3 text-[#00c8d4]" />
-                <span>Edit</span>
-              </button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700" />
+                ) : (
+                  <div className="w-8 h-8 bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold text-xs">
+                    {(myNickname || 'G')[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                    {user?.displayName || myNickname || `Guest (${user?.uid.substring(0, 4)})`}
+                    {isAdmin && <Shield className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">{user?.email || `UID: ${user?.uid.substring(0, 8)}...`}</span>
+                </div>
+              </div>
+
+              {!isEditingNickname ? (
+                <button
+                  onClick={() => {
+                    setNicknameInput(myNickname);
+                    setIsEditingNickname(true);
+                  }}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer border border-slate-700"
+                  title="Edit your nickname"
+                >
+                  <Edit3 className="w-3 h-3 text-[#00c8d4]" />
+                  <span>Edit Nick</span>
+                </button>
+              ) : null}
+            </div>
+
+            {isEditingNickname && (
+              <form onSubmit={handleSaveNickname} className="flex items-center gap-2 pt-2 border-t border-slate-800">
+                <input
+                  type="text"
+                  maxLength={25}
+                  value={nicknameInput}
+                  onChange={(e) => setNicknameInput(e.target.value)}
+                  placeholder="Enter nickname..."
+                  className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-700 font-mono text-xs text-slate-100 focus:outline-none focus:border-[#00c8d4]"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase text-[10px] tracking-wider cursor-pointer"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingNickname(false)}
+                  className="px-2.5 py-1.5 bg-slate-800 text-slate-400 hover:text-slate-200 text-[10px] cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </form>
             )}
           </Card>
+
+          {/* Admin / Host Control Panel */}
+          {isHostOrAdmin && (
+            <Card className="p-4 bg-slate-900 border-purple-900/50 rounded-none mb-5 flex flex-col gap-3 shadow-[0_0_15px_rgba(168,85,247,0.1)]">
+              <div className="text-xs font-bold text-purple-300 uppercase tracking-wider border-b border-purple-900/40 pb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <ShieldAlert className="w-4 h-4 text-purple-400" />
+                  {isAdmin ? 'Admin Override Panel' : 'Host Management Panel'}
+                </span>
+                <span className="text-[10px] text-purple-400/80 font-mono">OVERRIDE ACTIVE</span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleClearQueueAdmin}
+                  disabled={queue.length === 0}
+                  className="flex-1 py-2.5 bg-red-950/80 hover:bg-red-900 disabled:opacity-40 border border-red-800 text-red-200 font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  title="Clear all videos in the queue"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear Queue ({queue.length})</span>
+                </button>
+
+                <button
+                  onClick={handleToggleRoomLockAdmin}
+                  className={`flex-1 py-2.5 border font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                    roomState?.isLocked
+                      ? 'bg-amber-950/90 border-amber-600 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+                  }`}
+                  title="Lock/Unlock room controls for regular members"
+                >
+                  {roomState?.isLocked ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Unlock Room</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Lock Room</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </Card>
+          )}
 
           {/* Currently Playing Card */}
           <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5">
@@ -562,13 +738,13 @@ export const RemoteView: React.FC = () => {
           <Card className="p-5 bg-slate-900 border-slate-800 rounded-none mb-5 flex flex-col gap-5">
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
               <span>Playback Controls</span>
-              {isHost && <span className="text-[10px] text-amber-400 font-semibold">HOST ACTIONS ENABLED</span>}
+              {isHostOrAdmin && <span className="text-[10px] text-amber-400 font-semibold">PRIVILEGED OVERRIDE ACTIVE</span>}
             </div>
 
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => sendCommand('play')}
-                disabled={roomState?.playback?.status === 'playing'}
+                disabled={roomState?.playback?.status === 'playing' || (Boolean(roomState?.isLocked) && !isHostOrAdmin)}
                 className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed"
               >
                 <Play className="w-4 h-4 fill-slate-950" />
@@ -577,18 +753,18 @@ export const RemoteView: React.FC = () => {
 
               <button
                 onClick={() => sendCommand('pause')}
-                disabled={roomState?.playback?.status !== 'playing'}
+                disabled={roomState?.playback?.status !== 'playing' || (Boolean(roomState?.isLocked) && !isHostOrAdmin)}
                 className="flex-1 py-3.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed"
               >
                 <Pause className="w-4 h-4 fill-slate-950" />
                 <span>Pause</span>
               </button>
 
-              {isHost && (
+              {isHostOrAdmin && (
                 <button
                   onClick={() => sendCommand('forceSkip')}
                   className="px-4 py-3.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_0_10px_rgba(0,200,212,0.3)]"
-                  title="Skip video on TV (Host action)"
+                  title="Skip video on TV (Privileged action)"
                 >
                   <SkipForward className="w-4 h-4 fill-slate-950" />
                   <span>Skip</span>
@@ -655,20 +831,27 @@ export const RemoteView: React.FC = () => {
 
           {/* Add to Queue Section */}
           <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5">
-            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 mb-3">
-              Add YouTube Video to Queue
+            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 mb-3 flex items-center justify-between">
+              <span>Add YouTube Video to Queue</span>
+              {roomState?.isLocked && !isHostOrAdmin && (
+                <span className="text-[10px] text-amber-400 flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Locked by Admin
+                </span>
+              )}
             </div>
             <form onSubmit={handleAddQueueSubmit} className="flex flex-col gap-3">
               <input
                 type="url"
                 value={queueInputUrl}
                 onChange={(e) => setQueueInputUrl(e.target.value)}
-                placeholder="Paste YouTube link or URL..."
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00c8d4]"
+                disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                placeholder={roomState?.isLocked && !isHostOrAdmin ? "Queue locked by Admin..." : "Paste YouTube link or URL..."}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00c8d4] disabled:opacity-40"
               />
               <button
                 type="submit"
-                className="py-2.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                className="py-2.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
                 <span>Submit Command to Queue</span>
@@ -688,6 +871,7 @@ export const RemoteView: React.FC = () => {
 
             <div className="flex flex-col gap-3">
               {membersList.map((member, mIdx) => {
+                const isMemberAdmin = adminsList.includes(member.uid);
                 const isHostUser = member.uid === roomState?.hostUid;
                 const isSelf = member.uid === user?.uid;
                 const memberRequests = queue.filter((item) => item.addedBy === member.uid);
@@ -701,7 +885,12 @@ export const RemoteView: React.FC = () => {
                         <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                         <span className="font-bold text-slate-100">{displayName}</span>
                         <span className="text-[10px] text-slate-500">({member.uid.substring(0, 6)})</span>
-                        {isHostUser && (
+                        {isMemberAdmin && (
+                          <span className="px-1.5 py-0.5 text-[9px] bg-purple-950 text-purple-300 border border-purple-800 font-bold uppercase flex items-center gap-1">
+                            <Shield className="w-2.5 h-2.5 text-purple-400" /> Admin
+                          </span>
+                        )}
+                        {isHostUser && !isMemberAdmin && (
                           <span className="px-1.5 py-0.5 text-[9px] bg-amber-950 text-amber-300 border border-amber-800 font-bold uppercase">
                             Host
                           </span>
@@ -717,7 +906,7 @@ export const RemoteView: React.FC = () => {
                         <span className="text-[10px] text-slate-400 font-mono">
                           {memberRequests.length} {memberRequests.length === 1 ? 'request' : 'requests'}
                         </span>
-                        {isHost && !isSelf && !isHostUser && (
+                        {isHostOrAdmin && !isSelf && !isMemberAdmin && (
                           <button
                             onClick={() => handleKickMember(member.uid)}
                             className="px-2 py-1 bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-300 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
@@ -743,7 +932,7 @@ export const RemoteView: React.FC = () => {
                                 <span className="text-[#00c8d4] font-bold flex-shrink-0">#{overallIndex}</span>
                                 <span className="truncate">{req.url}</span>
                               </div>
-                              {isHost && (
+                              {isHostOrAdmin && (
                                 <button
                                   onClick={() => handleRemoveQueueItem(req.id, req.addedBy)}
                                   className="text-slate-500 hover:text-red-400 p-1 cursor-pointer flex-shrink-0"
@@ -776,7 +965,7 @@ export const RemoteView: React.FC = () => {
                 {queue.map((item, idx) => {
                   const ytId = parseYouTubeVideoId(item.url);
                   const isMyEntry = Boolean(user && item.addedBy === user.uid);
-                  const canDelete = isMyEntry || isHost;
+                  const canDelete = isMyEntry || isHostOrAdmin;
                   const addedByMember = membersList.find((m) => m.uid === item.addedBy);
                   const addedByLabel = isMyEntry
                     ? 'You'
@@ -795,8 +984,8 @@ export const RemoteView: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* Host Reorder Actions */}
-                      {isHost && queue.length > 1 && (
+                      {/* Host & Admin Reorder Actions */}
+                      {isHostOrAdmin && queue.length > 1 && (
                         <div className="flex items-center gap-0.5 flex-shrink-0 border-l border-slate-800 pl-1">
                           <button
                             onClick={() => handleMoveQueueItem(idx, 'up')}
@@ -822,7 +1011,7 @@ export const RemoteView: React.FC = () => {
                         <button
                           onClick={() => handleRemoveQueueItem(item.id, item.addedBy)}
                           className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-900 border border-transparent hover:border-red-900/50 transition-colors flex-shrink-0 cursor-pointer"
-                          title={isHost && !isMyEntry ? "Force delete item (Host)" : "Delete your entry"}
+                          title={isHostOrAdmin && !isMyEntry ? "Force delete item (Privileged)" : "Delete your entry"}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -838,6 +1027,7 @@ export const RemoteView: React.FC = () => {
     </div>
   );
 };
+
 
 
 

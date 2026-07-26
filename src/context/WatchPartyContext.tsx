@@ -59,6 +59,21 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const hostUidRef = useRef<string | null>(null);
   const lastFullscreenToggleRef = useRef<number>(0);
+  const adminsListRef = useRef<string[]>([]);
+
+  // Subscribe to admins list from Firebase RTDB
+  useEffect(() => {
+    const adminsRefNode = ref(database, 'admins');
+    const unsubAdmins = onValue(adminsRefNode, (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        adminsListRef.current = Object.keys(val);
+      } else {
+        adminsListRef.current = [];
+      }
+    });
+    return () => off(adminsRefNode);
+  }, []);
 
   const queueRefState = useRef<QueueItem[]>([]);
   useEffect(() => {
@@ -148,6 +163,18 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!roomCode || !command || !command.type) return;
 
     const { type, payload } = command;
+    const isAuthorized =
+      memberUid === hostUidRef.current ||
+      memberUid === user?.uid ||
+      adminsListRef.current.includes(memberUid);
+
+    // Reject commands if room is locked by admin and user is not authorized
+    if (roomStateRef.current?.isLocked && !isAuthorized) {
+      if (type === 'addToQueue' || type === 'play' || type === 'pause' || type === 'adjustVolume') {
+        console.warn('[TV Host] Rejected member command because room controls are locked by admin:', type, memberUid);
+        return;
+      }
+    }
 
     try {
       if (type === 'play') {
@@ -191,23 +218,23 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       } else if (type === 'removeFromQueue' && payload && payload.itemId) {
         const queueItem = queueRefState.current.find((item) => item.id === payload.itemId);
-        if (queueItem && (queueItem.addedBy === memberUid || memberUid === user?.uid || memberUid === hostUidRef.current)) {
+        if (queueItem && (queueItem.addedBy === memberUid || isAuthorized)) {
           await remove(ref(database, `rooms/${roomCode}/queue/${payload.itemId}`));
         }
       } else if (type === 'forceSkip') {
-        if (memberUid === hostUidRef.current || memberUid === user?.uid) {
+        if (isAuthorized) {
           await handlePlayNextInQueue();
         } else {
-          console.warn('[TV Host] Rejected forceSkip command from non-host member:', memberUid);
+          console.warn('[TV Host] Rejected forceSkip command from non-authorized member:', memberUid);
         }
       } else if (type === 'forceRemoveFromQueue' && payload && payload.itemId) {
-        if (memberUid === hostUidRef.current || memberUid === user?.uid) {
+        if (isAuthorized) {
           await remove(ref(database, `rooms/${roomCode}/queue/${payload.itemId}`));
         } else {
-          console.warn('[TV Host] Rejected forceRemoveFromQueue command from non-host member:', memberUid);
+          console.warn('[TV Host] Rejected forceRemoveFromQueue command from non-authorized member:', memberUid);
         }
       } else if (type === 'reorderQueue' && payload && Array.isArray(payload.queueOrder)) {
-        if (memberUid === hostUidRef.current || memberUid === user?.uid) {
+        if (isAuthorized) {
           const baseTime = Date.now();
           const updates: Record<string, any> = {};
           payload.queueOrder.forEach((itemId: string, index: number) => {
@@ -217,10 +244,10 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             await update(ref(database, `rooms/${roomCode}/queue`), updates);
           }
         } else {
-          console.warn('[TV Host] Rejected reorderQueue command from non-host member:', memberUid);
+          console.warn('[TV Host] Rejected reorderQueue command from non-authorized member:', memberUid);
         }
       } else if (type === 'kickMember' && payload && payload.targetUid) {
-        if (memberUid === hostUidRef.current || memberUid === user?.uid) {
+        if (isAuthorized) {
           const targetUid = payload.targetUid;
           await remove(ref(database, `rooms/${roomCode}/members/${targetUid}`));
 
@@ -231,7 +258,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             }
           }
         } else {
-          console.warn('[TV Host] Rejected kickMember command from non-host member:', memberUid);
+          console.warn('[TV Host] Rejected kickMember command from non-authorized member:', memberUid);
         }
       } else if (type === 'toggleFullscreen') {
         const now = Date.now();
@@ -243,6 +270,20 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           await update(ref(database, `rooms/${roomCode}/state`), {
             isFullscreen: nextFullscreen,
           });
+        }
+      } else if (type === 'clearQueue') {
+        if (isAuthorized) {
+          await remove(ref(database, `rooms/${roomCode}/queue`));
+        } else {
+          console.warn('[TV Host] Rejected clearQueue command from non-authorized member:', memberUid);
+        }
+      } else if (type === 'toggleRoomLock') {
+        if (isAuthorized) {
+          await update(ref(database, `rooms/${roomCode}/state`), {
+            isLocked: !roomStateRef.current?.isLocked,
+          });
+        } else {
+          console.warn('[TV Host] Rejected toggleRoomLock command from non-authorized member:', memberUid);
         }
       }
     } catch (err) {
