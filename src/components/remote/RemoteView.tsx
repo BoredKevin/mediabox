@@ -4,6 +4,7 @@ import { ref, onValue, set, update, remove, off } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
 import { ensureAnonymousAuth, signInWithGoogle, logoutUser, database } from '@/lib/firebase';
 import { checkRoomExists, RoomState, QueueItem, parseYouTubeVideoId } from '@/lib/roomUtils';
+import { searchYouTubeVideos, fetchVideoTitle, SearchResultItem } from '@/lib/youtube';
 import { Card } from '@/components/ui/card';
 import {
   Play,
@@ -31,6 +32,9 @@ import {
   ShieldAlert,
   Lock,
   Unlock,
+  Search,
+  Sparkles,
+  Film,
 } from 'lucide-react';
 
 interface ToastMessage {
@@ -57,6 +61,14 @@ export const RemoteView: React.FC = () => {
   const [memberCount, setMemberCount] = useState<number>(1);
   const [membersList, setMembersList] = useState<MemberInfo[]>([]);
   const [queueInputUrl, setQueueInputUrl] = useState('');
+
+  // Search & Video Input Tab state
+  const [inputTab, setInputTab] = useState<'search' | 'url'>('search');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [hasApiKey, setHasApiKey] = useState<boolean>(true);
 
   // Admin state
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -414,7 +426,32 @@ export const RemoteView: React.FC = () => {
     sendCommand('toggleRoomLock');
   };
 
-  const handleAddQueueSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    setSearchError(null);
+
+    const res = await searchYouTubeVideos(searchQuery.trim());
+    setHasApiKey(res.hasApiKey);
+    setSearchResults(res.results);
+    if (res.error) {
+      setSearchError(res.error);
+    }
+    setIsSearching(false);
+  };
+
+  const handleAddSearchResult = (result: SearchResultItem) => {
+    if (roomState?.isLocked && !isHostOrAdmin) {
+      showToast('Room controls are locked by Admin.', 'error');
+      return;
+    }
+    sendCommand('addToQueue', { url: result.url, title: result.title });
+    showToast(`Added video to queue!`, 'success');
+  };
+
+  const handleAddQueueSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!queueInputUrl.trim()) return;
 
@@ -430,7 +467,8 @@ export const RemoteView: React.FC = () => {
     }
 
     const fullUrl = `https://www.youtube.com/watch?v=${ytId}`;
-    sendCommand('addToQueue', { url: fullUrl });
+    const info = await fetchVideoTitle(fullUrl);
+    sendCommand('addToQueue', { url: fullUrl, title: info.title });
     setQueueInputUrl('');
   };
 
@@ -722,8 +760,11 @@ export const RemoteView: React.FC = () => {
                     className="w-20 h-14 object-cover border border-slate-800"
                   />
                 ) : null}
-                <div className="overflow-hidden flex-1">
-                  <p className="text-xs font-mono text-slate-300 truncate">{roomState.currentlyPlaying}</p>
+                <div className="overflow-hidden flex-1 flex flex-col min-w-0">
+                  {roomState?.currentlyPlayingTitle ? (
+                    <p className="text-xs font-bold text-slate-100 truncate font-sans mb-0.5">{roomState.currentlyPlayingTitle}</p>
+                  ) : null}
+                  <p className="text-[11px] font-mono text-[#00c8d4] truncate">{roomState.currentlyPlaying}</p>
                 </div>
               </div>
             ) : (
@@ -825,34 +866,133 @@ export const RemoteView: React.FC = () => {
             </div>
           </Card>
 
-          {/* Add to Queue Section */}
-          <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5">
-            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 mb-3 flex items-center justify-between">
-              <span>Add YouTube Video to Queue</span>
+          {/* Add to Queue / Search YouTube Section */}
+          <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setInputTab('search')}
+                  className={`px-3 py-1 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                    inputTab === 'search'
+                      ? 'bg-[#00c8d4]/10 text-[#00c8d4] border-[#00c8d4]/50'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Search YouTube</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputTab('url')}
+                  className={`px-3 py-1 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                    inputTab === 'url'
+                      ? 'bg-[#00c8d4]/10 text-[#00c8d4] border-[#00c8d4]/50'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Paste Link</span>
+                </button>
+              </div>
+
               {roomState?.isLocked && !isHostOrAdmin && (
-                <span className="text-[10px] text-amber-400 flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Locked by Admin
+                <span className="text-[10px] text-amber-400 flex items-center gap-1 font-semibold">
+                  <Lock className="w-3 h-3" /> Locked
                 </span>
               )}
             </div>
-            <form onSubmit={handleAddQueueSubmit} className="flex flex-col gap-3">
-              <input
-                type="url"
-                value={queueInputUrl}
-                onChange={(e) => setQueueInputUrl(e.target.value)}
-                disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
-                placeholder={roomState?.isLocked && !isHostOrAdmin ? "Queue locked by Admin..." : "Paste YouTube link or URL..."}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00c8d4] disabled:opacity-40"
-              />
-              <button
-                type="submit"
-                disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
-                className="py-2.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Submit Video to Queue</span>
-              </button>
-            </form>
+
+            {inputTab === 'search' ? (
+              <div className="flex flex-col gap-3">
+                <form onSubmit={handleSearchSubmit} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                    placeholder={roomState?.isLocked && !isHostOrAdmin ? "Queue locked by Admin..." : "Search video title or topic..."}
+                    className="flex-1 px-3 py-2 bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00c8d4] disabled:opacity-40"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSearching || (Boolean(roomState?.isLocked) && !isHostOrAdmin)}
+                    className="px-4 py-2 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {isSearching ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4" />
+                        <span>Search</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* Info alert if API key is not configured */}
+                {!hasApiKey && (
+                  <div className="p-3 bg-slate-950 border border-amber-800/60 text-amber-300 text-xs flex flex-col gap-1">
+                    <span className="font-bold flex items-center gap-1.5 text-amber-400">
+                      <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                      YouTube Data API Key Needed for Keyword Search
+                    </span>
+                    <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                      Add <code className="bg-slate-900 px-1 py-0.5 font-mono text-cyan-300">VITE_YOUTUBE_API_KEY</code> to your <code className="bg-slate-900 px-1 py-0.5 font-mono text-cyan-300">.env</code> file to enable live keyword search. You can also paste any YouTube URL under the <strong>Paste Link</strong> tab with zero setup and free automatic title fetching!
+                    </p>
+                  </div>
+                )}
+
+                {searchError && (
+                  <p className="text-xs text-red-400 font-mono italic p-2 bg-red-950/40 border border-red-900/50">
+                    {searchError}
+                  </p>
+                )}
+
+                {/* Search Results List */}
+                {searchResults.length > 0 && (
+                  <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+                    {searchResults.map((res) => (
+                      <div key={res.id} className="flex gap-2.5 p-2 bg-slate-950 border border-slate-800 hover:border-slate-700 transition-colors items-center">
+                        <img src={res.thumbnail} alt={res.title} className="w-16 h-11 object-cover border border-slate-800 flex-shrink-0" />
+                        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                          <p className="text-xs font-bold text-slate-100 truncate">{res.title}</p>
+                          <p className="text-[10px] text-slate-400 font-mono truncate">{res.channelTitle}</p>
+                        </div>
+                        <button
+                          onClick={() => handleAddSearchResult(res)}
+                          disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-bold uppercase text-[10px] tracking-wider flex items-center gap-1 transition-all cursor-pointer disabled:cursor-not-allowed flex-shrink-0 shadow-md"
+                          title="Add video to queue"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <form onSubmit={handleAddQueueSubmit} className="flex flex-col gap-3">
+                <input
+                  type="url"
+                  value={queueInputUrl}
+                  onChange={(e) => setQueueInputUrl(e.target.value)}
+                  disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                  placeholder={roomState?.isLocked && !isHostOrAdmin ? "Queue locked by Admin..." : "Paste YouTube link or URL..."}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00c8d4] disabled:opacity-40"
+                />
+                <button
+                  type="submit"
+                  disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                  className="py-2.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Submit Video to Queue</span>
+                </button>
+              </form>
+            )}
           </Card>
 
           {/* Members & Per-Member Requests Section */}
@@ -924,9 +1064,9 @@ export const RemoteView: React.FC = () => {
                           const overallIndex = queue.findIndex((q) => q.id === req.id) + 1;
                           return (
                             <div key={req.id} className="flex items-center justify-between text-[11px] font-mono text-slate-300 gap-2 bg-slate-900/60 p-1.5 border border-slate-800/80">
-                              <div className="truncate flex items-center gap-1.5 min-w-0">
-                                <span className="text-[#00c8d4] font-bold flex-shrink-0">#{overallIndex}</span>
-                                <span className="truncate">{req.url}</span>
+                              <div className="truncate flex items-center gap-1.5 min-w-0 flex-1">
+                                <span className="text-[#00c8d4] font-bold flex-shrink-0 font-mono">#{overallIndex}</span>
+                                <span className="truncate font-sans font-medium text-slate-200">{req.title || req.url}</span>
                               </div>
                               {isHostOrAdmin && (
                                 <button
@@ -973,12 +1113,15 @@ export const RemoteView: React.FC = () => {
                       {ytId ? (
                         <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="thumb" className="w-10 h-7 object-cover flex-shrink-0" />
                       ) : null}
-                      <div className="truncate flex-1 flex items-center gap-1.5 font-mono text-slate-300 min-w-0">
-                        <span className="truncate">{item.url}</span>
-                        <span className="px-1.5 py-0.5 text-[9px] bg-[#00c8d4]/10 text-[#00c8d4] border border-[#00c8d4]/30 font-semibold uppercase flex-shrink-0">
-                          {addedByLabel}
-                        </span>
+                      <div className="truncate flex-1 flex flex-col min-w-0">
+                        <span className="truncate font-bold text-slate-100 font-sans">{item.title || item.url}</span>
+                        {item.title ? (
+                          <span className="truncate text-[10px] font-mono text-[#00c8d4]/80">{item.url}</span>
+                        ) : null}
                       </div>
+                      <span className="px-1.5 py-0.5 text-[9px] bg-[#00c8d4]/10 text-[#00c8d4] border border-[#00c8d4]/30 font-semibold uppercase flex-shrink-0">
+                        {addedByLabel}
+                      </span>
 
                       {/* Host & Admin Reorder Actions */}
                       {isHostOrAdmin && queue.length > 1 && (

@@ -10,6 +10,7 @@ export interface PlaybackState {
 
 export interface RoomState {
   currentlyPlaying: string;
+  currentlyPlayingTitle?: string;
   playback: PlaybackState;
   hostUid?: string;
   isFullscreen?: boolean;
@@ -29,6 +30,7 @@ export interface MemberCommand {
   createdAt: number;
   payload?: {
     url?: string;
+    title?: string;
     volume?: number;
     positionMs?: number;
     itemId?: string;

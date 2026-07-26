@@ -3,6 +3,7 @@ import { User } from 'firebase/auth';
 import { ref, onValue, set, update, remove, off } from 'firebase/database';
 import { ensureAnonymousAuth, database } from '@/lib/firebase';
 import { createRoomAtomic, RoomState, QueueItem, parseYouTubeVideoId } from '@/lib/roomUtils';
+import { fetchVideoTitle } from '@/lib/youtube';
 
 interface WatchPartyContextType {
   user: User | null;
@@ -198,9 +199,16 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
           const currentPlaying = roomStateRef.current?.currentlyPlaying;
 
+          let videoTitle = payload.title || '';
+          if (!videoTitle) {
+            const info = await fetchVideoTitle(videoUrl);
+            videoTitle = info.title || '';
+          }
+
           if (!currentPlaying) {
             await update(ref(database, `rooms/${roomCode}/state`), {
               currentlyPlaying: videoUrl,
+              currentlyPlayingTitle: videoTitle,
             });
             await update(ref(database, `rooms/${roomCode}/state/playback`), {
               status: 'playing',
@@ -211,6 +219,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const newQueueRefNode = ref(database, `rooms/${roomCode}/queue/${queueKey}`);
             await set(newQueueRefNode, {
               url: videoUrl,
+              title: videoTitle,
               addedBy: memberUid,
               addedAt: Date.now(),
             });
@@ -333,6 +342,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const nextItem = currentQueue[0];
       await update(ref(database, `rooms/${roomCode}/state`), {
         currentlyPlaying: nextItem.url,
+        currentlyPlayingTitle: nextItem.title || '',
       });
       await update(ref(database, `rooms/${roomCode}/state/playback`), {
         status: 'playing',
@@ -342,6 +352,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } else {
       await update(ref(database, `rooms/${roomCode}/state`), {
         currentlyPlaying: '',
+        currentlyPlayingTitle: '',
       });
       await update(ref(database, `rooms/${roomCode}/state/playback`), {
         status: 'paused',
@@ -374,9 +385,13 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
+    const info = await fetchVideoTitle(videoUrl);
+    const videoTitle = info.title || '';
+
     if (!roomState?.currentlyPlaying) {
       await update(ref(database, `rooms/${roomCode}/state`), {
         currentlyPlaying: videoUrl,
+        currentlyPlayingTitle: videoTitle,
       });
       await update(ref(database, `rooms/${roomCode}/state/playback`), {
         status: 'playing',
@@ -387,6 +402,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newQueueRefNode = ref(database, `rooms/${roomCode}/queue/${queueKey}`);
       await set(newQueueRefNode, {
         url: videoUrl,
+        title: videoTitle,
         addedBy: user?.uid || 'host',
         addedAt: Date.now(),
       });
