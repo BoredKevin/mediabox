@@ -22,12 +22,13 @@ export interface QueueItem {
 }
 
 export interface MemberCommand {
-  type: 'play' | 'pause' | 'addToQueue' | 'adjustVolume';
+  type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume';
   createdAt: number;
   payload?: {
     url?: string;
     volume?: number;
     positionMs?: number;
+    itemId?: string;
   };
 }
 

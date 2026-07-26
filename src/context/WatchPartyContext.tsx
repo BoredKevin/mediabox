@@ -166,6 +166,11 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             });
           }
         }
+      } else if (type === 'removeFromQueue' && payload && payload.itemId) {
+        const queueItem = queueRefState.current.find((item) => item.id === payload.itemId);
+        if (queueItem && (queueItem.addedBy === memberUid || memberUid === user?.uid)) {
+          await remove(ref(database, `rooms/${roomCode}/queue/${payload.itemId}`));
+        }
       }
     } catch (err) {
       console.error('[TV Host] Error executing member command:', err);
@@ -268,7 +273,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newQueueRefNode = ref(database, `rooms/${roomCode}/queue/${queueKey}`);
       await set(newQueueRefNode, {
         url: videoUrl,
-        addedBy: 'host',
+        addedBy: user?.uid || 'host',
         addedAt: Date.now(),
       });
     }

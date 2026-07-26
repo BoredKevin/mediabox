@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ref, onValue, set, off } from 'firebase/database';
+import { ref, onValue, set, remove, off } from 'firebase/database';
 import { User } from 'firebase/auth';
 import { ensureAnonymousAuth, database } from '@/lib/firebase';
 import { checkRoomExists, RoomState, QueueItem, parseYouTubeVideoId } from '@/lib/roomUtils';
 import { Card } from '@/components/ui/card';
-import { Play, Pause, Volume2, Plus, Tv, Users, LogOut, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
+import { Play, Pause, Volume2, Plus, Tv, Users, LogOut, CheckCircle2, AlertCircle, Loader2, X, Trash2 } from 'lucide-react';
 
 interface ToastMessage {
   id: string;
@@ -169,7 +169,7 @@ export const RemoteView: React.FC = () => {
     }
   };
 
-  const sendCommand = async (type: 'play' | 'pause' | 'addToQueue' | 'adjustVolume', payload?: any) => {
+  const sendCommand = async (type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume', payload?: any) => {
     if (!activeRoomCode || !user) return;
 
     try {
@@ -184,12 +184,25 @@ export const RemoteView: React.FC = () => {
         play: 'Play command sent!',
         pause: 'Pause command sent!',
         addToQueue: 'Added video to queue!',
+        removeFromQueue: 'Remove queue item command sent!',
         adjustVolume: `Volume set to ${payload?.volume}%!`,
       };
       showToast(labelMap[type] || `Sent ${type} command!`, 'success');
     } catch (err: any) {
       console.error('Failed to send command:', err);
       showToast('Failed to send command. Check room status.', 'error');
+    }
+  };
+
+  const handleRemoveQueueItem = async (itemId: string) => {
+    if (!activeRoomCode || !user) return;
+    try {
+      const itemRef = ref(database, `rooms/${activeRoomCode}/queue/${itemId}`);
+      await remove(itemRef);
+      showToast('Removed item from queue.', 'success');
+    } catch (err) {
+      console.warn('Direct remove failed, sending member command:', err);
+      sendCommand('removeFromQueue', { itemId });
     }
   };
 
@@ -430,13 +443,31 @@ export const RemoteView: React.FC = () => {
               <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
                 {queue.map((item, idx) => {
                   const ytId = parseYouTubeVideoId(item.url);
+                  const isMyEntry = Boolean(user && item.addedBy === user.uid);
+
                   return (
                     <div key={item.id || idx} className="flex items-center gap-2 p-2 bg-slate-950 border border-slate-800 text-xs">
-                      <span className="font-mono text-[#00c8d4] font-bold w-5">#{idx + 1}</span>
+                      <span className="font-mono text-[#00c8d4] font-bold w-5 flex-shrink-0">#{idx + 1}</span>
                       {ytId ? (
-                        <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="thumb" className="w-10 h-7 object-cover" />
+                        <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="thumb" className="w-10 h-7 object-cover flex-shrink-0" />
                       ) : null}
-                      <span className="truncate flex-1 font-mono text-slate-300">{item.url}</span>
+                      <div className="truncate flex-1 flex items-center gap-1.5 font-mono text-slate-300 min-w-0">
+                        <span className="truncate">{item.url}</span>
+                        {isMyEntry && (
+                          <span className="px-1.5 py-0.5 text-[9px] bg-[#00c8d4]/10 text-[#00c8d4] border border-[#00c8d4]/30 font-semibold uppercase flex-shrink-0">
+                            You
+                          </span>
+                        )}
+                      </div>
+                      {isMyEntry && (
+                        <button
+                          onClick={() => handleRemoveQueueItem(item.id)}
+                          className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-900 border border-transparent hover:border-red-900/50 transition-colors flex-shrink-0 cursor-pointer"
+                          title="Delete your entry from queue"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
