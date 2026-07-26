@@ -1,7 +1,17 @@
 {
-  "name": "time-cravion",
-  "private": true,
+  "name": "time",
+  "author": "BoredKevin",
   "version": "1.0.0",
+  "license": "CPAL-1.0",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BoredKevin/time.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BoredKevin/time/issues"
+  },
+  "homepage": "https://github.com/BoredKevin/time#readme",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -33,6 +43,6 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "vite": "^6.1.0",
-    "wrangler": "^3.109.0"
+    "wrangler": "^4.114.0"
   }
 }
