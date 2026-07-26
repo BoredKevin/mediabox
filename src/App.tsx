@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { ClockSection } from '@/components/ClockSection';
 import { ScheduleSection } from '@/components/ScheduleSection';
 import { MediaBox } from '@/components/MediaBox';
 import { Footer } from '@/components/Footer';
+import { RemotePage } from '@/pages/RemotePage';
 
-export const App: React.FC = () => {
+const Dashboard: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   useEffect(() => {
@@ -44,5 +46,16 @@ export const App: React.FC = () => {
   );
 };
 
-export default App;
+export const App: React.FC = () => {
+  return (
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/join" element={<RemotePage />} />
+        <Route path="/remote" element={<RemotePage />} />
+      </Routes>
+    </HashRouter>
+  );
+};
 
+export default App;
