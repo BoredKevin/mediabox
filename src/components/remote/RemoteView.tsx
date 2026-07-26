@@ -449,13 +449,12 @@ export const RemoteView: React.FC = () => {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto w-full flex items-center justify-between gap-3 p-3 text-xs font-semibold uppercase tracking-wider backdrop-blur-md shadow-2xl transition-all border rounded-none ${
-              toast.type === 'success'
+            className={`pointer-events-auto w-full flex items-center justify-between gap-3 p-3 text-xs font-semibold uppercase tracking-wider backdrop-blur-md shadow-2xl transition-all border rounded-none ${toast.type === 'success'
                 ? 'bg-slate-900/95 border-[#00c8d4] text-[#00c8d4] shadow-[0_0_15px_rgba(0,200,212,0.3)]'
                 : toast.type === 'error'
-                ? 'bg-slate-900/95 border-red-500 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.3)]'
-                : 'bg-slate-900/95 border-slate-700 text-slate-200'
-            }`}
+                  ? 'bg-slate-900/95 border-red-500 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+                  : 'bg-slate-900/95 border-slate-700 text-slate-200'
+              }`}
           >
             <div className="flex items-center gap-2 truncate">
               {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-[#00c8d4]" />}
@@ -679,11 +678,10 @@ export const RemoteView: React.FC = () => {
 
                 <button
                   onClick={handleToggleRoomLockAdmin}
-                  className={`flex-1 py-2.5 border font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                    roomState?.isLocked
+                  className={`flex-1 py-2.5 border font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${roomState?.isLocked
                       ? 'bg-amber-950/90 border-amber-600 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
                       : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
-                  }`}
+                    }`}
                   title="Lock/Unlock room controls for regular members"
                 >
                   {roomState?.isLocked ? (
@@ -707,11 +705,10 @@ export const RemoteView: React.FC = () => {
             <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
               <span>Now Playing on TV</span>
               <span
-                className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-widest ${
-                  roomState?.playback?.status === 'playing'
+                className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-widest ${roomState?.playback?.status === 'playing'
                     ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
                     : 'bg-amber-950 text-amber-400 border border-amber-800'
-                }`}
+                  }`}
               >
                 {roomState?.playback?.status === 'playing' ? 'PLAYING' : 'PAUSED'}
               </span>
@@ -807,11 +804,10 @@ export const RemoteView: React.FC = () => {
               <button
                 onClick={handleToggleFullscreenClick}
                 disabled={fullscreenCooldown}
-                className={`px-3 py-1.5 border text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
-                  roomState?.isFullscreen
+                className={`px-3 py-1.5 border text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${roomState?.isFullscreen
                     ? 'bg-cyan-950/80 border-[#00c8d4] text-[#00c8d4] shadow-[0_0_10px_rgba(0,200,212,0.3)]'
                     : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
-                }`}
+                  }`}
                 title="Toggle TV Fullscreen (5s cooldown)"
               >
                 {roomState?.isFullscreen ? (
@@ -854,7 +850,7 @@ export const RemoteView: React.FC = () => {
                 className="py-2.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
-                <span>Submit Command to Queue</span>
+                <span>Submit Video to Queue</span>
               </button>
             </form>
           </Card>
