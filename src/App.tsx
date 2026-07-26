@@ -7,6 +7,8 @@ import { MediaBox } from '@/components/MediaBox';
 import { Footer } from '@/components/Footer';
 import { RemotePage } from '@/pages/RemotePage';
 import { WatchPartyProvider } from '@/context/WatchPartyContext';
+import { LanguageProvider } from '@/context/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const Dashboard: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -51,15 +53,19 @@ const Dashboard: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/join" element={<RemotePage />} />
-        <Route path="/remote" element={<RemotePage />} />
-      </Routes>
-    </HashRouter>
+    <LanguageProvider>
+      <LanguageSwitcher className="fixed top-4 right-18 sm:right-20 z-50" />
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/join" element={<RemotePage />} />
+          <Route path="/remote" element={<RemotePage />} />
+        </Routes>
+      </HashRouter>
+    </LanguageProvider>
   );
 };
 
 export default App;
+
 

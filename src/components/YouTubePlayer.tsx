@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { parseYouTubeVideoId } from '@/lib/roomUtils';
+import { useTranslation } from '@/context/LanguageContext';
 import { AlertTriangle, Play } from 'lucide-react';
 
 declare global {
@@ -24,6 +25,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   muted,
   onEnded,
 }) => {
+  const { t } = useTranslation();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const onEndedRef = useRef(onEnded);
@@ -157,13 +159,13 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           onError: (event: any) => {
             console.warn('[YouTubePlayer] YouTube API error code:', event.data);
             if (event.data === 101 || event.data === 150) {
-              setEmbedError('The owner of this video has disabled playback in third-party embedded players.');
+              setEmbedError(t('player.embedRestrictedError'));
             } else if (event.data === 100) {
-              setEmbedError('This video has been removed or set to private.');
+              setEmbedError(t('player.removedVideoError'));
             } else if (event.data === 2) {
-              setEmbedError('Invalid YouTube video ID.');
+              setEmbedError(t('player.invalidIdError'));
             } else {
-              setEmbedError(`Playback error (code ${event.data}).`);
+              setEmbedError(t('player.playbackErrorCode', { code: event.data }));
             }
 
             // Auto-skip to next video in queue after 3.5 seconds if restricted
@@ -190,7 +192,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     return () => {
       isSubscribed = false;
     };
-  }, [videoId]);
+  }, [videoId, t]);
 
   // Sync isPlaying state
   useEffect(() => {
@@ -247,7 +249,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   if (!videoId) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-slate-950 text-slate-400 font-mono text-xs">
-        Invalid YouTube URL: {url}
+        {t('player.invalidYtUrl')} {url}
       </div>
     );
   }
@@ -259,13 +261,13 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           <AlertTriangle className="w-10 h-10 text-amber-500 animate-bounce" />
           <p className="text-sm font-bold text-amber-400">{embedError}</p>
           <p className="text-xs text-slate-400 max-w-md">
-            Auto-skipping to the next video in queue shortly...
+            {t('player.autoSkippingNotice')}
           </p>
           <button
             onClick={() => onEnded && onEnded()}
-            className="mt-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold uppercase text-xs tracking-wider"
+            className="mt-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold uppercase text-xs tracking-wider cursor-pointer"
           >
-            Skip Restricted Video Now
+            {t('player.skipRestrictedNow')}
           </button>
         </div>
       )}
@@ -278,7 +280,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           <div className="p-4 bg-[#00c8d4] text-slate-950 rounded-full shadow-[0_0_25px_rgba(0,200,212,0.5)]">
             <Play className="w-8 h-8 fill-slate-950 ml-1" />
           </div>
-          <p className="text-xs font-bold text-slate-200 uppercase tracking-wider">Click to Start Playback</p>
+          <p className="text-xs font-bold text-slate-200 uppercase tracking-wider">{t('player.clickToStartPlayback')}</p>
         </div>
       )}
 

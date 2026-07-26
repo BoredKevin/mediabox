@@ -5,6 +5,8 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { ensureAnonymousAuth, signInWithGoogle, logoutUser, database } from '@/lib/firebase';
 import { checkRoomExists, RoomState, QueueItem, parseYouTubeVideoId } from '@/lib/roomUtils';
 import { searchYouTubeVideos, fetchVideoTitle, SearchResultItem } from '@/lib/youtube';
+import { useTranslation } from '@/context/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Card } from '@/components/ui/card';
 import {
   Play,
@@ -33,8 +35,6 @@ import {
   Lock,
   Unlock,
   Search,
-  Sparkles,
-  Film,
 } from 'lucide-react';
 
 interface ToastMessage {
@@ -50,6 +50,7 @@ interface MemberInfo {
 }
 
 export const RemoteView: React.FC = () => {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRoom = searchParams.get('room') || '';
 
@@ -131,7 +132,7 @@ export const RemoteView: React.FC = () => {
       .then((u) => setUser(u))
       .catch((err) => {
         console.error('Auth error:', err);
-        showToast('Failed to authenticate with Firebase.', 'error');
+        showToast(t('toasts.authFailed'), 'error');
       });
   }, []);
 
@@ -174,7 +175,7 @@ export const RemoteView: React.FC = () => {
       } else {
         // Room no longer exists
         setActiveRoomCode(null);
-        showToast('The room has been closed by the host TV.', 'error');
+        showToast(t('toasts.roomClosedByHost'), 'error');
       }
     });
 
@@ -200,7 +201,7 @@ export const RemoteView: React.FC = () => {
           setSearchParams({});
           setMembersList([]);
           setMemberCount(0);
-          showToast('You have been kicked from the room by the host.', 'error', 6000);
+          showToast(t('toasts.kickedByHost'), 'error', 6000);
           return;
         }
 
@@ -223,7 +224,7 @@ export const RemoteView: React.FC = () => {
         if (user && activeRoomCode) {
           setActiveRoomCode(null);
           setSearchParams({});
-          showToast('The room was closed or member list cleared.', 'error');
+          showToast(t('toasts.roomCleared'), 'error');
         }
         setMembersList([]);
         setMemberCount(0);
@@ -235,12 +236,12 @@ export const RemoteView: React.FC = () => {
       off(queueRefNode);
       off(membersRefNode);
     };
-  }, [activeRoomCode, user, isEditingNickname]);
+  }, [activeRoomCode, user, isEditingNickname, t]);
 
   const handleJoinRoom = async (codeToJoin: string) => {
     const cleanCode = codeToJoin.trim();
     if (cleanCode.length !== 6) {
-      showToast('Please enter a valid 6-digit room code.', 'error');
+      showToast(t('toasts.validPinRequired'), 'error');
       return;
     }
 
@@ -252,7 +253,7 @@ export const RemoteView: React.FC = () => {
 
       const exists = await checkRoomExists(cleanCode);
       if (!exists) {
-        showToast(`Room "${cleanCode}" was not found. Please verify the code.`, 'error');
+        showToast(t('toasts.roomNotFound', { code: cleanCode }), 'error');
         setLoading(false);
         return;
       }
@@ -266,10 +267,10 @@ export const RemoteView: React.FC = () => {
 
       setActiveRoomCode(cleanCode);
       setSearchParams({ room: cleanCode });
-      showToast(`Joined Room ${cleanCode}!`, 'success');
+      showToast(t('toasts.joinedRoom', { code: cleanCode }), 'success');
     } catch (err: any) {
       console.error('Error joining room:', err);
-      showToast(err.message || 'Error joining room.', 'error');
+      showToast(err.message || t('toasts.commandFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -280,7 +281,7 @@ export const RemoteView: React.FC = () => {
     try {
       const u = await signInWithGoogle();
       setUser(u);
-      showToast(`Signed in as ${u.displayName || u.email || 'Google User'}!`, 'success');
+      showToast(t('toasts.signedInAs', { name: u.displayName || u.email || 'Google User' }), 'success');
     } catch (err: any) {
       console.error('Google Sign In Error:', err);
       showToast(err.message || 'Google Sign In failed.', 'error');
@@ -294,7 +295,7 @@ export const RemoteView: React.FC = () => {
       await logoutUser();
       const anon = await ensureAnonymousAuth();
       setUser(anon);
-      showToast('Signed out from Google.', 'info');
+      showToast(t('toasts.signedOutGoogle'), 'info');
     } catch (err: any) {
       console.error('Logout error:', err);
     }
@@ -311,10 +312,10 @@ export const RemoteView: React.FC = () => {
       });
       setMyNickname(cleanName);
       setIsEditingNickname(false);
-      showToast(cleanName ? `Nickname set to "${cleanName}"!` : 'Nickname reset to default', 'success');
+      showToast(cleanName ? t('toasts.nicknameSet', { name: cleanName }) : t('toasts.nicknameReset'), 'success');
     } catch (err: any) {
       console.error('Failed to update nickname:', err);
-      showToast('Failed to update nickname. Check room permissions.', 'error');
+      showToast(t('toasts.nicknameFailed'), 'error');
     }
   };
 
@@ -323,7 +324,7 @@ export const RemoteView: React.FC = () => {
 
   const handleToggleFullscreenClick = () => {
     if (fullscreenCooldown) {
-      showToast('Fullscreen toggle cooldown active (5s). Please wait...', 'info');
+      showToast(t('toasts.fullscreenCooldown'), 'info');
       return;
     }
     sendCommand('toggleFullscreen');
@@ -341,7 +342,7 @@ export const RemoteView: React.FC = () => {
 
     if (roomState?.isLocked && !isHostOrAdmin) {
       if (type === 'addToQueue' || type === 'play' || type === 'pause' || type === 'adjustVolume') {
-        showToast('Room controls are locked by the Admin.', 'error');
+        showToast(t('toasts.controlsLockedByAdmin'), 'error');
         return;
       }
     }
@@ -355,23 +356,23 @@ export const RemoteView: React.FC = () => {
       });
 
       const labelMap: Record<string, string> = {
-        play: 'Play command sent!',
-        pause: 'Pause command sent!',
-        addToQueue: 'Added video to queue!',
-        removeFromQueue: 'Remove queue item command sent!',
-        adjustVolume: `Volume set to ${payload?.volume}%!`,
-        forceSkip: 'Skip track command sent!',
-        reorderQueue: 'Queue reorder command sent!',
-        forceRemoveFromQueue: 'Remove item command sent!',
-        kickMember: 'Kick member command sent!',
-        toggleFullscreen: 'Toggle TV fullscreen command sent!',
-        clearQueue: 'Clear queue command sent!',
-        toggleRoomLock: roomState?.isLocked ? 'Room unlocked!' : 'Room locked!',
+        play: t('toasts.playSent'),
+        pause: t('toasts.pauseSent'),
+        addToQueue: t('toasts.videoAddedQueue'),
+        removeFromQueue: t('toasts.removeQueueSent'),
+        adjustVolume: t('toasts.volumeSet', { vol: payload?.volume }),
+        forceSkip: t('toasts.skipSent'),
+        reorderQueue: t('toasts.reorderSent'),
+        forceRemoveFromQueue: t('toasts.removeQueueSent'),
+        kickMember: t('toasts.kickSent'),
+        toggleFullscreen: t('toasts.toggleFullscreenSent'),
+        clearQueue: t('toasts.clearQueueSent'),
+        toggleRoomLock: roomState?.isLocked ? t('toasts.roomUnlocked') : t('toasts.roomLocked'),
       };
-      showToast(labelMap[type] || `Sent ${type} command!`, 'success');
+      showToast(labelMap[type] || t('toasts.commandSent', { type }), 'success');
     } catch (err: any) {
       console.error('Failed to send command:', err);
-      showToast('Failed to send command. Check room status.', 'error');
+      showToast(t('toasts.commandFailed'), 'error');
     }
   };
 
@@ -387,7 +388,7 @@ export const RemoteView: React.FC = () => {
     try {
       const itemRef = ref(database, `rooms/${activeRoomCode}/queue/${itemId}`);
       await remove(itemRef);
-      showToast('Removed item from queue.', 'success');
+      showToast(t('toasts.itemRemoved'), 'success');
     } catch (err) {
       console.warn('Direct remove failed, sending member command:', err);
       sendCommand('removeFromQueue', { itemId });
@@ -396,7 +397,7 @@ export const RemoteView: React.FC = () => {
 
   const handleKickMember = (targetUid: string) => {
     if (!isHostOrAdmin || targetUid === user?.uid) return;
-    if (confirm('Are you sure you want to kick this member and purge their video requests?')) {
+    if (confirm(t('remote.kickMemberConfirm'))) {
       sendCommand('kickMember', { targetUid, purgeQueue: true });
     }
   };
@@ -416,7 +417,7 @@ export const RemoteView: React.FC = () => {
 
   const handleClearQueueAdmin = () => {
     if (!isHostOrAdmin) return;
-    if (confirm('Are you sure you want to clear all videos from the queue?')) {
+    if (confirm(t('remote.clearQueueConfirm'))) {
       sendCommand('clearQueue');
     }
   };
@@ -444,11 +445,11 @@ export const RemoteView: React.FC = () => {
 
   const handleAddSearchResult = (result: SearchResultItem) => {
     if (roomState?.isLocked && !isHostOrAdmin) {
-      showToast('Room controls are locked by Admin.', 'error');
+      showToast(t('toasts.controlsLockedByAdmin'), 'error');
       return;
     }
     sendCommand('addToQueue', { url: result.url, title: result.title });
-    showToast(`Added video to queue!`, 'success');
+    showToast(t('toasts.videoAddedQueue'), 'success');
   };
 
   const handleAddQueueSubmit = async (e: React.FormEvent) => {
@@ -456,13 +457,13 @@ export const RemoteView: React.FC = () => {
     if (!queueInputUrl.trim()) return;
 
     if (roomState?.isLocked && !isHostOrAdmin) {
-      showToast('Room controls are locked by Admin. Unable to add videos.', 'error');
+      showToast(t('toasts.controlsLockedByAdmin'), 'error');
       return;
     }
 
     const ytId = parseYouTubeVideoId(queueInputUrl.trim());
     if (!ytId) {
-      showToast('Please enter a valid YouTube video URL or ID.', 'error');
+      showToast(t('toasts.enterValidUrl'), 'error');
       return;
     }
 
@@ -477,7 +478,7 @@ export const RemoteView: React.FC = () => {
     setSearchParams({});
     setRoomState(null);
     setQueue([]);
-    showToast('Left the room.', 'info');
+    showToast(t('toasts.leftRoom'), 'info');
   };
 
   return (
@@ -502,7 +503,7 @@ export const RemoteView: React.FC = () => {
             </div>
             <button
               onClick={() => removeToast(toast.id)}
-              className="p-1 text-slate-400 hover:text-slate-100 transition-colors"
+              className="p-1 text-slate-400 hover:text-slate-100 transition-colors cursor-pointer"
               title="Dismiss"
             >
               <X className="w-3.5 h-3.5" />
@@ -514,25 +515,28 @@ export const RemoteView: React.FC = () => {
       {/* Render Room Code Input Screen if not connected to a room */}
       {!activeRoomCode ? (
         <div className="flex min-h-screen items-center justify-center p-4">
-          <Card className="w-full max-w-md p-6 bg-slate-900 border-slate-800 rounded-none shadow-2xl flex flex-col gap-6">
-            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-              <div className="p-3 bg-[#00c8d4]/10 rounded-none border border-[#00c8d4]/30">
-                <Tv className="w-6 h-6 text-[#00c8d4]" />
+          <Card className="w-full max-w-md p-6 bg-slate-900 border-slate-800 rounded-none shadow-2xl flex flex-col gap-6 relative">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-[#00c8d4]/10 rounded-none border border-[#00c8d4]/30">
+                  <Tv className="w-6 h-6 text-[#00c8d4]" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold tracking-wide text-slate-100">{t('remote.title')}</h1>
+                  <p className="text-xs text-slate-400">{t('remote.subtitle')}</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-semibold tracking-wide text-slate-100">MediaBox Remote</h1>
-                <p className="text-xs text-slate-400">Join a Watch Together room to control TV playback</p>
-              </div>
+              <LanguageSwitcher />
             </div>
 
             <div className="flex flex-col gap-3">
-              <label className="text-xs font-medium text-slate-300">Enter 6-Digit Room Code</label>
+              <label className="text-xs font-medium text-slate-300">{t('remote.connectDesc')}</label>
               <input
                 type="text"
                 maxLength={6}
                 value={inputCode}
                 onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="e.g. 123456"
+                placeholder={t('remote.enterPinPlaceholder')}
                 className="w-full px-4 py-3 bg-slate-950 border border-slate-700 text-center font-mono text-2xl tracking-[0.3em] text-[#00c8d4] placeholder-slate-600 focus:outline-none focus:border-[#00c8d4]"
               />
               <button
@@ -543,10 +547,10 @@ export const RemoteView: React.FC = () => {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Connecting...</span>
+                    <span>{t('remote.connecting')}</span>
                   </>
                 ) : (
-                  <span>Join TV Room</span>
+                  <span>{t('remote.joinRoomBtn')}</span>
                 )}
               </button>
             </div>
@@ -555,29 +559,31 @@ export const RemoteView: React.FC = () => {
       ) : (
         <div className="flex min-h-screen flex-col p-4 sm:p-6 max-w-lg mx-auto">
           {/* Header bar */}
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5 gap-2">
             <div className="flex items-center gap-3">
               <div className="flex flex-col">
                 <span className="text-xs text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  Connected to Room
+                  {t('remote.connectedToRoom')}
                 </span>
                 <span className="font-mono text-xl font-bold text-[#00c8d4] tracking-widest">{activeRoomCode}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <LanguageSwitcher />
+
               {isAdmin ? (
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-purple-950/90 border border-purple-500/70 text-xs font-bold text-purple-300 uppercase tracking-wider shadow-[0_0_12px_rgba(168,85,247,0.4)]">
                   <Shield className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />
-                  Admin
+                  {t('remote.adminBadge')}
                 </span>
               ) : isHost ? (
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-950/80 border border-amber-500/60 text-xs font-bold text-amber-300 uppercase tracking-wider shadow-[0_0_10px_rgba(245,158,11,0.2)]">
                   <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  Host
+                  {t('remote.hostBadge')}
                 </span>
               ) : (
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 border border-slate-800 text-xs text-slate-400 uppercase tracking-wider">
-                  Member
+                  {t('remote.memberBadge')}
                 </span>
               )}
               {roomState?.isLocked && (
@@ -591,7 +597,7 @@ export const RemoteView: React.FC = () => {
               </span>
               <button
                 onClick={handleLeaveRoom}
-                title="Leave Room"
+                title={t('remote.leaveRoomBtn')}
                 className="p-2 bg-slate-900 hover:bg-red-950/60 border border-slate-800 hover:border-red-800 text-slate-400 hover:text-red-300 transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
@@ -604,7 +610,7 @@ export const RemoteView: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-200 uppercase tracking-wider">
                 <User className="w-4 h-4 text-[#00c8d4]" />
-                Account Profile
+                {t('remote.accountProfile')}
               </div>
 
               {user?.isAnonymous === false ? (
@@ -613,7 +619,7 @@ export const RemoteView: React.FC = () => {
                   className="text-[10px] font-semibold text-slate-400 hover:text-red-400 uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <LogOut className="w-3 h-3" />
-                  Sign Out
+                  {t('remote.signOut')}
                 </button>
               ) : (
                 <button
@@ -626,7 +632,7 @@ export const RemoteView: React.FC = () => {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                   </svg>
-                  <span>Sign in with Google</span>
+                  <span>{t('remote.signInWithGoogle')}</span>
                 </button>
               )}
             </div>
@@ -659,7 +665,7 @@ export const RemoteView: React.FC = () => {
                   title="Edit your nickname"
                 >
                   <Edit3 className="w-3 h-3 text-[#00c8d4]" />
-                  <span>Edit Nick</span>
+                  <span>{t('remote.editNickname')}</span>
                 </button>
               ) : null}
             </div>
@@ -671,7 +677,7 @@ export const RemoteView: React.FC = () => {
                   maxLength={25}
                   value={nicknameInput}
                   onChange={(e) => setNicknameInput(e.target.value)}
-                  placeholder="Enter nickname..."
+                  placeholder={t('remote.enterNicknamePlaceholder')}
                   className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-700 font-mono text-xs text-slate-100 focus:outline-none focus:border-[#00c8d4]"
                   autoFocus
                 />
@@ -679,14 +685,14 @@ export const RemoteView: React.FC = () => {
                   type="submit"
                   className="px-3 py-1.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase text-[10px] tracking-wider cursor-pointer"
                 >
-                  Save
+                  {t('remote.saveBtn')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsEditingNickname(false)}
                   className="px-2.5 py-1.5 bg-slate-800 text-slate-400 hover:text-slate-200 text-[10px] cursor-pointer"
                 >
-                  Cancel
+                  {t('remote.cancelBtn')}
                 </button>
               </form>
             )}
@@ -698,9 +704,9 @@ export const RemoteView: React.FC = () => {
               <div className="text-xs font-bold text-purple-300 uppercase tracking-wider border-b border-purple-900/40 pb-2 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <ShieldAlert className="w-4 h-4 text-purple-400" />
-                  {isAdmin ? 'Admin Override Panel' : 'Host Management Panel'}
+                  {isAdmin ? t('remote.adminOverridePanel') : t('remote.hostManagementPanel')}
                 </span>
-                <span className="text-[10px] text-purple-400/80 font-mono">OVERRIDE ACTIVE</span>
+                <span className="text-[10px] text-purple-400/80 font-mono">{t('remote.overrideActive')}</span>
               </div>
 
               <div className="flex items-center gap-3">
@@ -711,7 +717,7 @@ export const RemoteView: React.FC = () => {
                   title="Clear all videos in the queue"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Clear Queue ({queue.length})</span>
+                  <span>{t('remote.clearQueueBtn')} ({queue.length})</span>
                 </button>
 
                 <button
@@ -725,12 +731,12 @@ export const RemoteView: React.FC = () => {
                   {roomState?.isLocked ? (
                     <>
                       <Lock className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Unlock Room</span>
+                      <span>{t('remote.unlockRoomBtn')}</span>
                     </>
                   ) : (
                     <>
                       <Unlock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Lock Room</span>
+                      <span>{t('remote.lockRoomBtn')}</span>
                     </>
                   )}
                 </button>
@@ -741,14 +747,14 @@ export const RemoteView: React.FC = () => {
           {/* Currently Playing Card */}
           <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5">
             <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-              <span>Now Playing on TV</span>
+              <span>{t('remote.nowPlayingTv')}</span>
               <span
                 className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-widest ${roomState?.playback?.status === 'playing'
                     ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
                     : 'bg-amber-950 text-amber-400 border border-amber-800'
                   }`}
               >
-                {roomState?.playback?.status === 'playing' ? 'PLAYING' : 'PAUSED'}
+                {roomState?.playback?.status === 'playing' ? t('remote.playingStatus') : t('remote.pausedStatus')}
               </span>
             </div>
             {roomState?.currentlyPlaying ? (
@@ -768,15 +774,15 @@ export const RemoteView: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-slate-500 italic">No video selected</p>
+              <p className="text-xs text-slate-500 italic">{t('remote.noVideoSelected')}</p>
             )}
           </Card>
 
           {/* Main Playback Controls */}
           <Card className="p-5 bg-slate-900 border-slate-800 rounded-none mb-5 flex flex-col gap-5">
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
-              <span>Playback Controls</span>
-              {isHostOrAdmin && <span className="text-[10px] text-amber-400 font-semibold">PRIVILEGED OVERRIDE ACTIVE</span>}
+              <span>{t('remote.playbackControls')}</span>
+              {isHostOrAdmin && <span className="text-[10px] text-amber-400 font-semibold">{t('remote.privilegedOverrideActive')}</span>}
             </div>
 
             <div className="flex items-center justify-center gap-3">
@@ -786,7 +792,7 @@ export const RemoteView: React.FC = () => {
                 className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed"
               >
                 <Play className="w-4 h-4 fill-slate-950" />
-                <span>Play</span>
+                <span>{t('watchParty.playBtn')}</span>
               </button>
 
               <button
@@ -795,7 +801,7 @@ export const RemoteView: React.FC = () => {
                 className="flex-1 py-3.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed"
               >
                 <Pause className="w-4 h-4 fill-slate-950" />
-                <span>Pause</span>
+                <span>{t('watchParty.pauseBtn')}</span>
               </button>
 
               {isHostOrAdmin && (
@@ -805,7 +811,7 @@ export const RemoteView: React.FC = () => {
                   title="Skip video on TV (Privileged action)"
                 >
                   <SkipForward className="w-4 h-4 fill-slate-950" />
-                  <span>Skip</span>
+                  <span>{t('watchParty.skipNextBtn')}</span>
                 </button>
               )}
             </div>
@@ -815,7 +821,7 @@ export const RemoteView: React.FC = () => {
               <div className="flex items-center justify-between text-xs text-slate-300">
                 <span className="flex items-center gap-1.5">
                   <Volume2 className="w-4 h-4 text-[#00c8d4]" />
-                  TV Volume
+                  {t('remote.tvVolume')}
                 </span>
                 <span className="font-mono text-[#00c8d4] font-bold">{displayVolume}%</span>
               </div>
@@ -840,7 +846,7 @@ export const RemoteView: React.FC = () => {
                 ) : (
                   <Maximize className="w-4 h-4 text-slate-400" />
                 )}
-                TV Display Mode
+                {t('remote.tvDisplayMode')}
               </span>
               <button
                 onClick={handleToggleFullscreenClick}
@@ -854,12 +860,12 @@ export const RemoteView: React.FC = () => {
                 {roomState?.isFullscreen ? (
                   <>
                     <Minimize className="w-3.5 h-3.5" />
-                    <span>Exit Fullscreen</span>
+                    <span>{t('remote.exitFullscreen')}</span>
                   </>
                 ) : (
                   <>
                     <Maximize className="w-3.5 h-3.5 text-[#00c8d4]" />
-                    <span>Fullscreen TV</span>
+                    <span>{t('remote.fullscreenTv')}</span>
                   </>
                 )}
               </button>
@@ -880,7 +886,7 @@ export const RemoteView: React.FC = () => {
                   }`}
                 >
                   <Search className="w-3.5 h-3.5" />
-                  <span>Search YouTube</span>
+                  <span>{t('remote.searchYoutubeTab')}</span>
                 </button>
                 <button
                   type="button"
@@ -892,7 +898,7 @@ export const RemoteView: React.FC = () => {
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Paste Link</span>
+                  <span>{t('remote.pasteLinkTab')}</span>
                 </button>
               </div>
 
@@ -911,7 +917,7 @@ export const RemoteView: React.FC = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
-                    placeholder={roomState?.isLocked && !isHostOrAdmin ? "Queue locked by Admin..." : "Search video title or topic..."}
+                    placeholder={roomState?.isLocked && !isHostOrAdmin ? t('remote.searchQueueLocked') : t('remote.searchPlaceholder')}
                     className="flex-1 px-3 py-2 bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00c8d4] disabled:opacity-40"
                   />
                   <button
@@ -924,7 +930,7 @@ export const RemoteView: React.FC = () => {
                     ) : (
                       <>
                         <Search className="w-4 h-4" />
-                        <span>Search</span>
+                        <span>{t('remote.searchBtn')}</span>
                       </>
                     )}
                   </button>
@@ -935,10 +941,10 @@ export const RemoteView: React.FC = () => {
                   <div className="p-3 bg-slate-950 border border-amber-800/60 text-amber-300 text-xs flex flex-col gap-1">
                     <span className="font-bold flex items-center gap-1.5 text-amber-400">
                       <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                      YouTube Data API Key Needed for Keyword Search
+                      {t('remote.ytKeyNeededTitle')}
                     </span>
                     <p className="text-[11px] text-amber-300/80 leading-relaxed">
-                      Add <code className="bg-slate-900 px-1 py-0.5 font-mono text-cyan-300">VITE_YOUTUBE_API_KEY</code> to your <code className="bg-slate-900 px-1 py-0.5 font-mono text-cyan-300">.env</code> file to enable live keyword search. You can also paste any YouTube URL under the <strong>Paste Link</strong> tab with zero setup and free automatic title fetching!
+                      {t('remote.ytKeyNeededDesc')}
                     </p>
                   </div>
                 )}
@@ -966,7 +972,7 @@ export const RemoteView: React.FC = () => {
                           title="Add video to queue"
                         >
                           <Plus className="w-3 h-3" />
-                          <span>Add</span>
+                          <span>{t('remote.addBtn')}</span>
                         </button>
                       </div>
                     ))}
@@ -980,7 +986,7 @@ export const RemoteView: React.FC = () => {
                   value={queueInputUrl}
                   onChange={(e) => setQueueInputUrl(e.target.value)}
                   disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
-                  placeholder={roomState?.isLocked && !isHostOrAdmin ? "Queue locked by Admin..." : "Paste YouTube link or URL..."}
+                  placeholder={roomState?.isLocked && !isHostOrAdmin ? t('remote.searchQueueLocked') : t('remote.pasteUrlPlaceholder')}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00c8d4] disabled:opacity-40"
                 />
                 <button
@@ -989,7 +995,7 @@ export const RemoteView: React.FC = () => {
                   className="py-2.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Submit Video to Queue</span>
+                  <span>{t('remote.submitVideoToQueue')}</span>
                 </button>
               </form>
             )}
@@ -1000,9 +1006,9 @@ export const RemoteView: React.FC = () => {
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-[#00c8d4]" />
-                Room Members & Requests
+                {t('remote.roomMembersAndRequests')}
               </span>
-              <span className="text-slate-500 font-mono text-[11px]">{membersList.length} members</span>
+              <span className="text-slate-500 font-mono text-[11px]">{t('remote.membersCount', { count: membersList.length })}</span>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -1023,17 +1029,17 @@ export const RemoteView: React.FC = () => {
                         <span className="text-[10px] text-slate-500">({member.uid.substring(0, 6)})</span>
                         {isMemberAdmin && (
                           <span className="px-1.5 py-0.5 text-[9px] bg-purple-950 text-purple-300 border border-purple-800 font-bold uppercase flex items-center gap-1">
-                            <Shield className="w-2.5 h-2.5 text-purple-400" /> Admin
+                            <Shield className="w-2.5 h-2.5 text-purple-400" /> {t('remote.adminBadge')}
                           </span>
                         )}
                         {isHostUser && !isMemberAdmin && (
                           <span className="px-1.5 py-0.5 text-[9px] bg-amber-950 text-amber-300 border border-amber-800 font-bold uppercase">
-                            Host
+                            {t('remote.hostBadge')}
                           </span>
                         )}
                         {isSelf && (
                           <span className="px-1.5 py-0.5 text-[9px] bg-[#00c8d4]/10 text-[#00c8d4] border border-[#00c8d4]/30 font-bold uppercase">
-                            You
+                            {t('remote.youBadge')}
                           </span>
                         )}
                       </div>
@@ -1049,7 +1055,7 @@ export const RemoteView: React.FC = () => {
                             title="Kick member and remove their requested videos"
                           >
                             <UserX className="w-3 h-3" />
-                            <span>Kick</span>
+                            <span>{t('remote.kickMemberBtn')}</span>
                           </button>
                         )}
                       </div>
@@ -1058,7 +1064,7 @@ export const RemoteView: React.FC = () => {
                     {/* Member's Requested Videos List */}
                     <div className="pl-3 border-l-2 border-slate-800 flex flex-col gap-1.5 mt-1">
                       {memberRequests.length === 0 ? (
-                        <p className="text-[11px] text-slate-500 italic">No video requests in queue</p>
+                        <p className="text-[11px] text-slate-500 italic">{t('remote.noVideoRequestsInQueue')}</p>
                       ) : (
                         memberRequests.map((req) => {
                           const overallIndex = queue.findIndex((q) => q.id === req.id) + 1;
@@ -1091,11 +1097,11 @@ export const RemoteView: React.FC = () => {
           {/* Up Next Queue List */}
           <Card className="p-4 bg-slate-900 border-slate-800 rounded-none flex-1">
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 mb-3 flex items-center justify-between">
-              <span>Upcoming Queue</span>
-              <span className="text-slate-500 font-mono text-[11px]">{queue.length} items</span>
+              <span>{t('remote.upcomingQueue')}</span>
+              <span className="text-slate-500 font-mono text-[11px]">{t('remote.itemsCount', { count: queue.length })}</span>
             </div>
             {queue.length === 0 ? (
-              <p className="text-xs text-slate-500 italic py-4 text-center">Queue is empty</p>
+              <p className="text-xs text-slate-500 italic py-4 text-center">{t('watchParty.queueEmpty')}</p>
             ) : (
               <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
                 {queue.map((item, idx) => {
@@ -1104,7 +1110,7 @@ export const RemoteView: React.FC = () => {
                   const canDelete = isMyEntry || isHostOrAdmin;
                   const addedByMember = membersList.find((m) => m.uid === item.addedBy);
                   const addedByLabel = isMyEntry
-                    ? 'You'
+                    ? t('remote.youBadge')
                     : (addedByMember?.nickname || `User (${item.addedBy?.substring(0, 4) || '?'})`);
 
                   return (
@@ -1130,7 +1136,7 @@ export const RemoteView: React.FC = () => {
                             onClick={() => handleMoveQueueItem(idx, 'up')}
                             disabled={idx === 0}
                             className="p-1 text-slate-400 hover:text-cyan-400 disabled:opacity-20 transition-colors cursor-pointer disabled:cursor-not-allowed"
-                            title="Move Up"
+                            title={t('remote.moveUp')}
                           >
                             <ChevronUp className="w-3.5 h-3.5" />
                           </button>
@@ -1138,7 +1144,7 @@ export const RemoteView: React.FC = () => {
                             onClick={() => handleMoveQueueItem(idx, 'down')}
                             disabled={idx === queue.length - 1}
                             className="p-1 text-slate-400 hover:text-cyan-400 disabled:opacity-20 transition-colors cursor-pointer disabled:cursor-not-allowed"
-                            title="Move Down"
+                            title={t('remote.moveDown')}
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
                           </button>
@@ -1166,7 +1172,3 @@ export const RemoteView: React.FC = () => {
     </div>
   );
 };
-
-
-
-
