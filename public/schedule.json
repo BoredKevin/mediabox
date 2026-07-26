@@ -1,0 +1,224 @@
+{
+  "Senin": [
+    {
+      "start": "00:00",
+      "sub": "Di Luar Jam Sekolah"
+    },
+    {
+      "start": "07:00",
+      "sub": "Upacara Bendera"
+    },
+    {
+      "start": "07:45",
+      "sub": "BAHASA JAWA"
+    },
+    {
+      "start": "09:15",
+      "sub": "BHS INGGRIS TINGKAT LANJUT"
+    },
+    {
+      "start": "10:00",
+      "sub": "ISTIRAHAT"
+    },
+    {
+      "start": "10:15",
+      "sub": "BHS INGGRIS TINGKAT LANJUT"
+    },
+    {
+      "start": "11:00",
+      "sub": "BAHASA INDONESIA"
+    },
+    {
+      "start": "11:45",
+      "sub": "ISTIRAHAT / ISHOMA"
+    },
+    {
+      "start": "12:30",
+      "sub": "BAHASA INDONESIA"
+    },
+    {
+      "start": "13:10",
+      "sub": "BHS INGGRIS"
+    },
+    {
+      "start": "15:10",
+      "sub": "Pulang"
+    }
+  ],
+  "Selasa": [
+    {
+      "start": "00:00",
+      "sub": "Di Luar Jam Sekolah"
+    },
+    {
+      "start": "07:00",
+      "sub": "FISIKA"
+    },
+    {
+      "start": "09:15",
+      "sub": "P A I"
+    },
+    {
+      "start": "10:00",
+      "sub": "ISTIRAHAT"
+    },
+    {
+      "start": "10:15",
+      "sub": "P A I"
+    },
+    {
+      "start": "11:00",
+      "sub": "B K"
+    },
+    {
+      "start": "11:45",
+      "sub": "ISTIRAHAT / ISHOMA"
+    },
+    {
+      "start": "12:30",
+      "sub": "MATEMATIKA TINGKAT LANJUT"
+    },
+    {
+      "start": "13:50",
+      "sub": "SENI DAN BUDAYA"
+    },
+    {
+      "start": "15:10",
+      "sub": "Pulang"
+    }
+  ],
+  "Rabu": [
+    {
+      "start": "00:00",
+      "sub": "Di Luar Jam Sekolah"
+    },
+    {
+      "start": "07:00",
+      "sub": "PENJASKES"
+    },
+    {
+      "start": "09:15",
+      "sub": "INFORMATIKA"
+    },
+    {
+      "start": "10:00",
+      "sub": "ISTIRAHAT"
+    },
+    {
+      "start": "10:15",
+      "sub": "INFORMATIKA"
+    },
+    {
+      "start": "11:00",
+      "sub": "MATEMATIKA"
+    },
+    {
+      "start": "11:45",
+      "sub": "ISTIRAHAT / ISHOMA"
+    },
+    {
+      "start": "12:30",
+      "sub": "MATEMATIKA"
+    },
+    {
+      "start": "13:50",
+      "sub": "PRAKARYA"
+    },
+    {
+      "start": "15:10",
+      "sub": "Pulang"
+    }
+  ],
+  "Kamis": [
+    {
+      "start": "00:00",
+      "sub": "Di Luar Jam Sekolah"
+    },
+    {
+      "start": "07:00",
+      "sub": "BHS INGGRIS TINGKAT LANJUT"
+    },
+    {
+      "start": "09:15",
+      "sub": "PPKN"
+    },
+    {
+      "start": "10:00",
+      "sub": "ISTIRAHAT"
+    },
+    {
+      "start": "10:15",
+      "sub": "PPKN"
+    },
+    {
+      "start": "11:00",
+      "sub": "SEJARAH"
+    },
+    {
+      "start": "11:45",
+      "sub": "ISTIRAHAT / ISHOMA"
+    },
+    {
+      "start": "12:30",
+      "sub": "SEJARAH"
+    },
+    {
+      "start": "13:10",
+      "sub": "MATEMATIKA TINGKAT LANJUT"
+    },
+    {
+      "start": "15:10",
+      "sub": "Pulang"
+    }
+  ],
+  "Jumat": [
+    {
+      "start": "00:00",
+      "sub": "Di Luar Jam Sekolah"
+    },
+    {
+      "start": "07:00",
+      "sub": "FISIKA"
+    },
+    {
+      "start": "09:15",
+      "sub": "ISTIRAHAT"
+    },
+    {
+      "start": "09:30",
+      "sub": "BAHASA INDONESIA"
+    },
+    {
+      "start": "10:50",
+      "sub": "INFORMATIKA"
+    },
+    {
+      "start": "11:30",
+      "sub": "ISTIRAHAT / ISHOMA"
+    },
+    {
+      "start": "13:00",
+      "sub": "INFORMATIKA"
+    },
+    {
+      "start": "13:40",
+      "sub": "MATEMATIKA"
+    },
+    {
+      "start": "15:10",
+      "sub": "Pulang"
+    }
+  ],
+  "Sabtu": [
+    {
+      "start": "00:00",
+      "sub": "Libur / Akhir Pekan"
+    }
+  ],
+  "Minggu": [
+    {
+      "start": "00:00",
+      "sub": "BHS INGGRIS TINGKAT LANJUT"
+    }
+  ]
+}
