@@ -53,7 +53,7 @@ export const ClockSection: React.FC = () => {
       </Card>
 
       {/* Watch Party Control Card - 50% width matching MediaBox column */}
-      <Card className="p-3 sm:p-4 rounded-none border border-slate-800 bg-surface min-h-[90px]">
+      <Card className="p-3 sm:p-4 rounded-none border border-slate-800 bg-surface flex flex-col justify-center min-h-[90px]">
         <WatchPartyControls />
       </Card>
     </section>

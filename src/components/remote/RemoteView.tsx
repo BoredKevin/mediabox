@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { ref, onValue, set, update, remove, off } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
 import { ensureAnonymousAuth, signInWithGoogle, logoutUser, database } from '@/lib/firebase';
@@ -35,6 +36,9 @@ import {
   Lock,
   Unlock,
   Search,
+  QrCode,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 interface ToastMessage {
@@ -83,9 +87,22 @@ export const RemoteView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  // QR Code & Join Link state
+  const [showQrCode, setShowQrCode] = useState<boolean>(false);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
+
   // Host & Admin status helpers
   const isHost = Boolean(user && roomState?.hostUid === user.uid);
   const isHostOrAdmin = isHost || isAdmin;
+
+  const handleCopyJoinLink = () => {
+    if (!activeRoomCode) return;
+    const joinUrl = `${window.location.origin}/#/join?room=${activeRoomCode}`;
+    navigator.clipboard.writeText(joinUrl);
+    setCopiedLink(true);
+    showToast(t('remote.linkCopied'), 'success');
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   // Slider drag states for volume control
   const [localVolume, setLocalVolume] = useState<number | null>(null);
@@ -870,6 +887,56 @@ export const RemoteView: React.FC = () => {
                 )}
               </button>
             </div>
+
+            {/* Show Join Link QR Code Row */}
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+              <span className="text-xs text-slate-300 flex items-center gap-1.5 font-medium">
+                <QrCode className="w-4 h-4 text-[#00c8d4]" />
+                {t('remote.joinQrCode')}
+              </span>
+              <button
+                onClick={() => setShowQrCode((prev) => !prev)}
+                className={`px-3 py-1.5 border text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
+                  showQrCode
+                    ? 'bg-[#00c8d4] text-slate-950 border-[#00c8d4] shadow-[0_0_10px_rgba(0,200,212,0.3)]'
+                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+                }`}
+                title="Toggle Join Link QR Code"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>{showQrCode ? t('remote.hideQrCode') : t('remote.showQrCode')}</span>
+              </button>
+            </div>
+
+            {/* Join Link QR Code Panel */}
+            {showQrCode && (
+              <div className="pt-2 border-t border-slate-800 flex flex-col items-center gap-3 p-4 bg-slate-950 text-center transition-all animate-fadeIn">
+                <p className="text-xs text-slate-400 font-medium">{t('remote.scanToJoin')}</p>
+                <div className="p-3 bg-white border-4 border-[#00c8d4] shadow-[0_0_15px_rgba(0,200,212,0.2)]">
+                  <QRCodeSVG value={`${window.location.origin}/#/join?room=${activeRoomCode}`} size={160} level="M" />
+                </div>
+                <div className="flex flex-col items-center gap-1.5 w-full">
+                  <span className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">{t('watchParty.roomBadge')}</span>
+                  <span className="font-mono text-2xl font-bold tracking-[0.2em] text-[#00c8d4]">{activeRoomCode}</span>
+                </div>
+                <button
+                  onClick={handleCopyJoinLink}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer w-full justify-center"
+                >
+                  {copiedLink ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-400">{t('remote.linkCopied')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-[#00c8d4]" />
+                      <span>{t('remote.copyJoinLink')}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </Card>
 
           {/* Add to Queue / Search YouTube Section */}

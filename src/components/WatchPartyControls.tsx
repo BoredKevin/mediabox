@@ -8,9 +8,6 @@ import {
   Play,
   Pause,
   SkipForward,
-  Volume2,
-  VolumeX,
-  Plus,
   Trash2,
   Loader2,
   ExternalLink,
@@ -23,35 +20,23 @@ export const WatchPartyControls: React.FC = () => {
   const { t } = useTranslation();
   const {
     roomCode,
-    roomState,
     queue,
     memberCount,
     creating,
     showQrModal,
     setShowQrModal,
-    muted,
-    setMuted,
     remoteUrl,
     handleCreateRoom,
     handleEndRoom,
     handleTogglePlayPause,
     handlePlayNextInQueue,
     handleRemoveQueueItem,
-    handleAddUrlHost,
+    roomState,
   } = useWatchParty();
 
-  const [manualUrlInput, setManualUrlInput] = useState<string>('');
   const [showQueueDrawer, setShowQueueDrawer] = useState<boolean>(false);
 
   const isPlaying = roomState?.playback?.status === 'playing';
-
-  const onSubmitUrl = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const success = await handleAddUrlHost(manualUrlInput);
-    if (success) {
-      setManualUrlInput('');
-    }
-  };
 
   // If no active room, render initial "Create Room" prompt
   if (!roomCode) {
@@ -99,130 +84,86 @@ export const WatchPartyControls: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col justify-between h-full gap-3 p-1">
-      {/* Top Controls Row */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Room Code Badge */}
-          <span className="px-3 py-1.5 bg-slate-900/90 border border-slate-800 font-mono text-[#00c8d4] font-bold tracking-wider text-xs sm:text-sm flex items-center gap-2 shadow-sm">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#00c8d4] animate-ping" />
-            {t('watchParty.roomBadge')}: {roomCode}
-          </span>
+    <div className="flex flex-col justify-center h-full w-full gap-2">
+      {/* Active Room Controls Bar - All items fill full container height */}
+      <div className="flex flex-wrap items-stretch justify-between gap-2.5 min-h-[56px] sm:min-h-[60px] w-full">
+        {/* Left Section: Big Room Code, QR Code, Pause, Skip, Queue */}
+        <div className="flex flex-wrap items-stretch gap-2.5 flex-1 min-w-[280px]">
+          {/* Big Room Code Badge (Full Height) */}
+          <div className="px-4 py-2 bg-slate-900/90 border border-slate-800 font-mono text-[#00c8d4] font-bold tracking-wider flex items-center gap-2.5 shadow-sm justify-center select-none">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#00c8d4] animate-ping flex-shrink-0" />
+            <div className="flex flex-col justify-center leading-tight">
+              <span className="text-[10px] uppercase text-slate-400 font-sans tracking-widest font-semibold">{t('watchParty.roomBadge')}</span>
+              <span className="text-lg sm:text-xl md:text-2xl tracking-widest font-black text-[#00c8d4]">{roomCode}</span>
+            </div>
+          </div>
 
-          {/* QR Code Toggle Button */}
+          {/* QR Code Toggle Button (Full Height) */}
           <button
             onClick={() => setShowQrModal(!showQrModal)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-none border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
               showQrModal
                 ? 'bg-[#00c8d4] text-slate-950 border-[#00c8d4] shadow-[0_0_15px_rgba(0,200,212,0.4)]'
                 : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800'
             }`}
             title={t('watchParty.qrCodeBtn')}
           >
-            <QrCode className={`w-4 h-4 ${showQrModal ? 'text-slate-950' : 'text-[#00c8d4]'}`} />
+            <QrCode className={`w-4 h-4 sm:w-5 sm:h-5 ${showQrModal ? 'text-slate-950' : 'text-[#00c8d4]'}`} />
             <span>{t('watchParty.qrCodeBtn')}</span>
           </button>
 
-          {/* Open Remote Button */}
-          <a
-            href={remoteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 text-xs sm:text-sm font-semibold transition-colors"
-            title={t('watchParty.openRemoteBtn')}
-          >
-            <Smartphone className="w-4 h-4 text-[#00c8d4]" />
-            <span>{t('watchParty.openRemoteBtn')}</span>
-            <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-          </a>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Member Counter */}
-          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 text-slate-300 text-xs sm:text-sm font-semibold">
-            <Users className="w-4 h-4 text-[#00c8d4]" />
-            <span className="font-mono">{memberCount}</span>
-          </span>
-
-          {/* End Room Button */}
-          <button
-            onClick={handleEndRoom}
-            className="px-3 py-1.5 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-red-200 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
-          >
-            {t('watchParty.endRoomBtn')}
-          </button>
-        </div>
-      </div>
-
-      {/* Bottom Player Controls & Quick Add Row */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-800">
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Play/Pause */}
+          {/* Play/Pause Button (Full Height) */}
           <button
             onClick={handleTogglePlayPause}
-            className="p-2.5 sm:p-3 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 transition-all shadow-[0_0_12px_rgba(0,200,212,0.25)] cursor-pointer"
+            className="px-4 py-2 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 transition-all shadow-[0_0_12px_rgba(0,200,212,0.25)] cursor-pointer flex items-center justify-center"
             title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
           >
             {isPlaying ? (
-              <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
+              <Pause className="w-5 h-5 fill-slate-950" />
             ) : (
-              <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
+              <Play className="w-5 h-5 fill-slate-950" />
             )}
           </button>
 
-          {/* Skip Next */}
+          {/* Skip Next Button (Full Height) */}
           <button
             onClick={handlePlayNextInQueue}
-            className="p-2.5 sm:p-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition-colors cursor-pointer"
+            className="px-3.5 sm:px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition-colors cursor-pointer flex items-center justify-center"
             title={t('watchParty.skipNextBtn')}
           >
             <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          {/* Mute Toggle */}
+          {/* Queue Toggle Button (Full Height) */}
           <button
-            onClick={() => setMuted(!muted)}
-            className="p-2.5 sm:p-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-colors cursor-pointer"
-            title={muted ? t('watchParty.unmuteBtn') : t('watchParty.muteBtn')}
+            onClick={() => setShowQueueDrawer(!showQueueDrawer)}
+            className={`flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 border transition-colors text-xs sm:text-sm font-mono cursor-pointer ${
+              queue.length > 0
+                ? 'bg-slate-900 border-[#00c8d4]/50 text-[#00c8d4]'
+                : 'bg-slate-900 border-slate-800 text-slate-400'
+            }`}
           >
-            {muted ? (
-              <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
-            ) : (
-              <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c8d4]" />
-            )}
+            <span>{t('watchParty.queueBtn')} ({queue.length})</span>
+            {showQueueDrawer ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
 
-        {/* Quick Add YT URL Form */}
-        <form onSubmit={onSubmitUrl} className="flex-1 flex gap-1.5 min-w-[200px]">
-          <input
-            type="url"
-            value={manualUrlInput}
-            onChange={(e) => setManualUrlInput(e.target.value)}
-            placeholder={t('watchParty.addYtPlaceholder')}
-            className="flex-1 px-3 py-2 bg-slate-900 border border-slate-800 text-slate-200 text-xs sm:text-sm focus:outline-none focus:border-[#00c8d4]"
-          />
-          <button
-            type="submit"
-            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-center cursor-pointer transition-colors"
-            title={t('watchParty.addYtSubmitTitle')}
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </form>
+        {/* Right Section: Participant Number, End Room */}
+        <div className="flex items-stretch gap-2.5">
+          {/* Member Counter (Full Height) */}
+          <span className="flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 text-xs sm:text-sm font-semibold">
+            <Users className="w-4 h-4 text-[#00c8d4]" />
+            <span className="font-mono">{memberCount}</span>
+          </span>
 
-        {/* Queue Toggle Button */}
-        <button
-          onClick={() => setShowQueueDrawer(!showQueueDrawer)}
-          className={`flex items-center gap-1.5 px-3 py-2 border transition-colors text-xs sm:text-sm font-mono cursor-pointer ${
-            queue.length > 0
-              ? 'bg-slate-900 border-[#00c8d4]/50 text-[#00c8d4]'
-              : 'bg-slate-900 border-slate-800 text-slate-400'
-          }`}
-        >
-          <span>{t('watchParty.queueBtn')} ({queue.length})</span>
-          {showQueueDrawer ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
+          {/* End Room Button (Full Height) */}
+          <button
+            onClick={handleEndRoom}
+            className="px-3.5 sm:px-4 py-2 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-red-200 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center"
+          >
+            {t('watchParty.endRoomBtn')}
+          </button>
+        </div>
       </div>
 
       {/* Queue Drawer list if toggled */}

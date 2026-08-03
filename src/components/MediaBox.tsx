@@ -136,30 +136,6 @@ export const MediaBox: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex flex-col gap-2 w-full">
-              <a
-                href={remoteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-2 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-colors"
-              >
-                <Smartphone className="w-4 h-4" />
-                <span>{t('mediaBox.openRemoteNewTab')}</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-
-              <button
-                onClick={copyRemoteLink}
-                className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                {copiedLink ? (
-                  <Check className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <Copy className="w-4 h-4 text-[#00c8d4]" />
-                )}
-                <span>{copiedLink ? t('mediaBox.linkCopied') : t('mediaBox.copyRemoteLink')}</span>
-              </button>
-            </div>
           </div>
         </div>
       )}
