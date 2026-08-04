@@ -5,7 +5,7 @@ import { useTranslation } from '@/context/LanguageContext';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import { Card } from '@/components/ui/card';
 import { pad } from '@/lib/utils';
-import { Tv, X, Copy, Check, ExternalLink, Smartphone, Clock, Minimize } from 'lucide-react';
+import { Tv, X, Copy, Check, ExternalLink, Smartphone, Clock, Minimize, Lock } from 'lucide-react';
 
 export const MediaBox: React.FC = () => {
   const { t } = useTranslation();
@@ -60,6 +60,7 @@ export const MediaBox: React.FC = () => {
   const isPlaying = roomState?.playback?.status === 'playing';
   const volume = roomState?.playback?.volume ?? 80;
   const isFullscreen = Boolean(roomState?.isFullscreen);
+  const isLocked = Boolean(roomState?.isLocked);
 
   return (
     <Card
@@ -83,22 +84,37 @@ export const MediaBox: React.FC = () => {
 
       {/* Main Video Player Area */}
       <div className="flex-1 w-full bg-black relative flex items-center justify-center overflow-hidden h-full">
-        {roomState?.currentlyPlaying ? (
-          <YouTubePlayer
-            url={roomState.currentlyPlaying}
-            isPlaying={isPlaying}
-            volume={volume}
-            muted={muted}
-            onEnded={handlePlayNextInQueue}
-          />
-        ) : (
-          <div className="text-center p-6 flex flex-col items-center gap-3">
-            <Tv className="w-12 h-12 text-slate-700 animate-pulse" />
-            <p className="text-slate-400 text-sm font-mono max-w-sm">
-              {roomCode
-                ? t('mediaBox.noVideoPlaying')
-                : t('mediaBox.watchPartyIdle')}
-            </p>
+        <div className={`w-full h-full flex items-center justify-center transition-all duration-500 ${isLocked ? 'blur-md opacity-40 scale-[1.02] pointer-events-none select-none' : ''
+          }`}>
+          {roomState?.currentlyPlaying ? (
+            <YouTubePlayer
+              url={roomState.currentlyPlaying}
+              isPlaying={isPlaying && !isLocked}
+              volume={volume}
+              muted={muted}
+              onEnded={handlePlayNextInQueue}
+            />
+          ) : (
+            <div className="text-center p-6 flex flex-col items-center gap-3">
+              <Tv className="w-12 h-12 text-slate-700 animate-pulse" />
+              <p className="text-slate-400 text-sm font-mono max-w-sm">
+                {roomCode
+                  ? t('mediaBox.noVideoPlaying')
+                  : t('mediaBox.watchPartyIdle')}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Room Locked Screen Overlay */}
+        {isLocked && (
+          <div className="absolute inset-0 z-20 bg-slate-950/80 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-center select-none">
+            <div className="flex flex-col items-center gap-3">
+              <Lock className="w-12 h-12 text-slate-700 animate-pulse" />
+              <p className="text-slate-400 text-sm font-mono max-w-sm">
+                {t('mediaBox.roomLockedSubtitle')}
+              </p>
+            </div>
           </div>
         )}
       </div>

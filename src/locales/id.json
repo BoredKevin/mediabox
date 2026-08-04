@@ -19,7 +19,10 @@
     "addYtSubmitTitle": "Tambah URL ke antrean",
     "queueBtn": "Antrean",
     "queueEmpty": "Antrean kosong",
-    "removeFromQueue": "Hapus dari antrean"
+    "removeFromQueue": "Hapus dari antrean",
+    "lockBtn": "Kunci",
+    "unlockBtn": "Buka Kunci",
+    "lockedBtn": "Terkunci"
   },
   "mediaBox": {
     "noVideoPlaying": "Tidak ada video diputar. Tambahkan URL YouTube di kontrol atas atau dari remote seluler!",
@@ -28,7 +31,9 @@
     "enterPinCode": "Atau masukkan PIN 6-digit:",
     "openRemoteNewTab": "Buka Remote di Tab Baru",
     "copyRemoteLink": "Salin Tautan Remote",
-    "linkCopied": "Tautan Disalin!"
+    "linkCopied": "Tautan Disalin!",
+    "roomLockedTitle": "RUANG TERKUNCI",
+    "roomLockedSubtitle": "Ruang dikunci"
   },
   "player": {
     "embedRestrictedError": "Pemilik video ini menonaktifkan pemutaran di pemutar tertanam pihak ketiga.",

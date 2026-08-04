@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useWatchParty } from '@/context/WatchPartyContext';
 import { useTranslation } from '@/context/LanguageContext';
 import {
@@ -8,19 +8,17 @@ import {
   Play,
   Pause,
   SkipForward,
-  Trash2,
   Loader2,
   ExternalLink,
   Smartphone,
-  ChevronDown,
-  ChevronUp,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 
 export const WatchPartyControls: React.FC = () => {
   const { t } = useTranslation();
   const {
     roomCode,
-    queue,
     memberCount,
     creating,
     showQrModal,
@@ -30,13 +28,12 @@ export const WatchPartyControls: React.FC = () => {
     handleEndRoom,
     handleTogglePlayPause,
     handlePlayNextInQueue,
-    handleRemoveQueueItem,
+    handleToggleRoomLock,
     roomState,
   } = useWatchParty();
 
-  const [showQueueDrawer, setShowQueueDrawer] = useState<boolean>(false);
-
   const isPlaying = roomState?.playback?.status === 'playing';
+  const isLocked = Boolean(roomState?.isLocked);
 
   // If no active room, render initial "Create Room" prompt
   if (!roomCode) {
@@ -87,7 +84,7 @@ export const WatchPartyControls: React.FC = () => {
     <div className="flex flex-col justify-center h-full w-full gap-2">
       {/* Active Room Controls Bar - All items fill full container height */}
       <div className="flex flex-wrap items-stretch justify-between gap-2.5 min-h-[56px] sm:min-h-[60px] w-full">
-        {/* Left Section: Big Room Code, QR Code, Pause, Skip, Queue */}
+        {/* Left Section: Big Room Code, QR Code, Pause, Skip, Lock */}
         <div className="flex flex-wrap items-stretch gap-2.5 flex-1 min-w-[280px]">
           {/* Big Room Code Badge (Full Height) */}
           <div className="px-4 py-2 bg-slate-900/90 border border-slate-800 font-mono text-[#00c8d4] font-bold tracking-wider flex items-center gap-2.5 shadow-sm justify-center select-none">
@@ -101,11 +98,10 @@ export const WatchPartyControls: React.FC = () => {
           {/* QR Code Toggle Button (Full Height) */}
           <button
             onClick={() => setShowQrModal(!showQrModal)}
-            className={`flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              showQrModal
-                ? 'bg-[#00c8d4] text-slate-950 border-[#00c8d4] shadow-[0_0_15px_rgba(0,200,212,0.4)]'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800'
-            }`}
+            className={`flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${showQrModal
+              ? 'bg-[#00c8d4] text-slate-950 border-[#00c8d4] shadow-[0_0_15px_rgba(0,200,212,0.4)]'
+              : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800'
+              }`}
             title={t('watchParty.qrCodeBtn')}
           >
             <QrCode className={`w-4 h-4 sm:w-5 sm:h-5 ${showQrModal ? 'text-slate-950' : 'text-[#00c8d4]'}`} />
@@ -115,7 +111,8 @@ export const WatchPartyControls: React.FC = () => {
           {/* Play/Pause Button (Full Height) */}
           <button
             onClick={handleTogglePlayPause}
-            className="px-4 py-2 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 transition-all shadow-[0_0_12px_rgba(0,200,212,0.25)] cursor-pointer flex items-center justify-center"
+            disabled={isLocked}
+            className="px-4 py-2 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 transition-all shadow-[0_0_12px_rgba(0,200,212,0.25)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
           >
             {isPlaying ? (
@@ -128,23 +125,31 @@ export const WatchPartyControls: React.FC = () => {
           {/* Skip Next Button (Full Height) */}
           <button
             onClick={handlePlayNextInQueue}
-            className="px-3.5 sm:px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition-colors cursor-pointer flex items-center justify-center"
+            disabled={isLocked}
+            className="px-3.5 sm:px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             title={t('watchParty.skipNextBtn')}
           >
             <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          {/* Queue Toggle Button (Full Height) */}
+          {/* Lock Room Toggle Button (Full Height) */}
           <button
-            onClick={() => setShowQueueDrawer(!showQueueDrawer)}
-            className={`flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 border transition-colors text-xs sm:text-sm font-mono cursor-pointer ${
-              queue.length > 0
-                ? 'bg-slate-900 border-[#00c8d4]/50 text-[#00c8d4]'
-                : 'bg-slate-900 border-slate-800 text-slate-400'
-            }`}
+            onClick={handleToggleRoomLock}
+            className={`flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${isLocked
+              ? 'bg-amber-950/90 border-amber-500 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)]'
+              : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800'
+              }`}
+            title={isLocked ? t('watchParty.unlockBtn') : t('watchParty.lockBtn')}
           >
-            <span>{t('watchParty.queueBtn')} ({queue.length})</span>
-            {showQueueDrawer ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {isLocked ? (
+              <>
+                <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
+              </>
+            ) : (
+              <>
+                <Unlock className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+              </>
+            )}
           </button>
         </div>
 
@@ -165,33 +170,6 @@ export const WatchPartyControls: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* Queue Drawer list if toggled */}
-      {showQueueDrawer && (
-        <div className="bg-slate-950 border border-slate-800 p-2 max-h-36 overflow-y-auto flex flex-col gap-1.5 z-30 rounded-none shadow-xl mt-1">
-          {queue.length === 0 ? (
-            <span className="text-xs text-slate-500 font-mono text-center py-2">{t('watchParty.queueEmpty')}</span>
-          ) : (
-            queue.map((item, idx) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between text-xs font-mono text-slate-300 px-2.5 py-1 bg-slate-900 border border-slate-800"
-              >
-                <span className="truncate flex-1">
-                  <strong className="text-[#00c8d4]">#{idx + 1}</strong> {item.url}
-                </span>
-                <button
-                  onClick={() => handleRemoveQueueItem(item.id)}
-                  className="text-slate-500 hover:text-red-400 ml-2 p-1 cursor-pointer"
-                  title={t('watchParty.removeFromQueue')}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
     </div>
   );
 };

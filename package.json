@@ -31,7 +31,8 @@
     "react-dom": "^19.0.0",
     "react-player": "^3.4.0",
     "react-router-dom": "^7.18.1",
-    "tailwind-merge": "^3.0.1"
+    "tailwind-merge": "^3.0.1",
+    "youtube-search-api": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

@@ -19,7 +19,10 @@
     "addYtSubmitTitle": "Add URL to queue",
     "queueBtn": "Queue",
     "queueEmpty": "Queue is empty",
-    "removeFromQueue": "Remove from queue"
+    "removeFromQueue": "Remove from queue",
+    "lockBtn": "Lock",
+    "unlockBtn": "Unlock",
+    "lockedBtn": "Locked"
   },
   "mediaBox": {
     "noVideoPlaying": "No video playing. Add a YouTube URL in the controls above or from mobile remote!",
@@ -28,7 +31,9 @@
     "enterPinCode": "Or enter 6-digit PIN:",
     "openRemoteNewTab": "Open Remote in New Tab",
     "copyRemoteLink": "Copy Remote Link",
-    "linkCopied": "Link Copied!"
+    "linkCopied": "Link Copied!",
+    "roomLockedTitle": "ROOM LOCKED",
+    "roomLockedSubtitle": "Room locked"
   },
   "player": {
     "embedRestrictedError": "The owner of this video has disabled playback in third-party embedded players.",

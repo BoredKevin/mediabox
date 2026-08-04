@@ -25,6 +25,7 @@ interface WatchPartyContextType {
   handleRemoveQueueItem: (itemId: string) => Promise<void>;
   handleAddUrlHost: (url: string) => Promise<boolean>;
   handleToggleFullscreen: () => Promise<void>;
+  handleToggleRoomLock: () => Promise<void>;
   copyRemoteLink: () => void;
 }
 
@@ -288,9 +289,15 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       } else if (type === 'toggleRoomLock') {
         if (isAuthorized) {
-          await update(ref(database, `rooms/${roomCode}/state`), {
-            isLocked: !roomStateRef.current?.isLocked,
-          });
+          const nextIsLocked = !roomStateRef.current?.isLocked;
+          const updates: Record<string, any> = {
+            isLocked: nextIsLocked,
+          };
+          if (nextIsLocked) {
+            updates['playback/status'] = 'paused';
+            updates['playback/updatedAt'] = Date.now();
+          }
+          await update(ref(database, `rooms/${roomCode}/state`), updates);
         } else {
           console.warn('[TV Host] Rejected toggleRoomLock command from non-authorized member:', memberUid);
         }
@@ -434,6 +441,19 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
   };
 
+  const handleToggleRoomLock = async () => {
+    if (!roomCode || !roomStateRef.current) return;
+    const nextIsLocked = !roomStateRef.current.isLocked;
+    const updates: Record<string, any> = {
+      isLocked: nextIsLocked,
+    };
+    if (nextIsLocked) {
+      updates['playback/status'] = 'paused';
+      updates['playback/updatedAt'] = Date.now();
+    }
+    await update(ref(database, `rooms/${roomCode}/state`), updates);
+  };
+
   return (
     <WatchPartyContext.Provider
       value={{
@@ -456,6 +476,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleRemoveQueueItem,
         handleAddUrlHost,
         handleToggleFullscreen,
+        handleToggleRoomLock,
         copyRemoteLink,
       }}
     >
