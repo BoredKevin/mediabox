@@ -13,6 +13,7 @@ import {
   Smartphone,
   Lock,
   Unlock,
+  Sparkles,
 } from 'lucide-react';
 
 export const WatchPartyControls: React.FC = () => {
@@ -29,6 +30,7 @@ export const WatchPartyControls: React.FC = () => {
     handleTogglePlayPause,
     handlePlayNextInQueue,
     handleToggleRoomLock,
+    handleToggleAutoplay,
     roomState,
   } = useWatchParty();
 
@@ -81,90 +83,98 @@ export const WatchPartyControls: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col justify-center h-full w-full gap-2">
-      {/* Active Room Controls Bar - All items fill full container height */}
-      <div className="flex flex-wrap items-stretch justify-between gap-2.5 min-h-[56px] sm:min-h-[60px] w-full">
-        {/* Left Section: Big Room Code, QR Code, Pause, Skip, Lock */}
-        <div className="flex flex-wrap items-stretch gap-2.5 flex-1 min-w-[280px]">
-          {/* Big Room Code Badge (Full Height) */}
-          <div className="px-4 py-2 bg-slate-900/90 border border-slate-800 font-mono text-[#00c8d4] font-bold tracking-wider flex items-center gap-2.5 shadow-sm justify-center select-none">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#00c8d4] animate-ping flex-shrink-0" />
+    <div className="flex flex-col justify-center h-full w-full gap-2 overflow-hidden">
+      {/* Active Room Controls Bar - All items fill full container height in a single inline row */}
+      <div className="flex items-stretch justify-between gap-1 sm:gap-1.5 md:gap-2.5 min-h-[48px] sm:min-h-[56px] w-full flex-nowrap">
+        {/* Left Section: Big Room Code, QR Code, Pause, Skip, Lock, Sparkles */}
+        <div className="flex items-stretch gap-1 sm:gap-1.5 md:gap-2 flex-nowrap min-w-0">
+          {/* Big Room Code Badge */}
+          <div className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-slate-900/90 border border-slate-800 font-mono text-[#00c8d4] font-bold tracking-wider flex items-center gap-1.5 sm:gap-2.5 shadow-sm justify-center select-none flex-shrink-0">
+            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#00c8d4] animate-ping flex-shrink-0" />
             <div className="flex flex-col justify-center leading-tight">
-              <span className="text-[10px] uppercase text-slate-400 font-sans tracking-widest font-semibold">{t('watchParty.roomBadge')}</span>
-              <span className="text-lg sm:text-xl md:text-2xl tracking-widest font-black text-[#00c8d4]">{roomCode}</span>
+              <span className="text-[9px] sm:text-[10px] uppercase text-slate-400 font-sans tracking-widest font-semibold hidden min-[400px]:block">{t('watchParty.roomBadge')}</span>
+              <span className="text-xs sm:text-base md:text-xl tracking-wider sm:tracking-widest font-black text-[#00c8d4]">{roomCode}</span>
             </div>
           </div>
 
-          {/* QR Code Toggle Button (Full Height) */}
+          {/* QR Code Toggle Button */}
           <button
             onClick={() => setShowQrModal(!showQrModal)}
-            className={`flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${showQrModal
+            className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 border text-xs sm:text-sm font-semibold transition-all cursor-pointer flex-shrink-0 ${showQrModal
               ? 'bg-[#00c8d4] text-slate-950 border-[#00c8d4] shadow-[0_0_15px_rgba(0,200,212,0.4)]'
               : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800'
               }`}
             title={t('watchParty.qrCodeBtn')}
           >
-            <QrCode className={`w-4 h-4 sm:w-5 sm:h-5 ${showQrModal ? 'text-slate-950' : 'text-[#00c8d4]'}`} />
-            <span>{t('watchParty.qrCodeBtn')}</span>
+            <QrCode className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${showQrModal ? 'text-slate-950' : 'text-[#00c8d4]'}`} />
+            <span className="hidden min-[1350px]:inline truncate">{t('watchParty.qrCodeBtn')}</span>
           </button>
 
-          {/* Play/Pause Button (Full Height) */}
+          {/* Play/Pause Button */}
           <button
             onClick={handleTogglePlayPause}
             disabled={isLocked}
-            className="px-4 py-2 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 transition-all shadow-[0_0_12px_rgba(0,200,212,0.25)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 transition-all shadow-[0_0_12px_rgba(0,200,212,0.25)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0"
             title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
           >
             {isPlaying ? (
-              <Pause className="w-5 h-5 fill-slate-950" />
+              <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
             ) : (
-              <Play className="w-5 h-5 fill-slate-950" />
+              <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
             )}
           </button>
 
-          {/* Skip Next Button (Full Height) */}
+          {/* Skip Next Button */}
           <button
             onClick={handlePlayNextInQueue}
             disabled={isLocked}
-            className="px-3.5 sm:px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0"
             title={t('watchParty.skipNextBtn')}
           >
             <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          {/* Lock Room Toggle Button (Full Height) */}
+          {/* Lock Room Toggle Button */}
           <button
             onClick={handleToggleRoomLock}
-            className={`flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 border text-xs sm:text-sm font-semibold transition-all cursor-pointer ${isLocked
+            className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 border text-xs sm:text-sm font-semibold transition-all cursor-pointer flex-shrink-0 ${isLocked
               ? 'bg-amber-950/90 border-amber-500 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)]'
               : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800'
               }`}
             title={isLocked ? t('watchParty.unlockBtn') : t('watchParty.lockBtn')}
           >
             {isLocked ? (
-              <>
-                <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
-              </>
+              <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
             ) : (
-              <>
-                <Unlock className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-              </>
+              <Unlock className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
             )}
+          </button>
+
+          {/* Autoplay Toggle Button */}
+          <button
+            onClick={handleToggleAutoplay}
+            className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 border text-xs sm:text-sm font-semibold transition-all cursor-pointer flex-shrink-0 ${roomState?.isAutoplay
+              ? 'bg-purple-950/90 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+              : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800'
+              }`}
+            title="Toggle Autoplay (Last.fm recommendation)"
+          >
+            <Sparkles className={`w-4 h-4 sm:w-5 sm:h-5 ${roomState?.isAutoplay ? 'text-purple-300 animate-pulse' : 'text-slate-400'}`} />
           </button>
         </div>
 
         {/* Right Section: Participant Number, End Room */}
-        <div className="flex items-stretch gap-2.5">
-          {/* Member Counter (Full Height) */}
-          <span className="flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 text-xs sm:text-sm font-semibold">
+        <div className="flex items-stretch gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
+          {/* Member Counter */}
+          <span className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-slate-900 border border-slate-800 text-slate-300 text-xs sm:text-sm font-semibold flex-shrink-0">
             <Users className="w-4 h-4 text-[#00c8d4]" />
             <span className="font-mono">{memberCount}</span>
           </span>
 
-          {/* End Room Button (Full Height) */}
+          {/* End Room Button */}
           <button
             onClick={handleEndRoom}
-            className="px-3.5 sm:px-4 py-2 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-red-200 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center"
+            className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-red-200 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center flex-shrink-0 whitespace-nowrap"
           >
             {t('watchParty.endRoomBtn')}
           </button>

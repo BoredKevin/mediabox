@@ -4,6 +4,7 @@ import { ref, onValue, set, update, remove, off } from 'firebase/database';
 import { ensureAnonymousAuth, database } from '@/lib/firebase';
 import { createRoomAtomic, RoomState, QueueItem, parseYouTubeVideoId } from '@/lib/roomUtils';
 import { fetchVideoTitle } from '@/lib/youtube';
+import { getAutoplayNextYouTubeTrack } from '@/lib/lastfm';
 
 interface WatchPartyContextType {
   user: User | null;
@@ -26,6 +27,7 @@ interface WatchPartyContextType {
   handleAddUrlHost: (url: string) => Promise<boolean>;
   handleToggleFullscreen: () => Promise<void>;
   handleToggleRoomLock: () => Promise<void>;
+  handleToggleAutoplay: () => Promise<void>;
   copyRemoteLink: () => void;
 }
 
@@ -62,6 +64,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const hostUidRef = useRef<string | null>(null);
   const lastFullscreenToggleRef = useRef<number>(0);
   const adminsListRef = useRef<string[]>([]);
+  const recentAutoplayHistoryRef = useRef<string[]>([]);
 
   // Subscribe to admins list from Firebase RTDB
   useEffect(() => {
@@ -301,6 +304,11 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         } else {
           console.warn('[TV Host] Rejected toggleRoomLock command from non-authorized member:', memberUid);
         }
+      } else if (type === 'toggleAutoplay') {
+        const nextAutoplay = !roomStateRef.current?.isAutoplay;
+        await update(ref(database, `rooms/${roomCode}/state`), {
+          isAutoplay: nextAutoplay,
+        });
       }
     } catch (err) {
       console.error('[TV Host] Error executing member command:', err);
@@ -356,6 +364,53 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updatedAt: Date.now(),
       });
       await remove(ref(database, `rooms/${roomCode}/queue/${nextItem.id}`));
+    } else if (roomStateRef.current?.isAutoplay) {
+      // Queue is empty but Autoplay is enabled!
+      let currentTitle = roomStateRef.current?.currentlyPlayingTitle || '';
+      let channelTitle = '';
+
+      if (roomStateRef.current?.currentlyPlaying) {
+        const info = await fetchVideoTitle(roomStateRef.current.currentlyPlaying);
+        if (info.title && !currentTitle) {
+          currentTitle = info.title;
+        }
+        if (info.channelTitle) {
+          channelTitle = info.channelTitle;
+        }
+      }
+
+      if (currentTitle) {
+        // Maintain history of last 10 tracks
+        recentAutoplayHistoryRef.current = [
+          currentTitle,
+          ...recentAutoplayHistoryRef.current.filter((t) => t !== currentTitle),
+        ].slice(0, 10);
+      }
+
+      console.log('[TV Host] Autoplay active. Searching for track similar to title:', currentTitle, 'channel:', channelTitle);
+      const nextTrack = await getAutoplayNextYouTubeTrack(currentTitle, channelTitle, recentAutoplayHistoryRef.current);
+
+      if (nextTrack) {
+        console.log('[TV Host] Autoplay next track resolved:', nextTrack.title, nextTrack.url);
+        await update(ref(database, `rooms/${roomCode}/state`), {
+          currentlyPlaying: nextTrack.url,
+          currentlyPlayingTitle: nextTrack.title,
+        });
+        await update(ref(database, `rooms/${roomCode}/state/playback`), {
+          status: 'playing',
+          updatedAt: Date.now(),
+        });
+      } else {
+        console.warn('[TV Host] Autoplay found no similar tracks or YouTube results.');
+        await update(ref(database, `rooms/${roomCode}/state`), {
+          currentlyPlaying: '',
+          currentlyPlayingTitle: '',
+        });
+        await update(ref(database, `rooms/${roomCode}/state/playback`), {
+          status: 'paused',
+          updatedAt: Date.now(),
+        });
+      }
     } else {
       await update(ref(database, `rooms/${roomCode}/state`), {
         currentlyPlaying: '',
@@ -454,6 +509,14 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     await update(ref(database, `rooms/${roomCode}/state`), updates);
   };
 
+  const handleToggleAutoplay = async () => {
+    if (!roomCode) return;
+    const nextAutoplay = !roomStateRef.current?.isAutoplay;
+    await update(ref(database, `rooms/${roomCode}/state`), {
+      isAutoplay: nextAutoplay,
+    });
+  };
+
   return (
     <WatchPartyContext.Provider
       value={{
@@ -477,6 +540,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleAddUrlHost,
         handleToggleFullscreen,
         handleToggleRoomLock,
+        handleToggleAutoplay,
         copyRemoteLink,
       }}
     >

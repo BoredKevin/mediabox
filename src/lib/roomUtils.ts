@@ -15,6 +15,7 @@ export interface RoomState {
   hostUid?: string;
   isFullscreen?: boolean;
   isLocked?: boolean;
+  isAutoplay?: boolean;
 }
 
 export interface QueueItem {
@@ -26,7 +27,7 @@ export interface QueueItem {
 }
 
 export interface MemberCommand {
-  type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen' | 'clearQueue' | 'toggleRoomLock';
+  type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen' | 'clearQueue' | 'toggleRoomLock' | 'toggleAutoplay';
   createdAt: number;
   payload?: {
     url?: string;

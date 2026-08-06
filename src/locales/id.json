@@ -22,7 +22,9 @@
     "removeFromQueue": "Hapus dari antrean",
     "lockBtn": "Kunci",
     "unlockBtn": "Buka Kunci",
-    "lockedBtn": "Terkunci"
+    "lockedBtn": "Terkunci",
+    "autoplayOn": "Autoplay ON",
+    "autoplayOff": "Autoplay OFF"
   },
   "mediaBox": {
     "noVideoPlaying": "Tidak ada video diputar. Tambahkan URL YouTube di kontrol atas atau dari remote seluler!",
@@ -110,7 +112,10 @@
     "itemsCount": "{count} item",
     "itemsCount_plural": "{count} item",
     "moveUp": "Naik",
-    "moveDown": "Turun"
+    "moveDown": "Turun",
+    "autoplayMode": "Mode Autoplay",
+    "autoplayOn": "ON",
+    "autoplayOff": "OFF"
   },
   "toasts": {
     "authFailed": "Gagal melakukan autentikasi dengan Firebase.",
@@ -139,6 +144,8 @@
     "clearQueueSent": "Perintah kosongkan antrean terkirim!",
     "roomUnlocked": "Ruang dibuka kunci!",
     "roomLocked": "Ruang dikunci!",
+    "autoplayEnabled": "Autoplay diaktifkan!",
+    "autoplayDisabled": "Autoplay dinonaktifkan!",
     "commandSent": "Perintah {type} terkirim!",
     "commandFailed": "Gagal mengirim perintah. Periksa status ruang.",
     "itemRemoved": "Item dihapus dari antrean.",

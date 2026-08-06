@@ -22,7 +22,9 @@
     "removeFromQueue": "Remove from queue",
     "lockBtn": "Lock",
     "unlockBtn": "Unlock",
-    "lockedBtn": "Locked"
+    "lockedBtn": "Locked",
+    "autoplayOn": "Autoplay ON",
+    "autoplayOff": "Autoplay OFF"
   },
   "mediaBox": {
     "noVideoPlaying": "No video playing. Add a YouTube URL in the controls above or from mobile remote!",
@@ -110,7 +112,10 @@
     "itemsCount": "{count} item",
     "itemsCount_plural": "{count} items",
     "moveUp": "Move Up",
-    "moveDown": "Move Down"
+    "moveDown": "Move Down",
+    "autoplayMode": "Autoplay Mode",
+    "autoplayOn": "ON",
+    "autoplayOff": "OFF"
   },
   "toasts": {
     "authFailed": "Failed to authenticate with Firebase.",
@@ -139,6 +144,8 @@
     "clearQueueSent": "Clear queue command sent!",
     "roomUnlocked": "Room unlocked!",
     "roomLocked": "Room locked!",
+    "autoplayEnabled": "Autoplay enabled!",
+    "autoplayDisabled": "Autoplay disabled!",
     "commandSent": "Sent {type} command!",
     "commandFailed": "Failed to send command. Check room status.",
     "itemRemoved": "Removed item from queue.",

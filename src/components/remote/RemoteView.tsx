@@ -39,6 +39,7 @@ import {
   QrCode,
   Copy,
   Check,
+  Sparkles,
 } from 'lucide-react';
 
 interface ToastMessage {
@@ -352,13 +353,13 @@ export const RemoteView: React.FC = () => {
   };
 
   const sendCommand = async (
-    type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen' | 'clearQueue' | 'toggleRoomLock',
+    type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen' | 'clearQueue' | 'toggleRoomLock' | 'toggleAutoplay',
     payload?: any
   ) => {
     if (!activeRoomCode || !user) return;
 
     if (roomState?.isLocked && !isHostOrAdmin) {
-      if (type === 'addToQueue' || type === 'play' || type === 'pause' || type === 'adjustVolume') {
+      if (type === 'addToQueue' || type === 'play' || type === 'pause' || type === 'adjustVolume' || type === 'toggleAutoplay') {
         showToast(t('toasts.controlsLockedByAdmin'), 'error');
         return;
       }
@@ -385,6 +386,7 @@ export const RemoteView: React.FC = () => {
         toggleFullscreen: t('toasts.toggleFullscreenSent'),
         clearQueue: t('toasts.clearQueueSent'),
         toggleRoomLock: roomState?.isLocked ? t('toasts.roomUnlocked') : t('toasts.roomLocked'),
+        toggleAutoplay: roomState?.isAutoplay ? t('toasts.autoplayDisabled') : t('toasts.autoplayEnabled'),
       };
       showToast(labelMap[type] || t('toasts.commandSent', { type }), 'success');
     } catch (err: any) {
@@ -853,6 +855,26 @@ export const RemoteView: React.FC = () => {
                 onMouseUp={handleVolumeCommit}
                 className="w-full accent-[#00c8d4] bg-slate-950 cursor-pointer h-2 rounded-none"
               />
+            </div>
+
+            {/* Autoplay Toggle Row */}
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+              <span className="text-xs text-slate-300 flex items-center gap-1.5 font-medium">
+                <Sparkles className={`w-4 h-4 ${roomState?.isAutoplay ? 'text-purple-400 animate-pulse' : 'text-slate-400'}`} />
+                {t('remote.autoplayMode')}
+              </span>
+              <button
+                onClick={() => sendCommand('toggleAutoplay')}
+                disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                className={`px-3 py-1.5 border text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${roomState?.isAutoplay
+                    ? 'bg-purple-950/80 border-purple-500 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.3)]'
+                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+                  }`}
+                title="Toggle Autoplay mode via Last.fm recommendation"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{roomState?.isAutoplay ? t('remote.autoplayOn') : t('remote.autoplayOff')}</span>
+              </button>
             </div>
 
             {/* Fullscreen Toggle Row for All Members */}
