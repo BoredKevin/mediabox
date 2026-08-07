@@ -1,4 +1,5 @@
 import { searchYouTubeVideos } from './youtube';
+import { parseYouTubeVideoId } from './roomUtils';
 
 export interface LastFmTrackRecommendation {
   title: string;
@@ -7,11 +8,11 @@ export interface LastFmTrackRecommendation {
 }
 
 /**
- * Robustly parses YouTube video title and channel name into clean track and artist names.
+ * Robustly parses YouTube video title and channel name (oEmbed author) into clean track and artist names.
  * Handles patterns:
+ * - "PERTO (Super Slowed)" (channel: "SXYGX - Topic") -> { artist: "SXYGX", track: "PERTO" }
  * - "h6itam - MONTAGEM ALQUIMIA (Official Video)" -> { artist: "h6itam", track: "MONTAGEM ALQUIMIA" }
- * - "MONTAGEM ALQUIMIA" (channel: "h6itam - Topic") -> { artist: "h6itam", track: "MONTAGEM ALQUIMIA" }
- * - "NO ERA AMOR - Slowed" (channel: "DJ Asul") -> { artist: "DJ Asul", track: "NO ERA AMOR - Slowed" }
+ * - "Song Name ft. Drake (Remix)" (channel: "Topic Channel") -> { artist: "Drake", track: "Song Name" }
  */
 export const parseTrackAndArtist = (
   rawTitle: string,
@@ -19,7 +20,7 @@ export const parseTrackAndArtist = (
 ): { artist: string; track: string } => {
   if (!rawTitle) return { artist: '', track: '' };
 
-  // 1. Clean channel name if available (remove "- Topic", "VEVO", "Official", etc.)
+  // 1. Clean author/channel name from oEmbed API (remove "- Topic", "VEVO", "Official", etc.)
   let cleanChannel = (channelTitle || '')
     .replace(/\s*-\s*Topic$/i, '')
     .replace(/\s*VEVO$/i, '')
@@ -30,9 +31,13 @@ export const parseTrackAndArtist = (
     .replace(/\s*Channel$/i, '')
     .trim();
 
-  // 2. Comprehensive noise tag removal from title (remove parens/brackets containing official, video, audio, lyric, slowed, etc.)
+  // 2. Comprehensive noise removal from raw title:
+  // Remove parenthesized / bracketed noise tags: (Super Slowed), (Slowed & Reverb), (Remix), (ft. ...), (Official Video), etc.
   let cleanTitle = rawTitle
-    .replace(/[\(\[\{][^\)\]\}]*(official|music\s+video|video|audio|lyric|visualizer|slowed|reverb|speed|mv|hd|4k|clip|explicit|prod|remix|version|edit|cover)[^\)\]\}]*[\)\]\}]/gi, '')
+    .replace(/[\(\[\{][^\)\]\}]*(official|music\s+video|video|audio|lyric|visualizer|super\s+slowed|slowed|reverb|speed|sped|nightcore|remix|edit|version|cover|mv|hd|4k|clip|explicit|prod|feat|ft)[^\)\]\}]*[\)\]\}]/gi, '')
+    .replace(/\b(super\s+slowed|slowed\s*\&\s*reverb|slowed|reverb|sped\s+up|speed\s+up|nightcore|remix|edit|official\s+video|official\s+audio|lyric\s+video)\b/gi, '')
+    .replace(/\b(ft|ft\.|feat|feat\.|featuring)\s+[a-zA-Z0-9_\s&-]+/gi, '')
+    .replace(/[\(\[\{\)\]\}]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -40,7 +45,7 @@ export const parseTrackAndArtist = (
     cleanTitle = rawTitle.replace(/[\(\[\{\)\]\}]/g, '').trim();
   }
 
-  // 3. Check for "Artist - Track" or "Track - Artist" dividers
+  // 3. Analyze title to extract artist name vs track name
   const hyphens = [' - ', ' – ', ' — ', ' : '];
   let extractedArtist = '';
   let extractedTrack = '';
@@ -52,7 +57,7 @@ export const parseTrackAndArtist = (
         const p1 = parts[0].trim().replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
         const p2 = parts.slice(1).join(h).trim();
 
-        // If part 2 matches channel name better than part 1 (e.g. "Track - Artist")
+        // Check if Part 2 matches channel/author better than Part 1
         if (cleanChannel && p2.toLowerCase().includes(cleanChannel.toLowerCase())) {
           extractedArtist = p2;
           extractedTrack = p1;
@@ -65,14 +70,14 @@ export const parseTrackAndArtist = (
     }
   }
 
-  // If no divider in title, track is cleanTitle and artist is cleanChannel
+  // 4. If no artist divider found in title, use cleanTitle as track and fall back to cleanChannel (oEmbed author with "- Topic" removed) as artist!
   if (!extractedTrack) {
     extractedTrack = cleanTitle;
     extractedArtist = cleanChannel;
   }
 
-  // Final noise checks
-  const noisePattern = /^(official|music\s+video|video|audio|lyric|hd|4k|mv)$/i;
+  // Final noise checks for artist and track
+  const noisePattern = /^(official|music\s+video|video|audio|lyric|hd|4k|mv|super\s+slowed|slowed|remix)$/i;
   if (!extractedArtist || noisePattern.test(extractedArtist)) {
     extractedArtist = cleanChannel;
   }
@@ -85,10 +90,15 @@ export const parseTrackAndArtist = (
 };
 
 /**
- * Normalizes string for fuzzy comparison.
+ * Normalizes string for fuzzy comparison by stripping noise tags and non-alphanumeric characters.
  */
-const normalizeStr = (str: string): string => {
-  return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+export const normalizeStr = (str: string): string => {
+  return (str || '')
+    .toLowerCase()
+    .replace(/[\(\[\{][^\)\]\}]*(official|music\s+video|video|audio|lyric|visualizer|super\s+slowed|slowed|reverb|speed|sped|nightcore|remix|edit|version|cover|mv|hd|4k|clip|explicit|prod|feat|ft)[^\)\]\}]*[\)\]\}]/gi, '')
+    .replace(/\b(super\s+slowed|slowed\s*\&\s*reverb|slowed|reverb|sped\s+up|speed\s+up|nightcore|remix|edit|official\s+video|official\s+audio|lyric\s+video)\b/gi, '')
+    .replace(/\b(ft|ft\.|feat|feat\.|featuring)\s+[a-zA-Z0-9_\s&-]+/gi, '')
+    .replace(/[^a-z0-9]/g, '');
 };
 
 /**
@@ -99,11 +109,11 @@ const normalizeStr = (str: string): string => {
  * Stage 4: track.search -> track.getSimilar
  * Stage 5: artist.getTopTracks fallback
  */
-export const fetchSimilarTrackFromLastFm = async (
+export const fetchSimilarTracksFromLastFm = async (
   currentPlayingTitle: string,
   channelTitle: string = '',
   recentHistory: string[] = []
-): Promise<LastFmTrackRecommendation | null> => {
+): Promise<LastFmTrackRecommendation[]> => {
   const apiKey = import.meta.env.VITE_LASTFM_API_KEY || '09e1f1c026f13aed192a7cf26b26f003';
   const { artist, track } = parseTrackAndArtist(currentPlayingTitle, channelTitle);
 
@@ -112,6 +122,8 @@ export const fetchSimilarTrackFromLastFm = async (
   const cleanCurrentTitleNorm = normalizeStr(currentPlayingTitle);
   const cleanTrackNorm = normalizeStr(track);
   const historyNorms = recentHistory.map(normalizeStr);
+
+  const recommendations: LastFmTrackRecommendation[] = [];
 
   const queryLastFmSimilar = async (targetTrack: string, targetArtist: string) => {
     if (!targetTrack) return null;
@@ -184,25 +196,25 @@ export const fetchSimilarTrackFromLastFm = async (
       const isCurrent =
         candidateNorm === cleanCurrentTitleNorm ||
         candidateNameNorm === cleanTrackNorm ||
-        cleanCurrentTitleNorm.includes(candidateNameNorm);
+        (cleanTrackNorm.length > 2 && candidateNameNorm.includes(cleanTrackNorm));
 
       const isRecent = historyNorms.some(
-        (h) => h === candidateNorm || h.includes(candidateNameNorm)
+        (h) => h && (h === candidateNorm || h === candidateNameNorm || (h.length > 2 && candidateNameNorm.includes(h)))
       );
 
       if (!isCurrent && !isRecent) {
         const resultQuery = candidateArtist ? `${candidateArtist} ${candidateName}` : candidateName;
-        return {
+        recommendations.push({
           title: candidateName,
           artist: candidateArtist,
           query: resultQuery,
-        };
+        });
       }
     }
   }
 
   // Stage 5: Final Fallback - Query artist top tracks or general music search
-  if (artist) {
+  if (artist && recommendations.length === 0) {
     try {
       const topTracksUrl = `https://ws.audioscrobbler.com/2.0/?method=artist.getTopTracks&artist=${encodeURIComponent(artist)}&limit=5&format=json&api_key=${apiKey}`;
       const topRes = await fetch(topTracksUrl);
@@ -215,11 +227,11 @@ export const fetchSimilarTrackFromLastFm = async (
             const candidateArtist = item.artist?.name || artist;
             const candidateNameNorm = normalizeStr(candidateName);
             if (candidateNameNorm !== cleanTrackNorm && !historyNorms.includes(candidateNameNorm)) {
-              return {
+              recommendations.push({
                 title: candidateName,
                 artist: candidateArtist,
                 query: `${candidateArtist} ${candidateName}`,
-              };
+              });
             }
           }
         }
@@ -228,45 +240,136 @@ export const fetchSimilarTrackFromLastFm = async (
       console.warn('[Last.fm API] artist.getTopTracks fallback failed:', e);
     }
 
-    return {
-      title: `${artist} song`,
-      artist: artist,
-      query: `${artist} music`,
-    };
+    if (recommendations.length === 0) {
+      recommendations.push({
+        title: `${artist} song`,
+        artist: artist,
+        query: `${artist} music`,
+      });
+    }
   }
 
-  return null;
+  return recommendations;
 };
 
 /**
  * Resolves next autoplay YouTube track based on current song metadata.
+ * Explicitly excludes current playing YouTube video ID, recent URL history, and duplicate song names/artists.
  */
 export const getAutoplayNextYouTubeTrack = async (
   currentPlayingTitle: string,
   channelTitle: string = '',
-  recentHistory: string[] = []
+  recentHistory: string[] = [],
+  currentPlayingUrl: string = '',
+  recentUrls: string[] = []
 ): Promise<{ url: string; title: string } | null> => {
   try {
-    const recommendation = await fetchSimilarTrackFromLastFm(currentPlayingTitle, channelTitle, recentHistory);
-    let searchQuery = recommendation?.query;
+    const excludedVideoIds = new Set<string>();
 
-    if (!searchQuery) {
-      const { artist, track } = parseTrackAndArtist(currentPlayingTitle, channelTitle);
-      searchQuery = artist ? `${artist} music` : `${track} music`;
+    const currentVideoId = parseYouTubeVideoId(currentPlayingUrl);
+    if (currentVideoId) {
+      excludedVideoIds.add(currentVideoId);
     }
 
-    console.log('[Autoplay] Searching YouTube for recommendation:', searchQuery);
-    const searchRes = await searchYouTubeVideos(searchQuery);
+    for (const u of recentUrls) {
+      const vId = parseYouTubeVideoId(u);
+      if (vId) {
+        excludedVideoIds.add(vId);
+      }
+    }
 
-    if (searchRes.results && searchRes.results.length > 0) {
-      const topMatch = searchRes.results[0];
-      return {
-        url: topMatch.url,
-        title: topMatch.title,
-      };
+    const { artist, track: cleanCurrentTrack } = parseTrackAndArtist(currentPlayingTitle, channelTitle);
+    const cleanCurrentTrackNorm = normalizeStr(cleanCurrentTrack);
+    const historyNorms = recentHistory.map(normalizeStr);
+
+    console.log('[Autoplay] Current playing track:', cleanCurrentTrack, 'artist:', artist);
+    console.log('[Autoplay] Excluded Video IDs:', Array.from(excludedVideoIds));
+
+    const isDuplicateSong = (itemTitle: string, itemChannelTitle: string): boolean => {
+      const parsed = parseTrackAndArtist(itemTitle, itemChannelTitle);
+      const candidateTrackNorm = normalizeStr(parsed.track || itemTitle);
+
+      if (cleanCurrentTrackNorm && candidateTrackNorm === cleanCurrentTrackNorm) {
+        return true;
+      }
+      if (cleanCurrentTrackNorm && cleanCurrentTrackNorm.length > 3 && candidateTrackNorm.includes(cleanCurrentTrackNorm)) {
+        return true;
+      }
+      if (cleanCurrentTrackNorm && candidateTrackNorm.length > 3 && cleanCurrentTrackNorm.includes(candidateTrackNorm)) {
+        return true;
+      }
+      return historyNorms.some(
+        (h) => h && (h === candidateTrackNorm || (h.length > 3 && candidateTrackNorm.includes(h)))
+      );
+    };
+
+    const recommendations = await fetchSimilarTracksFromLastFm(currentPlayingTitle, channelTitle, recentHistory);
+
+    // Try recommendations from Last.fm
+    for (const rec of recommendations) {
+      console.log('[Autoplay] Searching YouTube for recommendation:', rec.query);
+      const searchRes = await searchYouTubeVideos(rec.query);
+
+      if (searchRes.results && searchRes.results.length > 0) {
+        const validMatch = searchRes.results.find((item) => {
+          const itemVideoId = parseYouTubeVideoId(item.url) || item.id;
+          if (itemVideoId && excludedVideoIds.has(itemVideoId)) {
+            return false;
+          }
+          if (isDuplicateSong(item.title, item.channelTitle)) {
+            console.log(`[Autoplay Filter] Skipped duplicate/recent song version: "${item.title}"`);
+            return false;
+          }
+          return true;
+        });
+
+        if (validMatch) {
+          console.log('[Autoplay] Resolved non-duplicate YouTube track:', validMatch.title, validMatch.url);
+          return {
+            url: validMatch.url,
+            title: validMatch.title,
+          };
+        }
+      }
+    }
+
+    // Fallback: search using track/artist name directly if recommendations were empty or all returned excluded videos
+    const fallbackQueries = [
+      artist ? `${artist} music` : null,
+      cleanCurrentTrack ? `${cleanCurrentTrack} music` : null,
+      'popular music video',
+    ].filter(Boolean) as string[];
+
+    for (const searchQuery of fallbackQueries) {
+      console.log('[Autoplay] Fallback searching YouTube for:', searchQuery);
+      const searchRes = await searchYouTubeVideos(searchQuery);
+
+      if (searchRes.results && searchRes.results.length > 0) {
+        const validMatch = searchRes.results.find((item) => {
+          const itemVideoId = parseYouTubeVideoId(item.url) || item.id;
+          if (itemVideoId && excludedVideoIds.has(itemVideoId)) {
+            return false;
+          }
+          if (isDuplicateSong(item.title, item.channelTitle)) {
+            console.log(`[Autoplay Filter] Skipped duplicate/recent song version in fallback: "${item.title}"`);
+            return false;
+          }
+          return true;
+        });
+
+        if (validMatch) {
+          console.log('[Autoplay] Resolved fallback YouTube track:', validMatch.title, validMatch.url);
+          return {
+            url: validMatch.url,
+            title: validMatch.title,
+          };
+        }
+      }
     }
   } catch (err) {
     console.error('[Autoplay] Failed to resolve autoplay track:', err);
   }
   return null;
 };
+
+

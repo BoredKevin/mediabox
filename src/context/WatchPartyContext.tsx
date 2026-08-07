@@ -4,7 +4,7 @@ import { ref, onValue, set, update, remove, off } from 'firebase/database';
 import { ensureAnonymousAuth, database } from '@/lib/firebase';
 import { createRoomAtomic, RoomState, QueueItem, parseYouTubeVideoId } from '@/lib/roomUtils';
 import { fetchVideoTitle } from '@/lib/youtube';
-import { getAutoplayNextYouTubeTrack } from '@/lib/lastfm';
+import { getAutoplayNextYouTubeTrack, parseTrackAndArtist } from '@/lib/lastfm';
 
 interface WatchPartyContextType {
   user: User | null;
@@ -65,6 +65,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const lastFullscreenToggleRef = useRef<number>(0);
   const adminsListRef = useRef<string[]>([]);
   const recentAutoplayHistoryRef = useRef<string[]>([]);
+  const recentAutoplayUrlHistoryRef = useRef<string[]>([]);
 
   // Subscribe to admins list from Firebase RTDB
   useEffect(() => {
@@ -369,8 +370,10 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       let currentTitle = roomStateRef.current?.currentlyPlayingTitle || '';
       let channelTitle = '';
 
-      if (roomStateRef.current?.currentlyPlaying) {
-        const info = await fetchVideoTitle(roomStateRef.current.currentlyPlaying);
+      const currentUrl = roomStateRef.current?.currentlyPlaying || '';
+
+      if (currentUrl) {
+        const info = await fetchVideoTitle(currentUrl);
         if (info.title && !currentTitle) {
           currentTitle = info.title;
         }
@@ -380,15 +383,34 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
 
       if (currentTitle) {
-        // Maintain history of last 10 tracks
-        recentAutoplayHistoryRef.current = [
-          currentTitle,
-          ...recentAutoplayHistoryRef.current.filter((t) => t !== currentTitle),
-        ].slice(0, 10);
+        const parsed = parseTrackAndArtist(currentTitle, channelTitle);
+        const cleanTrackName = parsed.track || currentTitle;
+        // Maintain history of clean track names and raw titles
+        recentAutoplayHistoryRef.current = Array.from(
+          new Set([
+            cleanTrackName,
+            currentTitle,
+            ...recentAutoplayHistoryRef.current,
+          ])
+        ).slice(0, 20);
+      }
+
+      if (currentUrl) {
+        // Maintain history of last 15 URLs
+        recentAutoplayUrlHistoryRef.current = [
+          currentUrl,
+          ...recentAutoplayUrlHistoryRef.current.filter((u) => u !== currentUrl),
+        ].slice(0, 15);
       }
 
       console.log('[TV Host] Autoplay active. Searching for track similar to title:', currentTitle, 'channel:', channelTitle);
-      const nextTrack = await getAutoplayNextYouTubeTrack(currentTitle, channelTitle, recentAutoplayHistoryRef.current);
+      const nextTrack = await getAutoplayNextYouTubeTrack(
+        currentTitle,
+        channelTitle,
+        recentAutoplayHistoryRef.current,
+        currentUrl,
+        recentAutoplayUrlHistoryRef.current
+      );
 
       if (nextTrack) {
         console.log('[TV Host] Autoplay next track resolved:', nextTrack.title, nextTrack.url);
