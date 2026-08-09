@@ -3,51 +3,36 @@ import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { pad } from '@/lib/utils';
 import { WatchPartyControls } from '@/components/WatchPartyControls';
+import { useTranslation } from '@/context/LanguageContext';
 
-const SHORT_DAYS = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-const SHORT_MONTHS = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
+const formatClockDate = (now: Date, lang: string) => {
+  const locale = lang === 'id' ? 'id-ID' : 'en-US';
+  return {
+    hours: pad(now.getHours()),
+    minutes: pad(now.getMinutes()),
+    seconds: pad(now.getSeconds()),
+    secValue: now.getSeconds(),
+    dayName: now.toLocaleDateString(locale, { weekday: 'long' }).toUpperCase(),
+    dayNum: pad(now.getDate()),
+    monthShort: now.toLocaleDateString(locale, { month: 'short' }).toUpperCase(),
+    year: now.getFullYear().toString(),
+  };
+};
 
 export const ClockSection: React.FC = () => {
-  const [time, setTime] = useState<{
-    hours: string;
-    minutes: string;
-    seconds: string;
-    secValue: number;
-    dayName: string;
-    dayNum: string;
-    monthShort: string;
-    year: string;
-  }>(() => {
-    const now = new Date();
-    return {
-      hours: pad(now.getHours()),
-      minutes: pad(now.getMinutes()),
-      seconds: pad(now.getSeconds()),
-      secValue: now.getSeconds(),
-      dayName: SHORT_DAYS[now.getDay()],
-      dayNum: pad(now.getDate()),
-      monthShort: SHORT_MONTHS[now.getMonth()],
-      year: now.getFullYear().toString(),
-    };
-  });
+  const { language } = useTranslation();
+
+  const [time, setTime] = useState(() => formatClockDate(new Date(), language));
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      setTime({
-        hours: pad(now.getHours()),
-        minutes: pad(now.getMinutes()),
-        seconds: pad(now.getSeconds()),
-        secValue: now.getSeconds(),
-        dayName: SHORT_DAYS[now.getDay()],
-        dayNum: pad(now.getDate()),
-        monthShort: SHORT_MONTHS[now.getMonth()],
-        year: now.getFullYear().toString(),
-      });
-    }, 1000);
+    const update = () => {
+      setTime(formatClockDate(new Date(), language));
+    };
+    update();
+    const interval = setInterval(update, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [language]);
 
   const progressPercentage = (time.secValue / 60) * 100;
 

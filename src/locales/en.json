@@ -151,5 +151,10 @@
     "itemRemoved": "Removed item from queue.",
     "leftRoom": "Left the room.",
     "enterValidUrl": "Please enter a valid YouTube video URL or ID."
+  },
+  "schedule": {
+    "currentSchedule": "Current Schedule",
+    "nextSchedule": "Next Schedule",
+    "loading": "Loading..."
   }
 }

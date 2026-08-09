@@ -151,5 +151,10 @@
     "itemRemoved": "Item dihapus dari antrean.",
     "leftRoom": "Meninggalkan ruang.",
     "enterValidUrl": "Harap masukkan URL atau ID video YouTube yang valid."
+  },
+  "schedule": {
+    "currentSchedule": "Jadwal Sekarang",
+    "nextSchedule": "Jadwal Berikutnya",
+    "loading": "Memuat..."
   }
 }
