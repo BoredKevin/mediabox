@@ -4,14 +4,30 @@ import { Progress } from '@/components/ui/progress';
 import { pad } from '@/lib/utils';
 import { WatchPartyControls } from '@/components/WatchPartyControls';
 
+const SHORT_DAYS = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
+const SHORT_MONTHS = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
+
 export const ClockSection: React.FC = () => {
-  const [time, setTime] = useState<{ hours: string; minutes: string; seconds: string; secValue: number }>(() => {
+  const [time, setTime] = useState<{
+    hours: string;
+    minutes: string;
+    seconds: string;
+    secValue: number;
+    dayName: string;
+    dayNum: string;
+    monthShort: string;
+    year: string;
+  }>(() => {
     const now = new Date();
     return {
       hours: pad(now.getHours()),
       minutes: pad(now.getMinutes()),
       seconds: pad(now.getSeconds()),
       secValue: now.getSeconds(),
+      dayName: SHORT_DAYS[now.getDay()],
+      dayNum: pad(now.getDate()),
+      monthShort: SHORT_MONTHS[now.getMonth()],
+      year: now.getFullYear().toString(),
     };
   });
 
@@ -23,6 +39,10 @@ export const ClockSection: React.FC = () => {
         minutes: pad(now.getMinutes()),
         seconds: pad(now.getSeconds()),
         secValue: now.getSeconds(),
+        dayName: SHORT_DAYS[now.getDay()],
+        dayNum: pad(now.getDate()),
+        monthShort: SHORT_MONTHS[now.getMonth()],
+        year: now.getFullYear().toString(),
       });
     }, 1000);
 
@@ -33,22 +53,31 @@ export const ClockSection: React.FC = () => {
 
   return (
     <section className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 md:grid-cols-2 flex-shrink-0">
-      {/* Clock Box - 50% width matching Schedule column */}
-      <Card className="flex flex-col items-center justify-center py-3 px-5 sm:py-4 sm:px-6 rounded-none border border-border bg-surface">
-        <div className="font-display text-4xl font-light tracking-wider text-text sm:text-5xl md:text-6xl drop-shadow-[0_0_30px_rgba(0,200,212,0.15)] select-none">
-          {time.hours}
-          <span className="text-primary opacity-80 animate-blink">:</span>
-          {time.minutes}
-          <span className="text-primary opacity-80 animate-blink">:</span>
-          {time.seconds}
+      {/* Clock & Date Box - 50% width matching Schedule column */}
+      <Card className="grid grid-cols-2 divide-x-4 divide-border py-3 px-2 sm:py-4 sm:px-4 rounded-none border border-border bg-surface items-center justify-center min-h-[90px]">
+        {/* Left Side: Time & Seconds Progress (Centered) */}
+        <div className="flex flex-col items-center justify-center px-2 sm:px-4 w-full">
+          <div className="font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-wider text-text drop-shadow-[0_0_30px_rgba(0,200,212,0.15)] select-none whitespace-nowrap text-center">
+            {time.hours}
+            <span className="text-primary opacity-80 animate-blink">:</span>
+            {time.minutes}
+            <span className="text-primary opacity-80 animate-blink">:</span>
+            {time.seconds}
+          </div>
+
+          {/* Seconds Progress Bar Wrap (Centered under clock) */}
+          <div className="mt-2 flex w-full max-w-xs items-center gap-2 sm:gap-3">
+            <span className="font-display text-xs text-text-faint min-w-[2.5ch] text-right">
+              {time.seconds}
+            </span>
+            <Progress value={progressPercentage} className="h-[2px] flex-1 rounded-none" />
+          </div>
         </div>
 
-        {/* Seconds Progress Bar Wrap */}
-        <div className="mt-2 flex w-full max-w-sm items-center gap-3">
-          <span className="font-display text-xs text-text-faint min-w-[2.5ch]">
-            {time.seconds}
-          </span>
-          <Progress value={progressPercentage} className="h-[2px] flex-1 rounded-none" />
+        {/* Right Side: Day & Date Box (Left-aligned in right half) */}
+        <div className="flex flex-col items-start justify-center pl-6 sm:pl-8 md:pl-10 w-full font-display text-xl sm:text-2xl md:text-3xl font-light tracking-wider select-none leading-tight text-left">
+          <div className="text-text font-medium">{time.dayName}</div>
+          <div className="text-text-muted">{time.dayNum} {time.monthShort} {time.year}</div>
         </div>
       </Card>
 
@@ -59,4 +88,5 @@ export const ClockSection: React.FC = () => {
     </section>
   );
 };
+
 

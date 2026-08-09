@@ -4,10 +4,6 @@ import { ScheduleData, CurrentAndNextSchedule } from '@/types/schedule';
 import { timeToMinutes } from '@/lib/utils';
 
 const DAYS_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-const MONTHS_ID = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-];
 
 export const ScheduleSection: React.FC = () => {
   const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
@@ -28,7 +24,6 @@ export const ScheduleSection: React.FC = () => {
   }, []);
 
   const dayName = DAYS_ID[now.getDay()];
-  const dateFormatted = `${now.getDate()} ${MONTHS_ID[now.getMonth()]} ${now.getFullYear()}`;
 
   const getSchedule = (): CurrentAndNextSchedule => {
     const fallbackItem = { start: "00:00", sub: "Memuat..." };
@@ -64,11 +59,6 @@ export const ScheduleSection: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-3 sm:gap-4 h-full min-h-0">
-      {/* Date Box */}
-      <Card className="p-3 sm:p-4 rounded-none border border-border bg-surface text-base sm:text-lg font-normal text-text-muted flex-shrink-0">
-        <span className="font-semibold text-primary">{dayName}</span>, {dateFormatted}
-      </Card>
-
       {/* Current Schedule Box */}
       <Card className="relative overflow-hidden p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface">
         <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary" />
