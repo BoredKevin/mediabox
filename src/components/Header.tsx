@@ -25,10 +25,10 @@ export const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
         )}
       </button>
 
-      <h1 className="font-body text-xl font-bold tracking-tight text-text-muted sm:text-2xl lg:text-3xl">
+      <h1 className="font-body text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">
         {t('header.title')}
       </h1>
-      <h2 className="font-body text-sm font-normal text-text-faint sm:text-base mt-1">
+      <h2 className="font-body text-sm font-normal sm:text-base mt-1">
         time.boredkevin.com
       </h2>
     </header>

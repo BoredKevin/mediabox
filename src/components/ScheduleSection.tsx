@@ -65,7 +65,7 @@ export const ScheduleSection: React.FC = () => {
       <Card className="relative overflow-hidden p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface">
         <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary" />
         <div className="pl-2">
-          <div className="text-xs font-bold uppercase tracking-wider text-text-faint mb-1">
+          <div className="text-m font-bold uppercase tracking-wider mb-1">
             {t('schedule.currentSchedule')}
           </div>
           <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text leading-tight">
@@ -78,11 +78,11 @@ export const ScheduleSection: React.FC = () => {
       <Card className="relative overflow-hidden p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface opacity-80">
         <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary/70" />
         <div className="pl-2">
-          <div className="text-xs font-bold uppercase tracking-wider text-text-faint mb-1">
+          <div className="text-m font-bold uppercase tracking-wider mb-1">
             {t('schedule.nextSchedule')}
           </div>
           <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text leading-tight">
-            {next.sub} <span className="text-text-faint font-normal">({next.start})</span>
+            {next.sub} <span className="text-text font-normal">({next.start})</span>
           </div>
         </div>
       </Card>
