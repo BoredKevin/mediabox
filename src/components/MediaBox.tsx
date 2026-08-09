@@ -64,19 +64,19 @@ export const MediaBox: React.FC = () => {
 
   return (
     <Card
-      className={`p-0 overflow-hidden rounded-none border border-slate-800 bg-slate-950 flex flex-col relative transition-all duration-300 ${isFullscreen
+      className={`p-0 overflow-hidden rounded-none border border-border bg-slate-950 flex flex-col relative transition-all duration-300 ${isFullscreen
         ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black'
         : 'aspect-video w-full'
         }`}
     >
       {isFullscreen && (
-        <div className="absolute top-4 left-4 z-[110] bg-slate-950/80 border border-slate-800/80 backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-5xl font-normal tracking-wider text-slate-100 opacity-80 hover:opacity-100 transition-opacity flex items-center gap-2 shadow-lg pointer-events-none select-none">
-          <Clock className="w-4 h-4 text-[#00c8d4]" />
+        <div className="absolute top-4 left-4 z-[110] bg-black/80 border border-slate-800/80 backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-5xl font-normal tracking-wider text-slate-100 opacity-80 hover:opacity-100 transition-opacity flex items-center gap-2 shadow-lg pointer-events-none select-none">
+          <Clock className="w-4 h-4 text-primary" />
           <span>
             {clockTime.hours}
-            <span className="text-[#00c8d4] opacity-80 animate-blink">:</span>
+            <span className="text-primary opacity-80 animate-blink">:</span>
             {clockTime.minutes}
-            <span className="text-[#00c8d4] opacity-80 animate-blink">:</span>
+            <span className="text-primary opacity-80 animate-blink">:</span>
             {clockTime.seconds}
           </span>
         </div>
@@ -121,33 +121,33 @@ export const MediaBox: React.FC = () => {
 
       {/* QR Code Overlay Modal inside MediaBox */}
       {showQrModal && (
-        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md z-30 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 p-6 max-w-sm w-full flex flex-col items-center gap-4 relative shadow-2xl overflow-hidden">
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-30 flex items-center justify-center p-4">
+          <div className="bg-surface border border-border p-6 max-w-sm w-full flex flex-col items-center gap-4 relative shadow-2xl overflow-hidden">
             {/* 30s Animated Timer Progress Line */}
             <div
-              className="absolute top-0 left-0 h-1 bg-[#00c8d4] transition-all duration-1000 ease-linear"
+              className="absolute top-0 left-0 h-1 bg-primary transition-all duration-1000 ease-linear"
               style={{ width: `${(secondsLeft / 30) * 100}%` }}
             />
 
             <button
               onClick={() => setShowQrModal(false)}
-              className="absolute top-3 right-3 p-1 text-slate-400 hover:text-slate-100 transition-colors cursor-pointer"
+              className="absolute top-3 right-3 p-1 text-text-faint hover:text-text transition-colors cursor-pointer"
               title="Close QR Modal"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex flex-col items-center gap-1">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-100">{t('mediaBox.scanToRemote')}</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-text">{t('mediaBox.scanToRemote')}</h3>
             </div>
 
-            <div className="p-3 bg-white border-4 border-[#00c8d4]">
+            <div className="p-3 bg-white border-4 border-primary">
               <QRCodeSVG value={remoteUrl} size={160} level="M" />
             </div>
 
             <div className="text-center flex flex-col gap-1 w-full">
-              <span className="text-xs text-slate-400">{t('mediaBox.enterPinCode')}</span>
-              <span className="font-mono text-3xl font-bold tracking-[0.2em] text-[#00c8d4]">
+              <span className="text-xs text-text-muted">{t('mediaBox.enterPinCode')}</span>
+              <span className="font-mono text-3xl font-bold tracking-[0.2em] text-primary">
                 {roomCode || '------'}
               </span>
             </div>

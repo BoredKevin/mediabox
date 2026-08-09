@@ -13,10 +13,10 @@ export const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
       <button
         onClick={toggleTheme}
         aria-label="Ganti tema"
-        className="fixed top-4 right-4 z-50 flex h-11 w-11 items-center justify-center border border-slate-700 bg-surface text-text-muted hover:border-slate-500 hover:text-text rounded-none transition-all duration-200"
+        className="fixed top-4 right-4 z-50 flex h-11 w-11 items-center justify-center border border-border bg-surface text-text-muted hover:border-primary hover:text-text rounded-none transition-all duration-200 cursor-pointer"
       >
         {theme === 'dark' ? (
-          <Moon className="h-4 w-4 text-[#00c8d4]" />
+          <Moon className="h-4 w-4 text-primary" />
         ) : (
           <Sun className="h-4 w-4 text-amber-500" />
         )}

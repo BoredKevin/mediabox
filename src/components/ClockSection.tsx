@@ -34,12 +34,12 @@ export const ClockSection: React.FC = () => {
   return (
     <section className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 md:grid-cols-2 flex-shrink-0">
       {/* Clock Box - 50% width matching Schedule column */}
-      <Card className="flex flex-col items-center justify-center py-3 px-5 sm:py-4 sm:px-6 rounded-none border border-slate-800 bg-surface">
-        <div className="font-display text-4xl font-light tracking-wider text-text sm:text-5xl md:text-6xl drop-shadow-[0_0_30px_rgba(0,200,212,0.25)] select-none">
+      <Card className="flex flex-col items-center justify-center py-3 px-5 sm:py-4 sm:px-6 rounded-none border border-border bg-surface">
+        <div className="font-display text-4xl font-light tracking-wider text-text sm:text-5xl md:text-6xl drop-shadow-[0_0_30px_rgba(0,200,212,0.15)] select-none">
           {time.hours}
-          <span className="text-[#00c8d4] opacity-80 animate-blink">:</span>
+          <span className="text-primary opacity-80 animate-blink">:</span>
           {time.minutes}
-          <span className="text-[#00c8d4] opacity-80 animate-blink">:</span>
+          <span className="text-primary opacity-80 animate-blink">:</span>
           {time.seconds}
         </div>
 
@@ -53,7 +53,7 @@ export const ClockSection: React.FC = () => {
       </Card>
 
       {/* Watch Party Control Card - 50% width matching MediaBox column */}
-      <Card className="p-3 sm:p-4 rounded-none border border-slate-800 bg-surface flex flex-col justify-center min-h-[90px]">
+      <Card className="p-3 sm:p-4 rounded-none border border-border bg-surface flex flex-col justify-center min-h-[90px]">
         <WatchPartyControls />
       </Card>
     </section>

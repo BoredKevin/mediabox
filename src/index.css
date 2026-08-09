@@ -12,17 +12,21 @@
     --color-text-muted: #6b8090;
     --color-text-faint: #3e5060;
     --color-primary: #00c8d4;
+    --color-glow: rgba(0, 200, 212, 0.05);
+    --color-dot: rgba(208, 220, 230, 0.04);
     --radius: 0rem;
   }
 
   [data-theme="light"] {
-    --color-bg: #f0f4f8;
-    --color-surface: #f8fafb;
-    --color-border: #b8c8d6;
-    --color-text: #1a2530;
-    --color-text-muted: #4a6070;
-    --color-text-faint: #8aa0b0;
-    --color-primary: #0090a0;
+    --color-bg: #f1f5f9;
+    --color-surface: #ffffff;
+    --color-border: #cbd5e1;
+    --color-text: #0f172a;
+    --color-text-muted: #334155;
+    --color-text-faint: #64748b;
+    --color-primary: #00838f;
+    --color-glow: rgba(0, 131, 143, 0.06);
+    --color-dot: rgba(15, 23, 42, 0.06);
     --radius: 0rem;
   }
 
@@ -45,7 +49,7 @@
     content: '';
     position: fixed;
     inset: 0;
-    background: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(0, 200, 212, 0.05) 0%, transparent 70%);
+    background: radial-gradient(ellipse 60% 40% at 50% 50%, var(--color-glow) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
   }
@@ -55,7 +59,7 @@
     content: '';
     position: fixed;
     inset: 0;
-    background-image: radial-gradient(circle, rgba(208, 220, 230, 0.04) 1px, transparent 1px);
+    background-image: radial-gradient(circle, var(--color-dot) 1px, transparent 1px);
     background-size: 32px 32px;
     pointer-events: none;
     z-index: 0;

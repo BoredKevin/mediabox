@@ -65,13 +65,13 @@ export const ScheduleSection: React.FC = () => {
   return (
     <div className="flex flex-col gap-3 sm:gap-4 h-full min-h-0">
       {/* Date Box */}
-      <Card className="p-3 sm:p-4 rounded-none border border-slate-800 bg-surface text-base sm:text-lg font-normal text-text-muted flex-shrink-0">
-        <span className="font-semibold text-[#00c8d4]">{dayName}</span>, {dateFormatted}
+      <Card className="p-3 sm:p-4 rounded-none border border-border bg-surface text-base sm:text-lg font-normal text-text-muted flex-shrink-0">
+        <span className="font-semibold text-primary">{dayName}</span>, {dateFormatted}
       </Card>
 
       {/* Current Schedule Box */}
-      <Card className="relative overflow-hidden p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-center rounded-none border border-slate-800 bg-surface">
-        <div className="absolute top-0 bottom-0 left-0 w-1 bg-[#00c8d4]" />
+      <Card className="relative overflow-hidden p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface">
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary" />
         <div className="pl-2">
           <div className="text-xs font-bold uppercase tracking-wider text-text-faint mb-1">
             Jadwal Sekarang
@@ -83,8 +83,8 @@ export const ScheduleSection: React.FC = () => {
       </Card>
 
       {/* Next Schedule Box */}
-      <Card className="relative overflow-hidden p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-center rounded-none border border-slate-800 bg-surface opacity-80">
-        <div className="absolute top-0 bottom-0 left-0 w-1 bg-[#00c8d4]/70" />
+      <Card className="relative overflow-hidden p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface opacity-80">
+        <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary/70" />
         <div className="pl-2">
           <div className="text-xs font-bold uppercase tracking-wider text-text-faint mb-1">
             Jadwal Berikutnya

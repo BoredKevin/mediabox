@@ -36,13 +36,13 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
       onClick={toggleLanguage}
       aria-label="Switch Language / Ganti Bahasa"
       title={`Current: ${language.toUpperCase()} - Click to switch`}
-      className={`flex h-11 items-center gap-1.5 px-3 border border-slate-700 bg-surface text-text-muted hover:border-slate-500 hover:text-text rounded-none transition-all duration-200 text-xs font-mono font-bold uppercase tracking-wider cursor-pointer ${className}`}
+      className={`flex h-11 items-center gap-1.5 px-3 border border-border bg-surface text-text-muted hover:border-primary hover:text-text rounded-none transition-all duration-200 text-xs font-mono font-bold uppercase tracking-wider cursor-pointer ${className}`}
     >
-      <Globe className="h-4 w-4 text-[#00c8d4]" />
+      <Globe className="h-4 w-4 text-primary" />
       <span className="flex items-center gap-1">
-        <span className={language === 'en' ? 'text-[#00c8d4] font-extrabold' : 'text-slate-400'}>EN</span>
-        <span className="text-slate-600">/</span>
-        <span className={language === 'id' ? 'text-[#00c8d4] font-extrabold' : 'text-slate-400'}>ID</span>
+        <span className={language === 'en' ? 'text-primary font-extrabold' : 'text-text-faint'}>EN</span>
+        <span className="text-text-faint opacity-50">/</span>
+        <span className={language === 'id' ? 'text-primary font-extrabold' : 'text-text-faint'}>ID</span>
       </span>
     </button>
   );

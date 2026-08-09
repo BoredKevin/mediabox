@@ -20,6 +20,12 @@ export default {
         ring: 'var(--color-primary)',
         background: 'var(--color-bg)',
         foreground: 'var(--color-text)',
+        surface: 'var(--color-surface)',
+        text: {
+          DEFAULT: 'var(--color-text)',
+          muted: 'var(--color-text-muted)',
+          faint: 'var(--color-text-faint)',
+        },
         primary: {
           DEFAULT: 'var(--color-primary)',
           foreground: '#0d0f10',
