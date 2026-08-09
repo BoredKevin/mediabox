@@ -64,14 +64,6 @@ export const ClockSection: React.FC = () => {
             <span className="text-primary opacity-80 animate-blink">:</span>
             {time.seconds}
           </div>
-
-          {/* Seconds Progress Bar Wrap (Centered under clock) */}
-          <div className="mt-2 flex w-full max-w-xs items-center gap-2 sm:gap-3">
-            <span className="font-display text-xs text-text-faint min-w-[2.5ch] text-right">
-              {time.seconds}
-            </span>
-            <Progress value={progressPercentage} className="h-[2px] flex-1 rounded-none" />
-          </div>
         </div>
 
         {/* Right Side: Day & Date Box (Left-aligned in right half) */}
