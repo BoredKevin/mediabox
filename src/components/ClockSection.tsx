@@ -67,9 +67,9 @@ export const ClockSection: React.FC = () => {
         </div>
 
         {/* Right Side: Day & Date Box (Left-aligned in right half) */}
-        <div className="flex flex-col items-start justify-center pl-6 sm:pl-8 md:pl-10 w-full font-display text-xl sm:text-2xl md:text-3xl font-light tracking-wider select-none leading-tight text-left">
+        <div className="flex flex-col items-start justify-center pl-3 sm:pl-8 md:pl-10 w-full font-display text-lg sm:text-2xl md:text-3xl font-light tracking-wider select-none leading-tight text-left">
           <div className="text-text font-medium">{time.dayName}</div>
-          <div className="text-text-muted">{time.dayNum} {time.monthShort} {time.year}</div>
+          <div className="text-text-muted whitespace-nowrap">{time.dayNum} {time.monthShort} {time.year}</div>
         </div>
       </Card>
 

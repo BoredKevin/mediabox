@@ -45,7 +45,7 @@ export const WatchPartyControls: React.FC = () => {
           <Tv className="w-6 h-6 text-primary" />
           <h3 className="text-base font-bold tracking-wider uppercase">{t('watchParty.title')}</h3>
         </div>
-        <p className="text-xs text-text-muted max-w-sm">
+        <p className="text-xs text-text-muted max-w-none text-center whitespace-normal sm:whitespace-nowrap px-2">
           {t('watchParty.desc')}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 mt-1">
