@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sun, Moon } from 'lucide-react';
+import { useTranslation } from '@/context/LanguageContext';
 
 interface HeaderProps {
   theme: 'dark' | 'light';
@@ -7,6 +8,8 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
+  const { t } = useTranslation();
+
   return (
     <header className="relative flex flex-col items-center justify-center pt-1 pb-1 text-center flex-shrink-0">
       {/* Theme Toggle Button - Sharp Corners */}
@@ -23,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
       </button>
 
       <h1 className="font-body text-xl font-bold tracking-tight text-text-muted sm:text-2xl lg:text-3xl">
-        Welcome to XII - Cravion • Teknik Informatika
+        {t('header.title')}
       </h1>
       <h2 className="font-body text-sm font-normal text-text-faint sm:text-base mt-1">
         time.boredkevin.com

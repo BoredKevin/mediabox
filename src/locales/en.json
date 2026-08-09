@@ -156,5 +156,8 @@
     "currentSchedule": "Current Schedule",
     "nextSchedule": "Next Schedule",
     "loading": "Loading..."
+  },
+  "header": {
+    "title": "Welcome to XII - Cravion • Informatics Engineering"
   }
 }

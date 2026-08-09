@@ -156,5 +156,8 @@
     "currentSchedule": "Jadwal Sekarang",
     "nextSchedule": "Jadwal Berikutnya",
     "loading": "Memuat..."
+  },
+  "header": {
+    "title": "Welcome to XII - Cravion • Teknik Informatika"
   }
 }
