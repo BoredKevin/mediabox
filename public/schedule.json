@@ -10,35 +10,27 @@
     },
     {
       "start": "07:45",
-      "sub": "BAHASA JAWA"
-    },
-    {
-      "start": "09:15",
-      "sub": "BHS INGGRIS TINGKAT LANJUT"
+      "sub": "Bahasa Inggris"
     },
     {
       "start": "10:00",
-      "sub": "ISTIRAHAT"
+      "sub": "Istirahat"
     },
     {
       "start": "10:15",
-      "sub": "BHS INGGRIS TINGKAT LANJUT"
-    },
-    {
-      "start": "11:00",
-      "sub": "BAHASA INDONESIA"
+      "sub": "Matematika"
     },
     {
       "start": "11:45",
-      "sub": "ISTIRAHAT / ISHOMA"
+      "sub": "Istirahat / Ishoma"
     },
     {
       "start": "12:30",
-      "sub": "BAHASA INDONESIA"
+      "sub": "Bahasa Indonesia"
     },
     {
-      "start": "13:10",
-      "sub": "BHS INGGRIS"
+      "start": "13:50",
+      "sub": "Bahasa Jawa"
     },
     {
       "start": "15:10",
@@ -52,35 +44,35 @@
     },
     {
       "start": "07:00",
-      "sub": "FISIKA"
+      "sub": "Pendidikan Agama Islam"
     },
     {
-      "start": "08:30",
-      "sub": "P A I"
+      "start": "09:15",
+      "sub": "Bahasa Inggris Tingkat Lanjut"
     },
     {
       "start": "10:00",
-      "sub": "ISTIRAHAT"
+      "sub": "Istirahat"
     },
     {
       "start": "10:15",
-      "sub": "P A I"
+      "sub": "Bahasa Inggris Tingkat Lanjut"
     },
     {
       "start": "11:00",
-      "sub": "B K"
+      "sub": "Bimbingan Konseling"
     },
     {
       "start": "11:45",
-      "sub": "ISTIRAHAT / ISHOMA"
+      "sub": "Istirahat / Ishoma"
     },
     {
       "start": "12:30",
-      "sub": "MATEMATIKA TINGKAT LANJUT"
+      "sub": "Matematika Tingkat Lanjut"
     },
     {
       "start": "13:50",
-      "sub": "SENI DAN BUDAYA"
+      "sub": "Seni Budaya"
     },
     {
       "start": "15:10",
@@ -94,35 +86,31 @@
     },
     {
       "start": "07:00",
-      "sub": "PENJASKES"
+      "sub": "Penjaskes"
     },
     {
       "start": "09:15",
-      "sub": "INFORMATIKA"
+      "sub": "Informatika"
     },
     {
       "start": "10:00",
-      "sub": "ISTIRAHAT"
+      "sub": "Istirahat"
     },
     {
       "start": "10:15",
-      "sub": "INFORMATIKA"
-    },
-    {
-      "start": "11:00",
-      "sub": "MATEMATIKA"
+      "sub": "Informatika"
     },
     {
       "start": "11:45",
-      "sub": "ISTIRAHAT / ISHOMA"
+      "sub": "Istirahat / Ishoma"
     },
     {
       "start": "12:30",
-      "sub": "MATEMATIKA"
+      "sub": "Matematika"
     },
     {
       "start": "13:50",
-      "sub": "PRAKARYA"
+      "sub": "Prakarya"
     },
     {
       "start": "15:10",
@@ -136,35 +124,35 @@
     },
     {
       "start": "07:00",
-      "sub": "BHS INGGRIS TINGKAT LANJUT"
+      "sub": "Bahasa Inggris Tingkat Lanjut"
     },
     {
       "start": "09:15",
-      "sub": "PPKN"
+      "sub": "Sejarah"
     },
     {
       "start": "10:00",
-      "sub": "ISTIRAHAT"
+      "sub": "Istirahat"
     },
     {
       "start": "10:15",
-      "sub": "PPKN"
+      "sub": "Sejarah"
     },
     {
       "start": "11:00",
-      "sub": "SEJARAH"
+      "sub": "Matematika Tingkat Lanjut"
     },
     {
       "start": "11:45",
-      "sub": "ISTIRAHAT / ISHOMA"
+      "sub": "Istirahat / Ishoma"
     },
     {
       "start": "12:30",
-      "sub": "SEJARAH"
+      "sub": "Matematika Tingkat Lanjut"
     },
     {
-      "start": "13:10",
-      "sub": "MATEMATIKA TINGKAT LANJUT"
+      "start": "13:50",
+      "sub": "Fisika"
     },
     {
       "start": "15:10",
@@ -178,31 +166,31 @@
     },
     {
       "start": "07:00",
-      "sub": "FISIKA"
+      "sub": "PPKN"
     },
     {
-      "start": "09:15",
-      "sub": "ISTIRAHAT"
+      "start": "08:30",
+      "sub": "Bahasa Indonesia"
     },
     {
-      "start": "09:30",
-      "sub": "BAHASA INDONESIA"
+      "start": "10:00",
+      "sub": "Istirahat"
     },
     {
-      "start": "10:50",
-      "sub": "INFORMATIKA"
+      "start": "10:15",
+      "sub": "Fisika"
     },
     {
-      "start": "11:30",
-      "sub": "ISTIRAHAT / ISHOMA"
+      "start": "11:45",
+      "sub": "Istirahat / Ishoma"
     },
     {
-      "start": "13:00",
-      "sub": "INFORMATIKA"
+      "start": "12:30",
+      "sub": "Fisika"
     },
     {
-      "start": "13:40",
-      "sub": "MATEMATIKA"
+      "start": "13:10",
+      "sub": "Informatika"
     },
     {
       "start": "15:10",
@@ -218,7 +206,7 @@
   "Minggu": [
     {
       "start": "00:00",
-      "sub": "BHS INGGRIS TINGKAT LANJUT"
+      "sub": "Libur / Akhir Pekan"
     }
   ]
 }
