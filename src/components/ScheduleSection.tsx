@@ -43,10 +43,10 @@ export const ScheduleSection: React.FC = () => {
     nextEndDateMs: number;
   } => {
     const fallbackItem = { start: "00:00", sub: t('schedule.loading') };
-    if (!scheduleData) return { current: fallbackItem, next: fallbackItem, progress: 100, secondsToNext: 99999, nextEndDateMs: 0 };
+    if (!scheduleData) return { current: fallbackItem, next: fallbackItem, progress: 0, secondsToNext: 99999, nextEndDateMs: 0 };
 
     const daySchedule = scheduleData[dayName] || scheduleData["Senin"] || [];
-    if (daySchedule.length === 0) return { current: fallbackItem, next: fallbackItem, progress: 100, secondsToNext: 99999, nextEndDateMs: 0 };
+    if (daySchedule.length === 0) return { current: fallbackItem, next: fallbackItem, progress: 0, secondsToNext: 99999, nextEndDateMs: 0 };
 
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
@@ -100,11 +100,12 @@ export const ScheduleSection: React.FC = () => {
 
     const totalDuration = endDate.getTime() - startDate.getTime();
     const remainingTime = endDate.getTime() - now.getTime();
+    const elapsedTime = now.getTime() - startDate.getTime();
     const secondsToNext = Math.ceil(remainingTime / 1000);
 
-    let progress = 100;
+    let progress = 0;
     if (totalDuration > 0) {
-      const ratio = Math.max(0, Math.min(1, remainingTime / totalDuration));
+      const ratio = Math.max(0, Math.min(1, elapsedTime / totalDuration));
       progress = ratio * 100;
     }
 
