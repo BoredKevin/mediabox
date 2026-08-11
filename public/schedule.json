@@ -37,6 +37,11 @@
     },
     {
       "start": "15:10",
+      "sub": "Istirahat / Ishoma",
+      "countdown": true
+    },
+    {
+      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
@@ -86,6 +91,11 @@
     },
     {
       "start": "15:10",
+      "sub": "Istirahat / Ishoma",
+      "countdown": true
+    },
+    {
+      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
@@ -131,6 +141,11 @@
     },
     {
       "start": "15:10",
+      "sub": "Istirahat / Ishoma",
+      "countdown": true
+    },
+    {
+      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
@@ -180,6 +195,11 @@
     },
     {
       "start": "15:10",
+      "sub": "Istirahat / Ishoma",
+      "countdown": true
+    },
+    {
+      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
@@ -225,6 +245,11 @@
     },
     {
       "start": "15:10",
+      "sub": "Istirahat / Ishoma",
+      "countdown": true
+    },
+    {
+      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
