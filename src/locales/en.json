@@ -115,7 +115,10 @@
     "moveDown": "Move Down",
     "autoplayMode": "Autoplay Mode",
     "autoplayOn": "ON",
-    "autoplayOff": "OFF"
+    "autoplayOff": "OFF",
+    "countdownMode": "Countdown Mode",
+    "countdownOn": "ON",
+    "countdownOff": "OFF"
   },
   "toasts": {
     "authFailed": "Failed to authenticate with Firebase.",
@@ -146,6 +149,8 @@
     "roomLocked": "Room locked!",
     "autoplayEnabled": "Autoplay enabled!",
     "autoplayDisabled": "Autoplay disabled!",
+    "countdownEnabled": "Countdown enabled!",
+    "countdownDisabled": "Countdown disabled!",
     "commandSent": "Sent {type} command!",
     "commandFailed": "Failed to send command. Check room status.",
     "itemRemoved": "Removed item from queue.",
@@ -155,7 +160,9 @@
   "schedule": {
     "currentSchedule": "Current Schedule",
     "nextSchedule": "Next Schedule",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "countdownTitle": "Special Schedule Starting Soon!",
+    "itsTime": "IT'S TIME!"
   },
   "header": {
     "title": "Welcome to XII - Cravion • Informatics Engineering"

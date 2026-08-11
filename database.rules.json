@@ -30,7 +30,7 @@
               ".validate": "newData.val() === null || (newData.isString() && newData.val().length <= 25)"
             },
             "command": {
-              ".validate": "newData.val() === null || (newData.hasChildren(['type', 'createdAt']) && (newData.child('type').val() === 'play' || newData.child('type').val() === 'pause' || newData.child('type').val() === 'addToQueue' || newData.child('type').val() === 'removeFromQueue' || newData.child('type').val() === 'adjustVolume' || newData.child('type').val() === 'forceSkip' || newData.child('type').val() === 'reorderQueue' || newData.child('type').val() === 'forceRemoveFromQueue' || newData.child('type').val() === 'kickMember' || newData.child('type').val() === 'toggleFullscreen' || newData.child('type').val() === 'clearQueue' || newData.child('type').val() === 'toggleRoomLock' || newData.child('type').val() === 'toggleAutoplay'))"
+              ".validate": "newData.val() === null || (newData.hasChildren(['type', 'createdAt']) && (newData.child('type').val() === 'play' || newData.child('type').val() === 'pause' || newData.child('type').val() === 'addToQueue' || newData.child('type').val() === 'removeFromQueue' || newData.child('type').val() === 'adjustVolume' || newData.child('type').val() === 'forceSkip' || newData.child('type').val() === 'reorderQueue' || newData.child('type').val() === 'forceRemoveFromQueue' || newData.child('type').val() === 'kickMember' || newData.child('type').val() === 'toggleFullscreen' || newData.child('type').val() === 'clearQueue' || newData.child('type').val() === 'toggleRoomLock' || newData.child('type').val() === 'toggleAutoplay' || newData.child('type').val() === 'toggleCountdown'))"
             }
           }
         }

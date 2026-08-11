@@ -28,6 +28,7 @@ interface WatchPartyContextType {
   handleToggleFullscreen: () => Promise<void>;
   handleToggleRoomLock: () => Promise<void>;
   handleToggleAutoplay: () => Promise<void>;
+  handleToggleCountdown: () => Promise<void>;
   copyRemoteLink: () => void;
 }
 
@@ -310,6 +311,11 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         await update(ref(database, `rooms/${roomCode}/state`), {
           isAutoplay: nextAutoplay,
         });
+      } else if (type === 'toggleCountdown') {
+        const nextCountdown = !roomStateRef.current?.isCountdownEnabled;
+        await update(ref(database, `rooms/${roomCode}/state`), {
+          isCountdownEnabled: nextCountdown,
+        });
       }
     } catch (err) {
       console.error('[TV Host] Error executing member command:', err);
@@ -539,6 +545,14 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
   };
 
+  const handleToggleCountdown = async () => {
+    if (!roomCode) return;
+    const nextCountdown = !roomStateRef.current?.isCountdownEnabled;
+    await update(ref(database, `rooms/${roomCode}/state`), {
+      isCountdownEnabled: nextCountdown,
+    });
+  };
+
   return (
     <WatchPartyContext.Provider
       value={{
@@ -563,6 +577,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleToggleFullscreen,
         handleToggleRoomLock,
         handleToggleAutoplay,
+        handleToggleCountdown,
         copyRemoteLink,
       }}
     >

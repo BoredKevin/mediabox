@@ -115,7 +115,10 @@
     "moveDown": "Turun",
     "autoplayMode": "Mode Autoplay",
     "autoplayOn": "ON",
-    "autoplayOff": "OFF"
+    "autoplayOff": "OFF",
+    "countdownMode": "Mode Countdown",
+    "countdownOn": "ON",
+    "countdownOff": "OFF"
   },
   "toasts": {
     "authFailed": "Gagal melakukan autentikasi dengan Firebase.",
@@ -146,6 +149,8 @@
     "roomLocked": "Ruang dikunci!",
     "autoplayEnabled": "Autoplay diaktifkan!",
     "autoplayDisabled": "Autoplay dinonaktifkan!",
+    "countdownEnabled": "Countdown diaktifkan!",
+    "countdownDisabled": "Countdown dinonaktifkan!",
     "commandSent": "Perintah {type} terkirim!",
     "commandFailed": "Gagal mengirim perintah. Periksa status ruang.",
     "itemRemoved": "Item dihapus dari antrean.",
@@ -155,7 +160,9 @@
   "schedule": {
     "currentSchedule": "Jadwal Sekarang",
     "nextSchedule": "Jadwal Berikutnya",
-    "loading": "Memuat..."
+    "loading": "Memuat...",
+    "countdownTitle": "Jadwal Spesial Segera Dimulai!",
+    "itsTime": "SAATNYA!"
   },
   "header": {
     "title": "Welcome to XII - Cravion • Teknik Informatika"

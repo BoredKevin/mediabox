@@ -40,6 +40,7 @@ import {
   Copy,
   Check,
   Sparkles,
+  Timer,
 } from 'lucide-react';
 
 interface ToastMessage {
@@ -353,7 +354,7 @@ export const RemoteView: React.FC = () => {
   };
 
   const sendCommand = async (
-    type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen' | 'clearQueue' | 'toggleRoomLock' | 'toggleAutoplay',
+    type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen' | 'clearQueue' | 'toggleRoomLock' | 'toggleAutoplay' | 'toggleCountdown',
     payload?: any
   ) => {
     if (!activeRoomCode || !user) return;
@@ -387,6 +388,7 @@ export const RemoteView: React.FC = () => {
         clearQueue: t('toasts.clearQueueSent'),
         toggleRoomLock: roomState?.isLocked ? t('toasts.roomUnlocked') : t('toasts.roomLocked'),
         toggleAutoplay: roomState?.isAutoplay ? t('toasts.autoplayDisabled') : t('toasts.autoplayEnabled'),
+        toggleCountdown: roomState?.isCountdownEnabled ? t('toasts.countdownDisabled') : t('toasts.countdownEnabled'),
       };
       showToast(labelMap[type] || t('toasts.commandSent', { type }), 'success');
     } catch (err: any) {
@@ -728,11 +730,11 @@ export const RemoteView: React.FC = () => {
                 <span className="text-[10px] text-purple-400/80 font-mono">{t('remote.overrideActive')}</span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
                   onClick={handleClearQueueAdmin}
                   disabled={queue.length === 0}
-                  className="flex-1 py-2.5 bg-red-950/80 hover:bg-red-900 disabled:opacity-40 border border-red-800 text-red-200 font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  className="py-2.5 bg-red-950/80 hover:bg-red-900 disabled:opacity-40 border border-red-800 text-red-200 font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
                   title="Clear all videos in the queue"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -741,7 +743,7 @@ export const RemoteView: React.FC = () => {
 
                 <button
                   onClick={handleToggleRoomLockAdmin}
-                  className={`flex-1 py-2.5 border font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${roomState?.isLocked
+                  className={`py-2.5 border font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${roomState?.isLocked
                       ? 'bg-amber-950/90 border-amber-600 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
                       : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
                     }`}
@@ -758,6 +760,18 @@ export const RemoteView: React.FC = () => {
                       <span>{t('remote.lockRoomBtn')}</span>
                     </>
                   )}
+                </button>
+
+                <button
+                  onClick={() => sendCommand('toggleCountdown')}
+                  className={`py-2.5 border font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${roomState?.isCountdownEnabled
+                      ? 'bg-cyan-950/90 border-[#00c8d4] text-[#00c8d4] shadow-[0_0_10px_rgba(0,200,212,0.3)]'
+                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+                    }`}
+                  title="Toggle 10-Second Countdown on TV"
+                >
+                  <Timer className="w-3.5 h-3.5" />
+                  <span>{roomState?.isCountdownEnabled ? t('remote.countdownOn') : t('remote.countdownOff')}</span>
                 </button>
               </div>
             </Card>

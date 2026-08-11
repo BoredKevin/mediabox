@@ -16,6 +16,7 @@ export interface RoomState {
   isFullscreen?: boolean;
   isLocked?: boolean;
   isAutoplay?: boolean;
+  isCountdownEnabled?: boolean;
 }
 
 export interface QueueItem {
@@ -27,7 +28,7 @@ export interface QueueItem {
 }
 
 export interface MemberCommand {
-  type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen' | 'clearQueue' | 'toggleRoomLock' | 'toggleAutoplay';
+  type: 'play' | 'pause' | 'addToQueue' | 'removeFromQueue' | 'adjustVolume' | 'forceSkip' | 'reorderQueue' | 'forceRemoveFromQueue' | 'kickMember' | 'toggleFullscreen' | 'clearQueue' | 'toggleRoomLock' | 'toggleAutoplay' | 'toggleCountdown';
   createdAt: number;
   payload?: {
     url?: string;
