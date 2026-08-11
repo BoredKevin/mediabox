@@ -60,9 +60,9 @@ export const ScheduleSection: React.FC = () => {
   const { current, next } = getSchedule();
 
   return (
-    <div className="flex flex-col gap-3 sm:gap-4 h-full min-h-0">
+    <div className="flex flex-col gap-3 sm:gap-4 h-full md:min-h-0">
       {/* Current Schedule Box */}
-      <Card className="relative overflow-hidden p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface">
+      <Card className="relative overflow-hidden p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface">
         <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary" />
         <div className="pl-2">
           <div className="text-m font-bold uppercase tracking-wider mb-1">
@@ -75,7 +75,7 @@ export const ScheduleSection: React.FC = () => {
       </Card>
 
       {/* Next Schedule Box */}
-      <Card className="relative overflow-hidden p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface opacity-80">
+      <Card className="relative overflow-hidden p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface opacity-80">
         <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary/70" />
         <div className="pl-2">
           <div className="text-m font-bold uppercase tracking-wider mb-1">
