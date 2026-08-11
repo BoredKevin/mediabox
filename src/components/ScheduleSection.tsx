@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
-import { ScheduleData, CurrentAndNextSchedule } from '@/types/schedule';
+import { ScheduleData, ScheduleItem } from '@/types/schedule';
 import { timeToMinutes } from '@/lib/utils';
 import { useTranslation } from '@/context/LanguageContext';
 
@@ -27,14 +27,19 @@ export const ScheduleSection: React.FC = () => {
 
   const dayName = DAYS_ID[now.getDay()];
 
-  const getSchedule = (): CurrentAndNextSchedule => {
+  const getScheduleDetails = (): { current: ScheduleItem; next: ScheduleItem; progress: number } => {
     const fallbackItem = { start: "00:00", sub: t('schedule.loading') };
-    if (!scheduleData) return { current: fallbackItem, next: fallbackItem };
+    if (!scheduleData) return { current: fallbackItem, next: fallbackItem, progress: 100 };
 
     const daySchedule = scheduleData[dayName] || scheduleData["Senin"] || [];
-    if (daySchedule.length === 0) return { current: fallbackItem, next: fallbackItem };
+    if (daySchedule.length === 0) return { current: fallbackItem, next: fallbackItem, progress: 100 };
 
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    let currentItem = daySchedule[0];
+    let nextItem = daySchedule[1] || daySchedule[0];
+    let isNextTomorrow = false;
+    let found = false;
 
     for (let i = 0; i < daySchedule.length; i++) {
       const current = daySchedule[i];
@@ -42,35 +47,75 @@ export const ScheduleSection: React.FC = () => {
 
       if (next) {
         if (currentMinutes >= timeToMinutes(current.start) && currentMinutes < timeToMinutes(next.start)) {
-          return { current, next };
+          currentItem = current;
+          nextItem = next;
+          isNextTomorrow = false;
+          found = true;
+          break;
         }
       } else {
         if (currentMinutes >= timeToMinutes(current.start)) {
+          currentItem = current;
           const tomorrowIdx = (DAYS_ID.indexOf(dayName) + 1) % 7;
           const tomorrowName = DAYS_ID[tomorrowIdx];
           const tomorrowSchedule = scheduleData[tomorrowName] || scheduleData["Senin"] || [];
-          return { current, next: tomorrowSchedule[0] || current };
+          nextItem = tomorrowSchedule[0] || current;
+          isNextTomorrow = true;
+          found = true;
+          break;
         }
       }
     }
 
-    return { current: daySchedule[0], next: daySchedule[1] || daySchedule[0] };
+    if (!found) {
+      currentItem = daySchedule[0];
+      nextItem = daySchedule[1] || daySchedule[0];
+    }
+
+    const startDate = new Date(now);
+    const [startH, startM] = currentItem.start.split(':').map(Number);
+    startDate.setHours(startH, startM, 0, 0);
+
+    const endDate = new Date(now);
+    const [nextH, nextM] = nextItem.start.split(':').map(Number);
+    endDate.setHours(nextH, nextM, 0, 0);
+
+    if (isNextTomorrow || endDate.getTime() <= startDate.getTime()) {
+      endDate.setDate(endDate.getDate() + 1);
+    }
+
+    const totalDuration = endDate.getTime() - startDate.getTime();
+    const remainingTime = endDate.getTime() - now.getTime();
+
+    let progress = 100;
+    if (totalDuration > 0) {
+      const ratio = Math.max(0, Math.min(1, remainingTime / totalDuration));
+      progress = ratio * 100;
+    }
+
+    return { current: currentItem, next: nextItem, progress };
   };
 
-  const { current, next } = getSchedule();
+  const { current, next, progress } = getScheduleDetails();
 
   return (
     <div className="flex flex-col gap-3 sm:gap-4 h-full md:min-h-0">
       {/* Current Schedule Box */}
       <Card className="relative overflow-hidden p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface">
-        <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary" />
-        <div className="pl-2">
+        <div>
           <div className="text-m font-bold uppercase tracking-wider mb-1">
             {t('schedule.currentSchedule')}
           </div>
           <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text leading-tight">
             {current.sub}
           </div>
+        </div>
+        {/* Progress Bar at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-border/40">
+          <div
+            className="h-full bg-primary transition-all duration-1000 ease-linear"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </Card>
 
