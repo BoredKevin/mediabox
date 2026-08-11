@@ -29,17 +29,17 @@ const Dashboard: React.FC = () => {
   return (
     <WatchPartyProvider>
       <LanguageSwitcher className="fixed top-4 right-18 sm:right-20 z-40" hideOnFullscreen />
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8">
-        <div className="w-full max-w-[1800px] flex-1 flex flex-col justify-between gap-3 sm:gap-4 md:gap-5">
+      <div className="relative z-10 flex min-h-screen md:h-screen flex-col items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8 pb-8 sm:pb-8 md:pb-10">
+        <div className="w-full max-w-[1800px] flex-1 flex flex-col justify-between gap-3 sm:gap-4 md:gap-5 min-h-0">
           <Header theme={theme} toggleTheme={toggleTheme} />
 
           {/* Main Content Section centered vertically between Header and Footer */}
-          <div className="my-auto flex flex-col gap-3 sm:gap-4 md:gap-5 w-full py-2">
+          <div className="my-auto flex flex-col gap-3 sm:gap-4 md:gap-5 w-full py-2 min-h-0">
             {/* Top Grid: Clock (50%) + Watch Party Controls (50%) */}
             <ClockSection />
 
             {/* Bottom Grid: Schedule (Left 50%) + Media (Right 50%) */}
-            <main className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 md:grid-cols-2 items-stretch">
+            <main className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 md:grid-cols-2 items-stretch min-h-0">
               <ScheduleSection />
               <MediaBox />
             </main>
