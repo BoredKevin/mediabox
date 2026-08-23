@@ -8,7 +8,7 @@ import { checkRoomExists, RoomState, QueueItem, parseYouTubeVideoId } from '@/li
 import { searchYouTubeVideos, fetchVideoTitle, SearchResultItem } from '@/lib/youtube';
 import { useTranslation } from '@/context/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { Card } from '@/components/ui/card';
+import { Card, Button, Input, Badge, Slider, ConstellationsBackground } from '@boredkevin/ui';
 import {
   Play,
   Pause,
@@ -121,15 +121,15 @@ export const RemoteView: React.FC = () => {
     }
   }, [roomState?.playback?.volume, isDraggingVolume]);
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalVolume(Number(e.target.value));
+  const handleVolumeValueChange = (val: number[]) => {
+    setLocalVolume(val[0]);
     setIsDraggingVolume(true);
   };
 
-  const handleVolumeCommit = () => {
-    if (localVolume !== null && isDraggingVolume) {
-      sendCommand('adjustVolume', { volume: localVolume });
-    }
+  const handleVolumeValueCommit = (val: number[]) => {
+    const newVol = val[0];
+    setLocalVolume(newVol);
+    sendCommand('adjustVolume', { volume: newVol });
     setIsDraggingVolume(false);
   };
 
@@ -503,28 +503,31 @@ export const RemoteView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans relative">
-      {/* Floating Toast Notification Container (Zero Layout Shift) */}
+    <div className="min-h-screen bg-background text-foreground font-sans relative">
+      {/* Background Ambience */}
+      <ConstellationsBackground particleCount={25} interactive />
+
+      {/* Floating Toast Notification Container */}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 pointer-events-none flex flex-col items-center gap-2">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto w-full flex items-center justify-between gap-3 p-3 text-xs font-semibold uppercase tracking-wider backdrop-blur-md shadow-2xl transition-all border rounded-none ${toast.type === 'success'
-                ? 'bg-slate-900/95 border-[#00c8d4] text-[#00c8d4] shadow-[0_0_15px_rgba(0,200,212,0.3)]'
-                : toast.type === 'error'
-                  ? 'bg-slate-900/95 border-red-500 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.3)]'
-                  : 'bg-slate-900/95 border-slate-700 text-slate-200'
+            className={`pointer-events-auto w-full flex items-center justify-between gap-3 p-3 text-xs font-semibold uppercase tracking-wider backdrop-blur-md shadow-2xl transition-all border ${toast.type === 'success'
+              ? 'bg-card/95 border-primary text-primary shadow-[0_0_15px_rgba(0,200,212,0.3)]'
+              : toast.type === 'error'
+                ? 'bg-card/95 border-destructive text-destructive shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+                : 'bg-card/95 border-border text-foreground'
               }`}
           >
             <div className="flex items-center gap-2 truncate">
-              {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-[#00c8d4]" />}
-              {toast.type === 'error' && <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />}
-              {toast.type === 'info' && <Tv className="w-4 h-4 flex-shrink-0 text-slate-400" />}
+              {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-primary" />}
+              {toast.type === 'error' && <AlertCircle className="w-4 h-4 flex-shrink-0 text-destructive" />}
+              {toast.type === 'info' && <Tv className="w-4 h-4 flex-shrink-0 text-muted-foreground" />}
               <span className="truncate">{toast.message}</span>
             </div>
             <button
               onClick={() => removeToast(toast.id)}
-              className="p-1 text-slate-400 hover:text-slate-100 transition-colors cursor-pointer"
+              className="p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               title="Dismiss"
             >
               <X className="w-3.5 h-3.5" />
@@ -535,35 +538,42 @@ export const RemoteView: React.FC = () => {
 
       {/* Render Room Code Input Screen if not connected to a room */}
       {!activeRoomCode ? (
-        <div className="flex min-h-screen items-center justify-center p-4">
-          <Card className="w-full max-w-md p-6 bg-slate-900 border-slate-800 rounded-none shadow-2xl flex flex-col gap-6 relative">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
+          <Card
+            telemetry="AUTH.JOIN"
+            cornerLines
+            className="w-full max-w-md p-6 bg-card border-border shadow-2xl flex flex-col gap-6 relative"
+          >
+            <div className="flex items-center justify-between border-b border-border pb-4">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-[#00c8d4]/10 rounded-none border border-[#00c8d4]/30">
-                  <Tv className="w-6 h-6 text-[#00c8d4]" />
+                <div className="p-3 bg-primary/10 border border-primary/30">
+                  <Tv className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-semibold tracking-wide text-slate-100">{t('remote.title')}</h1>
-                  <p className="text-xs text-slate-400">{t('remote.subtitle')}</p>
+                  <h1 className="text-xl font-semibold tracking-wide text-foreground">{t('remote.title')}</h1>
+                  <p className="text-xs text-muted-foreground">{t('remote.subtitle')}</p>
                 </div>
               </div>
               <LanguageSwitcher />
             </div>
 
             <div className="flex flex-col gap-3">
-              <label className="text-xs font-medium text-slate-300">{t('remote.connectDesc')}</label>
-              <input
+              <label className="text-xs font-medium text-foreground">{t('remote.connectDesc')}</label>
+              <Input
                 type="text"
                 maxLength={6}
+                chamfer="dual"
                 value={inputCode}
                 onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ''))}
                 placeholder={t('remote.enterPinPlaceholder')}
-                className="w-full px-4 py-3 bg-slate-950 border border-slate-700 text-center font-mono text-2xl tracking-[0.3em] text-[#00c8d4] placeholder-slate-600 focus:outline-none focus:border-[#00c8d4]"
+                className="text-center font-mono text-xl tracking-[0.3em] text-primary placeholder:text-muted-foreground/50"
               />
-              <button
+              <Button
+                variant="cyber"
+                chamfer="dual"
                 onClick={() => handleJoinRoom(inputCode)}
                 disabled={loading || inputCode.length !== 6}
-                className="w-full mt-2 py-3 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase tracking-wider text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full mt-2 py-3 text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2 h-12 cursor-pointer"
               >
                 {loading ? (
                   <>
@@ -573,79 +583,86 @@ export const RemoteView: React.FC = () => {
                 ) : (
                   <span>{t('remote.joinRoomBtn')}</span>
                 )}
-              </button>
+              </Button>
             </div>
           </Card>
         </div>
       ) : (
-        <div className="flex min-h-screen flex-col p-4 sm:p-6 max-w-lg mx-auto">
+        <div className="relative z-10 flex min-h-screen flex-col p-4 sm:p-6 max-w-lg mx-auto">
           {/* Header bar */}
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5 gap-2">
+          <div className="flex items-center justify-between border-b border-border pb-4 mb-5 gap-2">
             <div className="flex items-center gap-3">
               <div className="flex flex-col">
-                <span className="text-xs text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                   {t('remote.connectedToRoom')}
                 </span>
-                <span className="font-mono text-xl font-bold text-[#00c8d4] tracking-widest">{activeRoomCode}</span>
+                <span className="font-mono text-xl font-bold text-primary tracking-widest">{activeRoomCode}</span>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <LanguageSwitcher />
 
               {isAdmin ? (
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-purple-950/90 border border-purple-500/70 text-xs font-bold text-purple-300 uppercase tracking-wider shadow-[0_0_12px_rgba(168,85,247,0.4)]">
+                <Badge variant="outline" className="flex items-center gap-1 px-2.5 py-1 bg-purple-950/90 border-purple-500/70 text-xs font-bold text-purple-300 uppercase tracking-wider shadow-[0_0_12px_rgba(168,85,247,0.4)] rounded-none">
                   <Shield className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />
                   {t('remote.adminBadge')}
-                </span>
+                </Badge>
               ) : isHost ? (
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-950/80 border border-amber-500/60 text-xs font-bold text-amber-300 uppercase tracking-wider shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+                <Badge variant="outline" className="flex items-center gap-1 px-2.5 py-1 bg-amber-950/80 border-amber-500/60 text-xs font-bold text-amber-300 uppercase tracking-wider shadow-[0_0_10px_rgba(245,158,11,0.2)] rounded-none">
                   <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                   {t('remote.hostBadge')}
-                </span>
+                </Badge>
               ) : (
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 border border-slate-800 text-xs text-slate-400 uppercase tracking-wider">
+                <Badge variant="outline" className="flex items-center gap-1 px-2.5 py-1 bg-card border-border text-xs text-muted-foreground uppercase tracking-wider rounded-none">
                   {t('remote.memberBadge')}
-                </span>
+                </Badge>
               )}
               {roomState?.isLocked && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-red-950/80 border border-red-800 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                <Badge variant="destructive" className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-none">
                   <Lock className="w-3 h-3" />
-                </span>
+                </Badge>
               )}
-              <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 border border-slate-800 text-xs text-slate-300">
-                <Users className="w-3.5 h-3.5 text-[#00c8d4]" />
+              <Badge variant="outline" className="flex items-center gap-1.5 px-2.5 py-1 bg-card border-border text-xs text-foreground rounded-none">
+                <Users className="w-3.5 h-3.5 text-primary" />
                 {memberCount}
-              </span>
-              <button
+              </Badge>
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={handleLeaveRoom}
                 title={t('remote.leaveRoomBtn')}
-                className="p-2 bg-slate-900 hover:bg-red-950/60 border border-slate-800 hover:border-red-800 text-slate-400 hover:text-red-300 transition-colors cursor-pointer"
+                className="h-9 w-9 text-muted-foreground hover:text-destructive hover:border-destructive transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
           </div>
 
           {/* Profile & Google Auth Card */}
-          <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5 flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-200 uppercase tracking-wider">
-                <User className="w-4 h-4 text-[#00c8d4]" />
+          <Card
+            cornerLines
+            className="p-4 bg-card border-border mb-5 flex flex-col gap-3"
+          >
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-foreground uppercase tracking-wider">
+                <User className="w-4 h-4 text-primary" />
                 {t('remote.accountProfile')}
               </div>
 
               {user?.isAnonymous === false ? (
                 <button
                   onClick={handleLogout}
-                  className="text-[10px] font-semibold text-slate-400 hover:text-red-400 uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-[10px] font-semibold text-muted-foreground hover:text-destructive uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <LogOut className="w-3 h-3" />
                   {t('remote.signOut')}
                 </button>
               ) : (
-                <button
+                <Button
+                  variant="outline"
+                  chamfer="top-right"
                   onClick={handleGoogleSignIn}
-                  className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-700 hover:border-[#00c8d4] text-slate-100 text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                  className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider h-auto flex items-center gap-1.5"
                 >
                   <svg className="w-3 h-3" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -654,74 +671,86 @@ export const RemoteView: React.FC = () => {
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                   </svg>
                   <span>{t('remote.signInWithGoogle')}</span>
-                </button>
+                </Button>
               )}
             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {user?.photoURL ? (
-                  <img src={user.photoURL} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700" />
+                  <img src={user.photoURL} alt="Avatar" className="w-8 h-8 rounded-full border border-border" />
                 ) : (
-                  <div className="w-8 h-8 bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold text-xs">
+                  <div className="w-8 h-8 bg-muted border border-border flex items-center justify-center text-muted-foreground font-bold text-xs">
                     {(myNickname || 'G')[0].toUpperCase()}
                   </div>
                 )}
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                     {user?.displayName || myNickname || `Guest (${user?.uid.substring(0, 4)})`}
                     {isAdmin && <Shield className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-mono">{user?.email || `UID: ${user?.uid.substring(0, 8)}...`}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">{user?.email || `UID: ${user?.uid.substring(0, 8)}...`}</span>
                 </div>
               </div>
 
               {!isEditingNickname ? (
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
+                  chamfer="top-right"
                   onClick={() => {
                     setNicknameInput(myNickname);
                     setIsEditingNickname(true);
                   }}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer border border-slate-700"
+                  className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1 h-auto"
                   title="Edit your nickname"
                 >
-                  <Edit3 className="w-3 h-3 text-[#00c8d4]" />
+                  <Edit3 className="w-3 h-3 text-primary" />
                   <span>{t('remote.editNickname')}</span>
-                </button>
+                </Button>
               ) : null}
             </div>
 
             {isEditingNickname && (
-              <form onSubmit={handleSaveNickname} className="flex items-center gap-2 pt-2 border-t border-slate-800">
-                <input
-                  type="text"
-                  maxLength={25}
-                  value={nicknameInput}
-                  onChange={(e) => setNicknameInput(e.target.value)}
-                  placeholder={t('remote.enterNicknamePlaceholder')}
-                  className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-700 font-mono text-xs text-slate-100 focus:outline-none focus:border-[#00c8d4]"
-                  autoFocus
-                />
-                <button
+              <form onSubmit={handleSaveNickname} className="flex items-center gap-2 pt-2 border-t border-border">
+                <div className="flex-1">
+                  <Input
+                    type="text"
+                    maxLength={25}
+                    chamfer="dual"
+                    value={nicknameInput}
+                    onChange={(e) => setNicknameInput(e.target.value)}
+                    placeholder={t('remote.enterNicknamePlaceholder')}
+                    className="font-mono text-xs"
+                    autoFocus
+                  />
+                </div>
+                <Button
                   type="submit"
-                  className="px-3 py-1.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase text-[10px] tracking-wider cursor-pointer"
+                  variant="cyber"
+                  chamfer="dual"
+                  className="px-3 py-1 text-[10px] font-bold uppercase h-9"
                 >
                   {t('remote.saveBtn')}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => setIsEditingNickname(false)}
-                  className="px-2.5 py-1.5 bg-slate-800 text-slate-400 hover:text-slate-200 text-[10px] cursor-pointer"
+                  className="px-2.5 py-1 text-muted-foreground hover:text-foreground text-[10px] h-9"
                 >
                   {t('remote.cancelBtn')}
-                </button>
+                </Button>
               </form>
             )}
           </Card>
 
           {/* Admin / Host Control Panel */}
           {isHostOrAdmin && (
-            <Card className="p-4 bg-slate-900 border-purple-900/50 rounded-none mb-5 flex flex-col gap-3 shadow-[0_0_15px_rgba(168,85,247,0.1)]">
+            <Card
+              cornerLines
+              className="p-4 bg-card border-purple-900/50 mb-5 flex flex-col gap-3 shadow-[0_0_15px_rgba(168,85,247,0.1)]"
+            >
               <div className="text-xs font-bold text-purple-300 uppercase tracking-wider border-b border-purple-900/40 pb-2 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <ShieldAlert className="w-4 h-4 text-purple-400" />
@@ -731,21 +760,25 @@ export const RemoteView: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <button
+                <Button
+                  variant="destructive"
+                  chamfer="dual"
                   onClick={handleClearQueueAdmin}
                   disabled={queue.length === 0}
-                  className="py-2.5 bg-red-950/80 hover:bg-red-900 disabled:opacity-40 border border-red-800 text-red-200 font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  className="py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-auto"
                   title="Clear all videos in the queue"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{t('remote.clearQueueBtn')} ({queue.length})</span>
-                </button>
+                </Button>
 
-                <button
+                <Button
+                  variant={roomState?.isLocked ? 'destructive' : 'outline'}
+                  chamfer="top-right"
                   onClick={handleToggleRoomLockAdmin}
-                  className={`py-2.5 border font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${roomState?.isLocked
-                      ? 'bg-amber-950/90 border-amber-600 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
-                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+                  className={`py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-auto ${roomState?.isLocked
+                    ? 'border-amber-500 text-amber-300 bg-amber-950/80 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                    : ''
                     }`}
                   title="Lock/Unlock room controls for regular members"
                 >
@@ -756,39 +789,39 @@ export const RemoteView: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Unlock className="w-3.5 h-3.5 text-slate-400" />
+                      <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
                       <span>{t('remote.lockRoomBtn')}</span>
                     </>
                   )}
-                </button>
+                </Button>
 
-                <button
+                <Button
+                  variant={roomState?.isCountdownEnabled ? 'cyber' : 'outline'}
+                  chamfer="top-right"
                   onClick={() => sendCommand('toggleCountdown')}
-                  className={`py-2.5 border font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${roomState?.isCountdownEnabled
-                      ? 'bg-cyan-950/90 border-[#00c8d4] text-[#00c8d4] shadow-[0_0_10px_rgba(0,200,212,0.3)]'
-                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
-                    }`}
+                  className="py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-auto"
                   title="Toggle 10-Second Countdown on TV"
                 >
                   <Timer className="w-3.5 h-3.5" />
                   <span>{roomState?.isCountdownEnabled ? t('remote.countdownOn') : t('remote.countdownOff')}</span>
-                </button>
+                </Button>
               </div>
             </Card>
           )}
 
           {/* Currently Playing Card */}
-          <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5">
-            <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+          <Card
+            cornerLines
+            className="p-4 bg-card border-border mb-5"
+          >
+            <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
               <span>{t('remote.nowPlayingTv')}</span>
-              <span
-                className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-widest ${roomState?.playback?.status === 'playing'
-                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                    : 'bg-amber-950 text-amber-400 border border-amber-800'
-                  }`}
+              <Badge
+                variant={roomState?.playback?.status === 'playing' ? 'success' : 'secondary'}
+                className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-widest rounded-none"
               >
                 {roomState?.playback?.status === 'playing' ? t('remote.playingStatus') : t('remote.pausedStatus')}
-              </span>
+              </Badge>
             </div>
             {roomState?.currentlyPlaying ? (
               <div className="flex gap-3 items-center">
@@ -796,118 +829,124 @@ export const RemoteView: React.FC = () => {
                   <img
                     src={`https://img.youtube.com/vi/${parseYouTubeVideoId(roomState.currentlyPlaying)}/hqdefault.jpg`}
                     alt="Video thumbnail"
-                    className="w-20 h-14 object-cover border border-slate-800"
+                    className="w-20 h-14 object-cover border border-border"
                   />
                 ) : null}
                 <div className="overflow-hidden flex-1 flex flex-col min-w-0">
                   {roomState?.currentlyPlayingTitle ? (
-                    <p className="text-xs font-bold text-slate-100 truncate font-sans mb-0.5">{roomState.currentlyPlayingTitle}</p>
+                    <p className="text-xs font-bold text-foreground truncate font-sans mb-0.5">{roomState.currentlyPlayingTitle}</p>
                   ) : null}
-                  <p className="text-[11px] font-mono text-[#00c8d4] truncate">{roomState.currentlyPlaying}</p>
+                  <p className="text-[11px] font-mono text-primary truncate">{roomState.currentlyPlaying}</p>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-slate-500 italic">{t('remote.noVideoSelected')}</p>
+              <p className="text-xs text-muted-foreground italic">{t('remote.noVideoSelected')}</p>
             )}
           </Card>
 
           {/* Main Playback Controls */}
-          <Card className="p-5 bg-slate-900 border-slate-800 rounded-none mb-5 flex flex-col gap-5">
-            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
+          <Card
+            cornerLines
+            className="p-5 bg-card border-border mb-5 flex flex-col gap-5"
+          >
+            <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-2 flex items-center justify-between">
               <span>{t('remote.playbackControls')}</span>
               {isHostOrAdmin && <span className="text-[10px] text-amber-400 font-semibold">{t('remote.privilegedOverrideActive')}</span>}
             </div>
 
             <div className="flex items-center justify-center gap-3">
-              <button
+              <Button
+                variant="cyber"
+                chamfer="dual"
                 onClick={() => sendCommand('play')}
                 disabled={roomState?.playback?.status === 'playing' || (Boolean(roomState?.isLocked) && !isHostOrAdmin)}
-                className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed"
+                className="flex-1 py-3.5 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 h-auto"
               >
-                <Play className="w-4 h-4 fill-slate-950" />
+                <Play className="w-4 h-4 fill-current" />
                 <span>{t('watchParty.playBtn')}</span>
-              </button>
+              </Button>
 
-              <button
+              <Button
+                variant="outline"
+                chamfer="dual"
                 onClick={() => sendCommand('pause')}
                 disabled={roomState?.playback?.status !== 'playing' || (Boolean(roomState?.isLocked) && !isHostOrAdmin)}
-                className="flex-1 py-3.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed"
+                className="flex-1 py-3.5 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 h-auto"
               >
-                <Pause className="w-4 h-4 fill-slate-950" />
+                <Pause className="w-4 h-4 fill-current" />
                 <span>{t('watchParty.pauseBtn')}</span>
-              </button>
+              </Button>
 
               {isHostOrAdmin && (
-                <button
+                <Button
+                  variant="cyber"
+                  chamfer="top-right"
                   onClick={() => sendCommand('forceSkip')}
-                  className="px-4 py-3.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_0_10px_rgba(0,200,212,0.3)]"
+                  className="px-4 py-3.5 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-1.5 h-auto"
                   title="Skip video on TV (Privileged action)"
                 >
-                  <SkipForward className="w-4 h-4 fill-slate-950" />
+                  <SkipForward className="w-4 h-4 fill-current" />
                   <span>{t('watchParty.skipNextBtn')}</span>
-                </button>
+                </Button>
               )}
             </div>
 
             {/* Volume Slider */}
-            <div className="flex flex-col gap-2 pt-2 border-t border-slate-800">
-              <div className="flex items-center justify-between text-xs text-slate-300">
-                <span className="flex items-center gap-1.5">
-                  <Volume2 className="w-4 h-4 text-[#00c8d4]" />
+            <div className="flex flex-col gap-2.5 pt-2 border-t border-border">
+              <div className="flex items-center justify-between text-xs text-foreground">
+                <span className="flex items-center gap-1.5 font-mono uppercase tracking-wider text-muted-foreground">
+                  <Volume2 className="w-4 h-4 text-primary" />
                   {t('remote.tvVolume')}
                 </span>
-                <span className="font-mono text-[#00c8d4] font-bold">{displayVolume}%</span>
+                <span className="font-mono text-primary font-bold">{displayVolume}%</span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={displayVolume}
-                onChange={handleVolumeChange}
-                onPointerUp={handleVolumeCommit}
-                onTouchEnd={handleVolumeCommit}
-                onMouseUp={handleVolumeCommit}
-                className="w-full accent-[#00c8d4] bg-slate-950 cursor-pointer h-2 rounded-none"
+              <Slider
+                value={[displayVolume]}
+                min={0}
+                max={100}
+                step={1}
+                onValueChange={handleVolumeValueChange}
+                onValueCommit={handleVolumeValueCommit}
+                disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                className="w-full cursor-pointer py-1.5"
               />
             </div>
 
             {/* Autoplay Toggle Row */}
-            <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-              <span className="text-xs text-slate-300 flex items-center gap-1.5 font-medium">
-                <Sparkles className={`w-4 h-4 ${roomState?.isAutoplay ? 'text-purple-400 animate-pulse' : 'text-slate-400'}`} />
+            <div className="pt-2 border-t border-border flex items-center justify-between">
+              <span className="text-xs text-foreground flex items-center gap-1.5 font-medium">
+                <Sparkles className={`w-4 h-4 ${roomState?.isAutoplay ? 'text-purple-400 animate-pulse' : 'text-muted-foreground'}`} />
                 {t('remote.autoplayMode')}
               </span>
-              <button
+              <Button
+                variant={roomState?.isAutoplay ? 'cyber' : 'outline'}
+                chamfer="top-right"
                 onClick={() => sendCommand('toggleAutoplay')}
                 disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
-                className={`px-3 py-1.5 border text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${roomState?.isAutoplay
-                    ? 'bg-purple-950/80 border-purple-500 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.3)]'
-                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
-                  }`}
+                className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 h-auto"
                 title="Toggle Autoplay mode via Last.fm recommendation"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{roomState?.isAutoplay ? t('remote.autoplayOn') : t('remote.autoplayOff')}</span>
-              </button>
+              </Button>
             </div>
 
             {/* Fullscreen Toggle Row for All Members */}
-            <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-              <span className="text-xs text-slate-300 flex items-center gap-1.5 font-medium">
+            <div className="pt-2 border-t border-border flex items-center justify-between">
+              <span className="text-xs text-foreground flex items-center gap-1.5 font-medium">
                 {roomState?.isFullscreen ? (
-                  <Minimize className="w-4 h-4 text-[#00c8d4]" />
+                  <Minimize className="w-4 h-4 text-primary" />
                 ) : (
-                  <Maximize className="w-4 h-4 text-slate-400" />
+                  <Maximize className="w-4 h-4 text-muted-foreground" />
                 )}
                 {t('remote.tvDisplayMode')}
               </span>
-              <button
+              <Button
+                variant={roomState?.isFullscreen ? 'cyber' : 'outline'}
+                chamfer="top-right"
                 onClick={handleToggleFullscreenClick}
                 disabled={fullscreenCooldown}
-                className={`px-3 py-1.5 border text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${roomState?.isFullscreen
-                    ? 'bg-cyan-950/80 border-[#00c8d4] text-[#00c8d4] shadow-[0_0_10px_rgba(0,200,212,0.3)]'
-                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
-                  }`}
+                className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 h-auto"
                 title="Toggle TV Fullscreen (5s cooldown)"
               >
                 {roomState?.isFullscreen ? (
@@ -917,47 +956,47 @@ export const RemoteView: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <Maximize className="w-3.5 h-3.5 text-[#00c8d4]" />
+                    <Maximize className="w-3.5 h-3.5 text-primary" />
                     <span>{t('remote.fullscreenTv')}</span>
                   </>
                 )}
-              </button>
+              </Button>
             </div>
 
             {/* Show Join Link QR Code Row */}
-            <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-              <span className="text-xs text-slate-300 flex items-center gap-1.5 font-medium">
-                <QrCode className="w-4 h-4 text-[#00c8d4]" />
+            <div className="pt-2 border-t border-border flex items-center justify-between">
+              <span className="text-xs text-foreground flex items-center gap-1.5 font-medium">
+                <QrCode className="w-4 h-4 text-primary" />
                 {t('remote.joinQrCode')}
               </span>
-              <button
+              <Button
+                variant={showQrCode ? 'cyber' : 'outline'}
+                chamfer="top-right"
                 onClick={() => setShowQrCode((prev) => !prev)}
-                className={`px-3 py-1.5 border text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-                  showQrCode
-                    ? 'bg-[#00c8d4] text-slate-950 border-[#00c8d4] shadow-[0_0_10px_rgba(0,200,212,0.3)]'
-                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
-                }`}
+                className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 h-auto"
                 title="Toggle Join Link QR Code"
               >
                 <QrCode className="w-3.5 h-3.5" />
                 <span>{showQrCode ? t('remote.hideQrCode') : t('remote.showQrCode')}</span>
-              </button>
+              </Button>
             </div>
 
             {/* Join Link QR Code Panel */}
             {showQrCode && (
-              <div className="pt-2 border-t border-slate-800 flex flex-col items-center gap-3 p-4 bg-slate-950 text-center transition-all animate-fadeIn">
-                <p className="text-xs text-slate-400 font-medium">{t('remote.scanToJoin')}</p>
-                <div className="p-3 bg-white border-4 border-[#00c8d4] shadow-[0_0_15px_rgba(0,200,212,0.2)]">
+              <div className="pt-2 border-t border-border flex flex-col items-center gap-3 p-4 bg-muted/30 text-center transition-all animate-in fade-in-0">
+                <p className="text-xs text-muted-foreground font-medium">{t('remote.scanToJoin')}</p>
+                <div className="p-3 bg-white border-4 border-primary shadow-[0_0_15px_rgba(0,200,212,0.2)]">
                   <QRCodeSVG value={`${window.location.origin}/#/join?room=${activeRoomCode}`} size={160} level="M" />
                 </div>
                 <div className="flex flex-col items-center gap-1.5 w-full">
-                  <span className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">{t('watchParty.roomBadge')}</span>
-                  <span className="font-mono text-2xl font-bold tracking-[0.2em] text-[#00c8d4]">{activeRoomCode}</span>
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{t('watchParty.roomBadge')}</span>
+                  <span className="font-mono text-2xl font-bold tracking-[0.2em] text-primary">{activeRoomCode}</span>
                 </div>
-                <button
+                <Button
+                  variant="outline"
+                  chamfer="dual"
                   onClick={handleCopyJoinLink}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer w-full justify-center"
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center gap-2 w-full justify-center h-auto"
                 >
                   {copiedLink ? (
                     <>
@@ -966,43 +1005,42 @@ export const RemoteView: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5 text-[#00c8d4]" />
+                      <Copy className="w-3.5 h-3.5 text-primary" />
                       <span>{t('remote.copyJoinLink')}</span>
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             )}
           </Card>
 
           {/* Add to Queue / Search YouTube Section */}
-          <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5 flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+          <Card
+            cornerLines
+            className="p-4 bg-card border-border mb-5 flex flex-col gap-3"
+          >
+            <div className="flex items-center justify-between border-b border-border pb-2">
               <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
+                <Button
+                  variant={inputTab === 'search' ? 'cyber' : 'outline'}
+                  size="sm"
+                  chamfer="top-right"
                   onClick={() => setInputTab('search')}
-                  className={`px-3 py-1 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer border ${
-                    inputTab === 'search'
-                      ? 'bg-[#00c8d4]/10 text-[#00c8d4] border-[#00c8d4]/50'
-                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
-                  }`}
+                  className="px-3 py-1 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 h-auto"
                 >
                   <Search className="w-3.5 h-3.5" />
                   <span>{t('remote.searchYoutubeTab')}</span>
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant={inputTab === 'url' ? 'cyber' : 'outline'}
+                  size="sm"
+                  chamfer="top-right"
                   onClick={() => setInputTab('url')}
-                  className={`px-3 py-1 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer border ${
-                    inputTab === 'url'
-                      ? 'bg-[#00c8d4]/10 text-[#00c8d4] border-[#00c8d4]/50'
-                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
-                  }`}
+                  className="px-3 py-1 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 h-auto"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{t('remote.pasteLinkTab')}</span>
-                </button>
+                </Button>
               </div>
 
               {roomState?.isLocked && !isHostOrAdmin && (
@@ -1015,18 +1053,24 @@ export const RemoteView: React.FC = () => {
             {inputTab === 'search' ? (
               <div className="flex flex-col gap-3">
                 <form onSubmit={handleSearchSubmit} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
-                    placeholder={roomState?.isLocked && !isHostOrAdmin ? t('remote.searchQueueLocked') : t('remote.searchPlaceholder')}
-                    className="flex-1 px-3 py-2 bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00c8d4] disabled:opacity-40"
-                  />
-                  <button
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                    <Input
+                      type="text"
+                      chamfer="dual"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                      placeholder={roomState?.isLocked && !isHostOrAdmin ? t('remote.searchQueueLocked') : t('remote.searchPlaceholder')}
+                      className="pl-9 text-xs"
+                    />
+                  </div>
+                  <Button
                     type="submit"
+                    variant="cyber"
+                    chamfer="top-right"
                     disabled={isSearching || (Boolean(roomState?.isLocked) && !isHostOrAdmin)}
-                    className="px-4 py-2 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-2 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5 h-9"
                   >
                     {isSearching ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1036,12 +1080,12 @@ export const RemoteView: React.FC = () => {
                         <span>{t('remote.searchBtn')}</span>
                       </>
                     )}
-                  </button>
+                  </Button>
                 </form>
 
                 {/* Info alert if API key is not configured */}
                 {!hasApiKey && (
-                  <div className="p-3 bg-slate-950 border border-amber-800/60 text-amber-300 text-xs flex flex-col gap-1">
+                  <div className="p-3 bg-muted/20 border border-amber-800/60 text-amber-300 text-xs flex flex-col gap-1">
                     <span className="font-bold flex items-center gap-1.5 text-amber-400">
                       <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
                       {t('remote.ytKeyNeededTitle')}
@@ -1053,7 +1097,7 @@ export const RemoteView: React.FC = () => {
                 )}
 
                 {searchError && (
-                  <p className="text-xs text-red-400 font-mono italic p-2 bg-red-950/40 border border-red-900/50">
+                  <p className="text-xs text-destructive font-mono italic p-2 bg-destructive/10 border border-destructive/30">
                     {searchError}
                   </p>
                 )}
@@ -1062,21 +1106,24 @@ export const RemoteView: React.FC = () => {
                 {searchResults.length > 0 && (
                   <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
                     {searchResults.map((res) => (
-                      <div key={res.id} className="flex gap-2.5 p-2 bg-slate-950 border border-slate-800 hover:border-slate-700 transition-colors items-center">
-                        <img src={res.thumbnail} alt={res.title} className="w-16 h-11 object-cover border border-slate-800 flex-shrink-0" />
+                      <div key={res.id} className="flex gap-2.5 p-2 bg-muted/30 border border-border hover:border-primary/50 transition-colors items-center">
+                        <img src={res.thumbnail} alt={res.title} className="w-16 h-11 object-cover border border-border flex-shrink-0" />
                         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                          <p className="text-xs font-bold text-slate-100 truncate">{res.title}</p>
-                          <p className="text-[10px] text-slate-400 font-mono truncate">{res.channelTitle}</p>
+                          <p className="text-xs font-bold text-foreground truncate">{res.title}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono truncate">{res.channelTitle}</p>
                         </div>
-                        <button
+                        <Button
+                          variant="cyber"
+                          size="sm"
+                          chamfer="top-right"
                           onClick={() => handleAddSearchResult(res)}
                           disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
-                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-bold uppercase text-[10px] tracking-wider flex items-center gap-1 transition-all cursor-pointer disabled:cursor-not-allowed flex-shrink-0 shadow-md"
+                          className="px-2.5 py-1.5 font-bold uppercase text-[10px] tracking-wider flex items-center gap-1 h-auto flex-shrink-0"
                           title="Add video to queue"
                         >
                           <Plus className="w-3 h-3" />
                           <span>{t('remote.addBtn')}</span>
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -1084,34 +1131,43 @@ export const RemoteView: React.FC = () => {
               </div>
             ) : (
               <form onSubmit={handleAddQueueSubmit} className="flex flex-col gap-3">
-                <input
-                  type="url"
-                  value={queueInputUrl}
-                  onChange={(e) => setQueueInputUrl(e.target.value)}
-                  disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
-                  placeholder={roomState?.isLocked && !isHostOrAdmin ? t('remote.searchQueueLocked') : t('remote.pasteUrlPlaceholder')}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-[#00c8d4] disabled:opacity-40"
-                />
-                <button
+                <div className="relative">
+                  <Plus className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                  <Input
+                    type="url"
+                    chamfer="dual"
+                    value={queueInputUrl}
+                    onChange={(e) => setQueueInputUrl(e.target.value)}
+                    disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
+                    placeholder={roomState?.isLocked && !isHostOrAdmin ? t('remote.searchQueueLocked') : t('remote.pasteUrlPlaceholder')}
+                    className="pl-9 text-xs"
+                  />
+                </div>
+                <Button
                   type="submit"
+                  variant="cyber"
+                  chamfer="dual"
                   disabled={Boolean(roomState?.isLocked) && !isHostOrAdmin}
-                  className="py-2.5 bg-[#00c8d4] hover:bg-[#00b0bd] text-slate-950 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="py-2.5 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 h-10"
                 >
                   <Plus className="w-4 h-4" />
                   <span>{t('remote.submitVideoToQueue')}</span>
-                </button>
+                </Button>
               </form>
             )}
           </Card>
 
           {/* Members & Per-Member Requests Section */}
-          <Card className="p-4 bg-slate-900 border-slate-800 rounded-none mb-5 flex flex-col gap-4">
-            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
+          <Card
+            cornerLines
+            className="p-4 bg-card border-border mb-5 flex flex-col gap-4"
+          >
+            <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-2 flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-[#00c8d4]" />
+                <Users className="w-4 h-4 text-primary" />
                 {t('remote.roomMembersAndRequests')}
               </span>
-              <span className="text-slate-500 font-mono text-[11px]">{t('remote.membersCount', { count: membersList.length })}</span>
+              <span className="text-muted-foreground font-mono text-[11px]">{t('remote.membersCount', { count: membersList.length })}</span>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -1124,63 +1180,66 @@ export const RemoteView: React.FC = () => {
                 const displayName = member.nickname || `User #${mIdx + 1}`;
 
                 return (
-                  <div key={member.uid} className="bg-slate-950 border border-slate-800 p-3 flex flex-col gap-2">
+                  <div key={member.uid} className="bg-muted/20 border border-border p-3 flex flex-col gap-2">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 font-mono flex-wrap">
-                        <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                        <span className="font-bold text-slate-100">{displayName}</span>
-                        <span className="text-[10px] text-slate-500">({member.uid.substring(0, 6)})</span>
+                        <User className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="font-bold text-foreground">{displayName}</span>
+                        <span className="text-[10px] text-muted-foreground">({member.uid.substring(0, 6)})</span>
                         {isMemberAdmin && (
-                          <span className="px-1.5 py-0.5 text-[9px] bg-purple-950 text-purple-300 border border-purple-800 font-bold uppercase flex items-center gap-1">
+                          <Badge variant="outline" className="px-1.5 py-0.5 text-[9px] bg-purple-950 text-purple-300 border-purple-800 font-bold uppercase flex items-center gap-1 rounded-none">
                             <Shield className="w-2.5 h-2.5 text-purple-400" /> {t('remote.adminBadge')}
-                          </span>
+                          </Badge>
                         )}
                         {isHostUser && !isMemberAdmin && (
-                          <span className="px-1.5 py-0.5 text-[9px] bg-amber-950 text-amber-300 border border-amber-800 font-bold uppercase">
+                          <Badge variant="outline" className="px-1.5 py-0.5 text-[9px] bg-amber-950 text-amber-300 border-amber-800 font-bold uppercase rounded-none">
                             {t('remote.hostBadge')}
-                          </span>
+                          </Badge>
                         )}
                         {isSelf && (
-                          <span className="px-1.5 py-0.5 text-[9px] bg-[#00c8d4]/10 text-[#00c8d4] border border-[#00c8d4]/30 font-bold uppercase">
+                          <Badge variant="outline" className="px-1.5 py-0.5 text-[9px] bg-primary/10 text-primary border-primary/30 font-bold uppercase rounded-none">
                             {t('remote.youBadge')}
-                          </span>
+                          </Badge>
                         )}
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-mono">
+                        <span className="text-[10px] text-muted-foreground font-mono">
                           {memberRequests.length} {memberRequests.length === 1 ? 'request' : 'requests'}
                         </span>
                         {isHostOrAdmin && !isSelf && !isMemberAdmin && (
-                          <button
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            chamfer="top-right"
                             onClick={() => handleKickMember(member.uid)}
-                            className="px-2 py-1 bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-300 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 h-auto"
                             title="Kick member and remove their requested videos"
                           >
                             <UserX className="w-3 h-3" />
                             <span>{t('remote.kickMemberBtn')}</span>
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
 
                     {/* Member's Requested Videos List */}
-                    <div className="pl-3 border-l-2 border-slate-800 flex flex-col gap-1.5 mt-1">
+                    <div className="pl-3 border-l-2 border-border flex flex-col gap-1.5 mt-1">
                       {memberRequests.length === 0 ? (
-                        <p className="text-[11px] text-slate-500 italic">{t('remote.noVideoRequestsInQueue')}</p>
+                        <p className="text-[11px] text-muted-foreground italic">{t('remote.noVideoRequestsInQueue')}</p>
                       ) : (
                         memberRequests.map((req) => {
                           const overallIndex = queue.findIndex((q) => q.id === req.id) + 1;
                           return (
-                            <div key={req.id} className="flex items-center justify-between text-[11px] font-mono text-slate-300 gap-2 bg-slate-900/60 p-1.5 border border-slate-800/80">
+                            <div key={req.id} className="flex items-center justify-between text-[11px] font-mono text-foreground gap-2 bg-muted/40 p-1.5 border border-border/80">
                               <div className="truncate flex items-center gap-1.5 min-w-0 flex-1">
-                                <span className="text-[#00c8d4] font-bold flex-shrink-0 font-mono">#{overallIndex}</span>
-                                <span className="truncate font-sans font-medium text-slate-200">{req.title || req.url}</span>
+                                <span className="text-primary font-bold flex-shrink-0 font-mono">#{overallIndex}</span>
+                                <span className="truncate font-sans font-medium text-foreground">{req.title || req.url}</span>
                               </div>
                               {isHostOrAdmin && (
                                 <button
                                   onClick={() => handleRemoveQueueItem(req.id, req.addedBy)}
-                                  className="text-slate-500 hover:text-red-400 p-1 cursor-pointer flex-shrink-0"
+                                  className="text-muted-foreground hover:text-destructive p-1 cursor-pointer flex-shrink-0"
                                   title="Delete video request"
                                 >
                                   <Trash2 className="w-3 h-3" />
@@ -1198,13 +1257,16 @@ export const RemoteView: React.FC = () => {
           </Card>
 
           {/* Up Next Queue List */}
-          <Card className="p-4 bg-slate-900 border-slate-800 rounded-none flex-1">
-            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 mb-3 flex items-center justify-between">
+          <Card
+            cornerLines
+            className="p-4 bg-card border-border flex-1"
+          >
+            <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-2 mb-3 flex items-center justify-between">
               <span>{t('remote.upcomingQueue')}</span>
-              <span className="text-slate-500 font-mono text-[11px]">{t('remote.itemsCount', { count: queue.length })}</span>
+              <span className="text-muted-foreground font-mono text-[11px]">{t('remote.itemsCount', { count: queue.length })}</span>
             </div>
             {queue.length === 0 ? (
-              <p className="text-xs text-slate-500 italic py-4 text-center">{t('watchParty.queueEmpty')}</p>
+              <p className="text-xs text-muted-foreground italic py-4 text-center">{t('watchParty.queueEmpty')}</p>
             ) : (
               <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
                 {queue.map((item, idx) => {
@@ -1217,28 +1279,28 @@ export const RemoteView: React.FC = () => {
                     : (addedByMember?.nickname || `User (${item.addedBy?.substring(0, 4) || '?'})`);
 
                   return (
-                    <div key={item.id || idx} className="flex items-center gap-2 p-2 bg-slate-950 border border-slate-800 text-xs">
-                      <span className="font-mono text-[#00c8d4] font-bold w-5 flex-shrink-0">#{idx + 1}</span>
+                    <div key={item.id || idx} className="flex items-center gap-2 p-2 bg-muted/20 border border-border text-xs">
+                      <span className="font-mono text-primary font-bold w-5 flex-shrink-0">#{idx + 1}</span>
                       {ytId ? (
-                        <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="thumb" className="w-10 h-7 object-cover flex-shrink-0" />
+                        <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="thumb" className="w-10 h-7 object-cover flex-shrink-0 border border-border" />
                       ) : null}
                       <div className="truncate flex-1 flex flex-col min-w-0">
-                        <span className="truncate font-bold text-slate-100 font-sans">{item.title || item.url}</span>
+                        <span className="truncate font-bold text-foreground font-sans">{item.title || item.url}</span>
                         {item.title ? (
-                          <span className="truncate text-[10px] font-mono text-[#00c8d4]/80">{item.url}</span>
+                          <span className="truncate text-[10px] font-mono text-primary/80">{item.url}</span>
                         ) : null}
                       </div>
-                      <span className="px-1.5 py-0.5 text-[9px] bg-[#00c8d4]/10 text-[#00c8d4] border border-[#00c8d4]/30 font-semibold uppercase flex-shrink-0">
+                      <Badge variant="outline" className="px-1.5 py-0.5 text-[9px] bg-primary/10 text-primary border-primary/30 font-semibold uppercase flex-shrink-0 rounded-none">
                         {addedByLabel}
-                      </span>
+                      </Badge>
 
                       {/* Host & Admin Reorder Actions */}
                       {isHostOrAdmin && queue.length > 1 && (
-                        <div className="flex items-center gap-0.5 flex-shrink-0 border-l border-slate-800 pl-1">
+                        <div className="flex items-center gap-0.5 flex-shrink-0 border-l border-border pl-1">
                           <button
                             onClick={() => handleMoveQueueItem(idx, 'up')}
                             disabled={idx === 0}
-                            className="p-1 text-slate-400 hover:text-cyan-400 disabled:opacity-20 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                            className="p-1 text-muted-foreground hover:text-primary disabled:opacity-20 transition-colors cursor-pointer disabled:cursor-not-allowed"
                             title={t('remote.moveUp')}
                           >
                             <ChevronUp className="w-3.5 h-3.5" />
@@ -1246,7 +1308,7 @@ export const RemoteView: React.FC = () => {
                           <button
                             onClick={() => handleMoveQueueItem(idx, 'down')}
                             disabled={idx === queue.length - 1}
-                            className="p-1 text-slate-400 hover:text-cyan-400 disabled:opacity-20 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                            className="p-1 text-muted-foreground hover:text-primary disabled:opacity-20 transition-colors cursor-pointer disabled:cursor-not-allowed"
                             title={t('remote.moveDown')}
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
@@ -1258,7 +1320,7 @@ export const RemoteView: React.FC = () => {
                       {canDelete && (
                         <button
                           onClick={() => handleRemoveQueueItem(item.id, item.addedBy)}
-                          className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-900 border border-transparent hover:border-red-900/50 transition-colors flex-shrink-0 cursor-pointer"
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-card border border-transparent hover:border-destructive/50 transition-colors flex-shrink-0 cursor-pointer"
                           title={isHostOrAdmin && !isMyEntry ? "Force delete item (Privileged)" : "Delete your entry"}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
