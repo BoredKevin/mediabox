@@ -3,9 +3,9 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useWatchParty } from '@/context/WatchPartyContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
-import { Card } from '@/components/ui/card';
+import { Card, Button } from '@boredkevin/ui';
 import { pad } from '@/lib/utils';
-import { Tv, X, Copy, Check, ExternalLink, Smartphone, Clock, Minimize, Lock } from 'lucide-react';
+import { Tv, X, Clock, Lock } from 'lucide-react';
 
 export const MediaBox: React.FC = () => {
   const { t } = useTranslation();
@@ -15,11 +15,8 @@ export const MediaBox: React.FC = () => {
     muted,
     showQrModal,
     setShowQrModal,
-    copiedLink,
-    copyRemoteLink,
     remoteUrl,
     handlePlayNextInQueue,
-    handleToggleFullscreen,
   } = useWatchParty();
 
   const [secondsLeft, setSecondsLeft] = useState<number>(30);
@@ -64,9 +61,10 @@ export const MediaBox: React.FC = () => {
 
   return (
     <Card
-      className={`p-0 overflow-hidden rounded-none border border-border bg-slate-950 flex flex-col relative transition-all duration-300 ${isFullscreen
-        ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black'
-        : 'aspect-video w-full'
+      cornerLines={false}
+      className={`p-0 overflow-hidden flex flex-col relative transition-all duration-300 ${isFullscreen
+        ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black rounded-none'
+        : 'aspect-video w-full bg-slate-950'
         }`}
     >
       {isFullscreen && (
@@ -96,8 +94,8 @@ export const MediaBox: React.FC = () => {
             />
           ) : (
             <div className="text-center p-6 flex flex-col items-center gap-3">
-              <Tv className="w-12 h-12 text-slate-700 animate-pulse" />
-              <p className="text-slate-400 text-sm font-mono max-w-sm">
+              <Tv className="w-12 h-12 text-muted-foreground animate-pulse opacity-50" />
+              <p className="text-muted-foreground text-sm font-mono max-w-sm">
                 {roomCode
                   ? t('mediaBox.noVideoPlaying')
                   : t('mediaBox.watchPartyIdle')}
@@ -108,10 +106,10 @@ export const MediaBox: React.FC = () => {
 
         {/* Room Locked Screen Overlay */}
         {isLocked && (
-          <div className="absolute inset-0 z-20 bg-slate-950/80 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-center select-none">
+          <div className="absolute inset-0 z-20 bg-background/80 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-center select-none">
             <div className="flex flex-col items-center gap-3">
-              <Lock className="w-12 h-12 text-slate-700 animate-pulse" />
-              <p className="text-slate-400 text-sm font-mono max-w-sm">
+              <Lock className="w-12 h-12 text-amber-500/80 animate-pulse" />
+              <p className="text-muted-foreground text-sm font-mono max-w-sm">
                 {t('mediaBox.roomLockedSubtitle')}
               </p>
             </div>
@@ -121,24 +119,29 @@ export const MediaBox: React.FC = () => {
 
       {/* QR Code Overlay Modal inside MediaBox */}
       {showQrModal && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-30 flex items-center justify-center p-4">
-          <div className="bg-surface border border-border p-6 max-w-sm w-full flex flex-col items-center gap-4 relative shadow-2xl overflow-hidden">
+        <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-30 flex items-center justify-center p-4 animate-in fade-in-0 duration-200">
+          <Card
+            cornerLines
+            className="p-6 max-w-sm w-full flex flex-col items-center gap-4 relative shadow-2xl overflow-hidden bg-card border-border"
+          >
             {/* 30s Animated Timer Progress Line */}
             <div
-              className="absolute top-0 left-0 h-1 bg-primary transition-all duration-1000 ease-linear"
+              className="absolute top-0 left-0 h-1 bg-primary/50 transition-all duration-1000 ease-linear"
               style={{ width: `${(secondsLeft / 30) * 100}%` }}
             />
 
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setShowQrModal(false)}
-              className="absolute top-3 right-3 p-1 text-text-faint hover:text-text transition-colors cursor-pointer"
+              className="absolute top-3 right-3 h-8 w-8 text-muted-foreground hover:text-foreground"
               title="Close QR Modal"
             >
               <X className="w-5 h-5" />
-            </button>
+            </Button>
 
             <div className="flex flex-col items-center gap-1">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-text">{t('mediaBox.scanToRemote')}</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">{t('mediaBox.scanToRemote')}</h3>
             </div>
 
             <div className="p-3 bg-white border-4 border-primary">
@@ -146,15 +149,15 @@ export const MediaBox: React.FC = () => {
             </div>
 
             <div className="text-center flex flex-col gap-1 w-full">
-              <span className="text-xs text-text-muted">{t('mediaBox.enterPinCode')}</span>
+              <span className="text-xs text-muted-foreground">{t('mediaBox.enterPinCode')}</span>
               <span className="font-mono text-3xl font-bold tracking-[0.2em] text-primary">
                 {roomCode || '------'}
               </span>
             </div>
-
-          </div>
+          </Card>
         </div>
       )}
     </Card>
   );
 };
+

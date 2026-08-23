@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider, ConstellationsBackground, useTheme } from '@boredkevin/ui';
 import { Header } from '@/components/Header';
 import { ClockSection } from '@/components/ClockSection';
 import { ScheduleSection } from '@/components/ScheduleSection';
@@ -11,27 +12,18 @@ import { LanguageProvider } from '@/context/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const Dashboard: React.FC = () => {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  };
+  const { isDark, toggleThemeMode } = useTheme();
 
   return (
     <WatchPartyProvider>
       <LanguageSwitcher className="fixed top-4 right-18 sm:right-20 z-40" hideOnFullscreen />
+
+      {/* Futuristic Constellations Canvas Background */}
+      <ConstellationsBackground particleCount={40} />
+
       <div className="relative z-10 flex min-h-screen md:h-screen flex-col items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8 pb-10 sm:pb-10 md:pb-10">
         <div className="w-full max-w-[1800px] flex-1 flex flex-col justify-between gap-3 sm:gap-4 md:gap-5 md:min-h-0">
-          <Header theme={theme} toggleTheme={toggleTheme} />
+          <Header theme={isDark ? 'dark' : 'light'} toggleTheme={toggleThemeMode} />
 
           {/* Main Content Section centered vertically between Header and Footer */}
           <div className="my-auto flex flex-col gap-3 sm:gap-4 md:gap-5 w-full py-2 md:min-h-0">
@@ -54,18 +46,21 @@ const Dashboard: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <LanguageProvider>
-      <HashRouter>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/join" element={<RemotePage />} />
-          <Route path="/remote" element={<RemotePage />} />
-        </Routes>
-      </HashRouter>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <HashRouter>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/join" element={<RemotePage />} />
+            <Route path="/remote" element={<RemotePage />} />
+          </Routes>
+        </HashRouter>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 };
 
 export default App;
+
 
 

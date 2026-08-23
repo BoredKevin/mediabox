@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation, Language } from '@/context/LanguageContext';
 import { useWatchParty } from '@/context/WatchPartyContext';
+import { Button } from '@boredkevin/ui';
 import { Globe } from 'lucide-react';
 
 interface LanguageSwitcherProps {
@@ -32,18 +33,21 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
   };
 
   return (
-    <button
+    <Button
+      variant="outline"
+      chamfer="dual"
       onClick={toggleLanguage}
       aria-label="Switch Language / Ganti Bahasa"
       title={`Current: ${language.toUpperCase()} - Click to switch`}
-      className={`flex h-11 items-center gap-1.5 px-3 border border-border bg-surface text-text-muted hover:border-primary hover:text-text rounded-none transition-all duration-200 text-xs font-mono font-bold uppercase tracking-wider cursor-pointer ${className}`}
+      className={`h-11 items-center gap-1.5 px-3 text-xs font-mono font-bold uppercase tracking-wider ${className}`}
     >
       <Globe className="h-4 w-4 text-primary" />
       <span className="flex items-center gap-1">
-        <span className={language === 'en' ? 'text-primary font-extrabold' : 'text-text-faint'}>EN</span>
-        <span className="text-text-faint opacity-50">/</span>
-        <span className={language === 'id' ? 'text-primary font-extrabold' : 'text-text-faint'}>ID</span>
+        <span className={language === 'en' ? 'text-primary font-extrabold' : 'text-muted-foreground opacity-70'}>EN</span>
+        <span className="text-muted-foreground opacity-40">/</span>
+        <span className={language === 'id' ? 'text-primary font-extrabold' : 'text-muted-foreground opacity-70'}>ID</span>
       </span>
-    </button>
+    </Button>
   );
 };
+

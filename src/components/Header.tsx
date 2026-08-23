@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
+import { Button } from '@boredkevin/ui';
 
 interface HeaderProps {
   theme: 'dark' | 'light';
@@ -12,25 +13,29 @@ export const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
 
   return (
     <header className="relative flex flex-col items-center justify-center pt-1 pb-1 text-center flex-shrink-0">
-      {/* Theme Toggle Button - Sharp Corners */}
-      <button
+      {/* Theme Toggle Button using @boredkevin/ui Button */}
+      <Button
+        variant="outline"
+        chamfer="dual"
+        size="icon"
         onClick={toggleTheme}
         aria-label="Ganti tema"
-        className="fixed top-4 right-4 z-50 flex h-11 w-11 items-center justify-center border border-border bg-surface text-text-muted hover:border-primary hover:text-text rounded-none transition-all duration-200 cursor-pointer"
+        className="fixed top-4 right-4 z-50 h-11 w-11"
       >
         {theme === 'dark' ? (
           <Moon className="h-4 w-4 text-primary" />
         ) : (
           <Sun className="h-4 w-4 text-amber-500" />
         )}
-      </button>
+      </Button>
 
-      <h1 className="font-body text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">
+      <h1 className="font-body text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl text-foreground">
         {t('header.title')}
       </h1>
-      <h2 className="font-body text-sm font-normal sm:text-base mt-1">
+      <h2 className="font-body text-sm font-normal sm:text-base mt-1 text-muted-foreground">
         time.boredkevin.com
       </h2>
     </header>
   );
 };
+

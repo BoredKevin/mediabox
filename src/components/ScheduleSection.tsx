@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, Badge } from '@boredkevin/ui';
 import { ScheduleData, ScheduleItem } from '@/types/schedule';
 import { timeToMinutes } from '@/lib/utils';
 import { useTranslation } from '@/context/LanguageContext';
@@ -153,41 +153,45 @@ export const ScheduleSection: React.FC = () => {
       )}
 
       {/* Current Schedule Box */}
-      <Card className="relative overflow-hidden p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface">
+      <Card
+        className="relative p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center"
+      >
         <div>
-          <div className="text-m font-bold uppercase tracking-wider mb-1">
+          <div className="text-sm font-bold uppercase tracking-wider mb-1 text-muted-foreground">
             {t('schedule.currentSchedule')}
           </div>
-          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text leading-tight">
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight">
             {current.sub}
           </div>
         </div>
         {/* Progress Bar at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-border/40">
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-border/20 overflow-hidden">
           <div
-            className="h-full bg-primary transition-all duration-1000 ease-linear"
+            className="h-full bg-primary/50 transition-all duration-1000 ease-linear"
             style={{ width: `${progress}%` }}
           />
         </div>
       </Card>
 
       {/* Next Schedule Box */}
-      <Card className="relative overflow-hidden p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center rounded-none border border-border bg-surface opacity-80 group">
-        <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary/70" />
+      <Card
+        className="relative p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center opacity-85 group"
+      >
         <div className="pl-2">
-          <div className="text-m font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+          <div className="text-sm font-bold uppercase tracking-wider mb-1 flex items-center gap-2 text-muted-foreground">
             {t('schedule.nextSchedule')}
             {next.countdown && (
-              <span className="inline-flex items-center gap-1 text-[10px] uppercase font-mono px-1.5 py-0.5 text-primary bg-primary/10">
+              <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0.5 gap-1 bg-primary/10 text-primary border-primary/40 rounded-none">
                 <Sparkles className="w-3 h-3" /> Special
-              </span>
+              </Badge>
             )}
           </div>
-          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text leading-tight">
-            {next.sub} <span className="text-text font-normal">({next.start})</span>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight">
+            {next.sub} <span className="text-foreground/80 font-normal">({next.start})</span>
           </div>
         </div>
       </Card>
     </div>
   );
 };
+
