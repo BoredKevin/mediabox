@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Badge } from '@boredkevin/ui';
+import { Card, Badge, Button } from '@boredkevin/ui';
 import { ScheduleData, ScheduleItem } from '@/types/schedule';
 import { timeToMinutes } from '@/lib/utils';
 import { useTranslation } from '@/context/LanguageContext';
 import { useWatchParty } from '@/context/WatchPartyContext';
 import { CountdownOverlay } from '@/components/CountdownOverlay';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Timer } from 'lucide-react';
 
 const DAYS_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
@@ -142,13 +142,26 @@ export const ScheduleSection: React.FC = () => {
     ? Math.max(0, Math.ceil((activeCountdown.targetTimeMs - now.getTime()) / 1000))
     : 0;
 
+  const handleTestCountdown = () => {
+    setActiveCountdown((prev) =>
+      prev
+        ? null
+        : {
+            item: next,
+            targetTimeMs: Date.now() + 10000,
+          }
+    );
+  };
+
   return (
     <div className="flex flex-col gap-3 sm:gap-4 h-full md:min-h-0">
       {/* Fullscreen Countdown Overlay when active */}
       {activeCountdown && (
         <CountdownOverlay
           item={activeCountdown.item}
+          targetTimeMs={activeCountdown.targetTimeMs}
           secondsLeft={activeSecondsLeft}
+          onDismiss={() => setActiveCountdown(null)}
         />
       )}
 
@@ -178,12 +191,29 @@ export const ScheduleSection: React.FC = () => {
         className="relative p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center opacity-85 group"
       >
         <div className="pl-2">
-          <div className="text-sm font-bold uppercase tracking-wider mb-1 flex items-center gap-2 text-muted-foreground">
-            {t('schedule.nextSchedule')}
-            {next.countdown && (
-              <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0.5 gap-1 bg-primary/10 text-primary border-primary/40 rounded-none">
-                <Sparkles className="w-3 h-3" /> Special
-              </Badge>
+          <div className="text-sm font-bold uppercase tracking-wider mb-1 flex items-center justify-between text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>{t('schedule.nextSchedule')}</span>
+              {next.countdown && (
+                <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0.5 gap-1 bg-primary/10 text-primary border-primary/40 rounded-none">
+                  <Sparkles className="w-3 h-3" /> Special
+                </Badge>
+              )}
+            </div>
+
+            {/* Dev Mode Test Button */}
+            {import.meta.env.DEV && (
+              <Button
+                variant="outline"
+                size="sm"
+                chamfer="top-right"
+                onClick={handleTestCountdown}
+                className="h-6 text-[10px] font-mono px-2 py-0 border-dashed border-amber-500/50 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 hover:border-amber-400 gap-1 tracking-wider cursor-pointer"
+                title="DEV: Test 10-Second Countdown Overlay"
+              >
+                <Timer className="w-3 h-3" />
+                <span>{activeCountdown ? 'STOP TEST' : 'TEST COUNTDOWN'}</span>
+              </Button>
             )}
           </div>
           <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight">
