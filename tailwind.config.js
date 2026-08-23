@@ -4,43 +4,56 @@ export default {
   content: [
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}',
+    './node_modules/@boredkevin/ui/dist/**/*.{js,mjs}',
   ],
   theme: {
     container: {
       center: true,
       padding: '1rem',
       screens: {
-        '2xl': '1200px',
+        '2xl': '1400px',
       },
     },
     extend: {
       colors: {
-        border: 'var(--color-border)',
-        input: 'var(--color-border)',
-        ring: 'var(--color-primary)',
-        background: 'var(--color-bg)',
-        foreground: 'var(--color-text)',
-        surface: 'var(--color-surface)',
-        text: {
-          DEFAULT: 'var(--color-text)',
-          muted: 'var(--color-text-muted)',
-          faint: 'var(--color-text-faint)',
-        },
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        surface: 'hsl(var(--card))',
         primary: {
-          DEFAULT: 'var(--color-primary)',
-          foreground: '#0d0f10',
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
         },
         muted: {
-          DEFAULT: 'var(--color-surface)',
-          foreground: 'var(--color-text-muted)',
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
         },
         accent: {
-          DEFAULT: 'var(--color-surface)',
-          foreground: 'var(--color-primary)',
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
         },
         card: {
-          DEFAULT: 'var(--color-surface)',
-          foreground: 'var(--color-text)',
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        text: {
+          DEFAULT: 'hsl(var(--foreground))',
+          muted: 'hsl(var(--muted-foreground))',
+          faint: 'hsl(var(--muted-foreground) / 0.6)',
         },
       },
       borderRadius: {
@@ -52,11 +65,13 @@ export default {
         xl: '0px',
         '2xl': '0px',
         '3xl': '0px',
-        full: '0px',
+        full: '9999px',
       },
       fontFamily: {
         display: ['JetBrains Mono', 'Courier New', 'monospace'],
-        body: ['Space Grotesk', 'Helvetica Neue', 'sans-serif'],
+        body: ['Space Grotesk', 'Inter', 'Helvetica Neue', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Courier New', 'monospace'],
+        sans: ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
         blink: 'blink 1s step-end infinite',

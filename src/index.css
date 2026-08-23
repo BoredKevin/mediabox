@@ -1,43 +1,17 @@
+@import '@boredkevin/ui/theme.css';
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
 @layer base {
-  :root,
-  [data-theme="dark"] {
-    --color-bg: #0d0f10;
-    --color-surface: #111416;
-    --color-border: #2e3840;
-    --color-text: #d0dce6;
-    --color-text-muted: #6b8090;
-    --color-text-faint: #3e5060;
-    --color-primary: #00c8d4;
-    --color-glow: rgba(0, 200, 212, 0.05);
-    --color-dot: rgba(208, 220, 230, 0.04);
-    --radius: 0rem;
-  }
-
-  [data-theme="light"] {
-    --color-bg: #f1f5f9;
-    --color-surface: #ffffff;
-    --color-border: #cbd5e1;
-    --color-text: #0f172a;
-    --color-text-muted: #334155;
-    --color-text-faint: #64748b;
-    --color-primary: #00838f;
-    --color-glow: rgba(0, 131, 143, 0.06);
-    --color-dot: rgba(15, 23, 42, 0.06);
-    --radius: 0rem;
-  }
-
   * {
-    border-radius: 0px !important;
+    border-radius: var(--radius, 0px);
   }
 
   body {
-    background-color: var(--color-bg);
-    color: var(--color-text);
-    font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Space Grotesk', 'Inter', 'Helvetica Neue', sans-serif;
     min-height: 100vh;
     margin: 0;
     position: relative;
@@ -51,25 +25,5 @@
       height: 100vh;
     }
   }
-
-  /* Ambient Glow Background */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(ellipse 60% 40% at 50% 50%, var(--color-glow) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* Dot Grid Overlay */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: radial-gradient(circle, var(--color-dot) 1px, transparent 1px);
-    background-size: 32px 32px;
-    pointer-events: none;
-    z-index: 0;
-  }
 }
+

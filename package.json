@@ -20,6 +20,7 @@
     "deploy": "npm run build && wrangler pages deploy dist"
   },
   "dependencies": {
+    "@boredkevin/ui": "^0.1.1",
     "@radix-ui/react-progress": "^1.1.2",
     "@radix-ui/react-slot": "^1.1.2",
     "canvas-confetti": "^1.9.4",
