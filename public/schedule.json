@@ -24,7 +24,7 @@
     },
     {
       "start": "11:45",
-      "sub": "Istirahat / Ishoma",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
@@ -37,7 +37,7 @@
     },
     {
       "start": "15:10",
-      "sub": "Istirahat / Ishoma",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
@@ -78,7 +78,7 @@
     },
     {
       "start": "11:45",
-      "sub": "Istirahat / Ishoma",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
@@ -91,7 +91,7 @@
     },
     {
       "start": "15:10",
-      "sub": "Istirahat / Ishoma",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
@@ -128,7 +128,7 @@
     },
     {
       "start": "11:45",
-      "sub": "Istirahat / Ishoma",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
@@ -141,7 +141,7 @@
     },
     {
       "start": "15:10",
-      "sub": "Istirahat / Ishoma",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
@@ -182,7 +182,7 @@
     },
     {
       "start": "11:45",
-      "sub": "Istirahat / Ishoma",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
@@ -195,7 +195,7 @@
     },
     {
       "start": "15:10",
-      "sub": "Istirahat / Ishoma",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
@@ -222,30 +222,34 @@
       "sub": "Bahasa Indonesia"
     },
     {
-      "start": "10:00",
+      "start": "09:15",
       "sub": "Istirahat",
       "countdown": true
     },
     {
-      "start": "10:15",
+      "start": "09:30",
+      "sub": "Bahasa Indonesia"
+    },
+    {
+      "start": "10:10",
       "sub": "Fisika"
     },
     {
-      "start": "11:45",
-      "sub": "Istirahat / Ishoma",
+      "start": "11:30",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
-      "start": "12:30",
+      "start": "13:00",
       "sub": "Fisika"
     },
     {
-      "start": "13:10",
+      "start": "13:40",
       "sub": "Informatika"
     },
     {
       "start": "15:10",
-      "sub": "Istirahat / Ishoma",
+      "sub": "Istirahat",
       "countdown": true
     },
     {
