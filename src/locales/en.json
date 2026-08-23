@@ -162,7 +162,8 @@
     "nextSchedule": "Next Schedule",
     "loading": "Loading...",
     "countdownTitle": "Special Schedule Starting Soon!",
-    "itsTime": "IT'S TIME!"
+    "itsTime": "IT'S TIME!",
+    "timeFor": "TIME FOR {name}"
   },
   "header": {
     "title": "Welcome to XII - Cravion • Informatics Engineering"

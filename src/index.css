@@ -20,10 +20,53 @@
 
   /* Automatically hide scrollbar on desktop screens */
   @media (min-width: 768px) {
-    html, body {
+
+    html,
+    body {
       overflow: hidden;
       height: 100vh;
     }
   }
 }
 
+@keyframes countdownFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  20% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+.animate-countdown-fade {
+  animation: countdownFade 1s ease-in-out forwards;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+
+  to {
+    opacity: 1;
+    backdrop-filter: blur(5px);
+  }
+}
+
+.animate-overlay-fade {
+  animation: overlayFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

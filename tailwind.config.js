@@ -75,11 +75,18 @@ export default {
       },
       animation: {
         blink: 'blink 1s step-end infinite',
+        'countdown-fade': 'countdownFade 1s ease-in-out forwards',
       },
       keyframes: {
         blink: {
           '0%, 100%': { opacity: '0.8' },
           '50%': { opacity: '0.15' },
+        },
+        countdownFade: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '15%': { opacity: '1', transform: 'scale(1)' },
+          '80%': { opacity: '1', transform: 'scale(1)' },
+          '100%': { opacity: '0', transform: 'scale(1.02)' },
         },
       },
     },

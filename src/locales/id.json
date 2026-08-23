@@ -162,7 +162,8 @@
     "nextSchedule": "Jadwal Berikutnya",
     "loading": "Memuat...",
     "countdownTitle": "Jadwal Spesial Segera Dimulai!",
-    "itsTime": "SAATNYA!"
+    "itsTime": "SAATNYA!",
+    "timeFor": "SAATNYA {name}"
   },
   "header": {
     "title": "Welcome to XII - Cravion • Teknik Informatika"
