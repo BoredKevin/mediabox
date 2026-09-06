@@ -1,6 +1,6 @@
 import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, ConstellationsBackground, useTheme } from '@boredkevin/ui';
+import { ThemeProvider, AtmosphericAuroraBackground, useTheme } from '@boredkevin/ui';
 import { Header } from '@/components/Header';
 import { ClockSection } from '@/components/ClockSection';
 import { ScheduleSection } from '@/components/ScheduleSection';
@@ -18,8 +18,8 @@ const Dashboard: React.FC = () => {
     <WatchPartyProvider>
       <LanguageSwitcher className="fixed top-4 right-18 sm:right-20 z-40" hideOnFullscreen />
 
-      {/* Futuristic Constellations Canvas Background */}
-      <ConstellationsBackground particleCount={40} />
+      {/* Dynamic Aurora Canvas Background */}
+      <AtmosphericAuroraBackground />
 
       <div className="relative z-10 flex min-h-screen md:h-screen flex-col items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8 pb-10 sm:pb-10 md:pb-10">
         <div className="w-full max-w-[1800px] flex-1 flex flex-col justify-between gap-3 sm:gap-4 md:gap-5 md:min-h-0">

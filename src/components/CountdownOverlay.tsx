@@ -107,8 +107,6 @@ export const CountdownOverlay: React.FC<CountdownOverlayProps> = ({
         </Button>
       )}
 
-      {/* Subtle neutral radial vignette for depth */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_20%,_rgba(0,0,0,0.7)_100%)] pointer-events-none" />
 
       {/* Main Countdown / Completion Container */}
       <div className="relative z-10 flex flex-col items-center justify-center text-center w-full max-w-6xl mx-auto px-4">
