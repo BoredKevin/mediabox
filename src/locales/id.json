@@ -8,8 +8,6 @@
     "roomBadge": "RUANG",
     "qrCodeBtn": "Kode QR",
     "openRemoteBtn": "Buka Remote",
-    "endRoomBtn": "Akhiri Ruang",
-    "endRoomConfirm": "Apakah Anda yakin ingin mengakhiri sesi Nonton Bersama ini?",
     "playBtn": "Putar",
     "pauseBtn": "Jeda",
     "skipNextBtn": "Skip",
@@ -27,15 +25,15 @@
     "autoplayOff": "Autoplay OFF"
   },
   "mediaBox": {
-    "noVideoPlaying": "Tidak ada video diputar. Tambahkan URL YouTube di kontrol atas atau dari remote seluler!",
-    "watchPartyIdle": "Watch Party tidak aktif. Buat ruang di kontrol atas untuk mulai menonton bersama!",
+    "noVideoPlaying": " ",
+    "watchPartyIdle": " ",
     "scanToRemote": "Pindai untuk Remote Kontrol",
     "enterPinCode": "Atau masukkan PIN 6-digit:",
     "openRemoteNewTab": "Buka Remote di Tab Baru",
     "copyRemoteLink": "Salin Tautan Remote",
     "linkCopied": "Tautan Disalin!",
     "roomLockedTitle": "RUANG TERKUNCI",
-    "roomLockedSubtitle": "Ruang dikunci"
+    "roomLockedSubtitle": " "
   },
   "player": {
     "embedRestrictedError": "Pemilik video ini menonaktifkan pemutaran di pemutar tertanam pihak ketiga.",

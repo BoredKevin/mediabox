@@ -15,6 +15,7 @@ import {
   Lock,
   Unlock,
   Sparkles,
+  LogOut,
 } from 'lucide-react';
 
 export const WatchPartyControls: React.FC = () => {
@@ -93,7 +94,6 @@ export const WatchPartyControls: React.FC = () => {
         <div className="flex items-stretch gap-1 sm:gap-1.5 md:gap-2 flex-nowrap min-w-0">
           {/* Big Room Code Badge */}
           <div className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-card border border-border font-mono text-primary font-bold tracking-wider flex items-center gap-1.5 sm:gap-2.5 shadow-sm justify-center select-none flex-shrink-0">
-            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-primary animate-ping flex-shrink-0" />
             <div className="flex flex-col justify-center leading-tight">
               <span className="text-[9px] sm:text-[10px] uppercase text-muted-foreground font-sans tracking-widest font-semibold hidden min-[400px]:block">{t('watchParty.roomBadge')}</span>
               <span className="text-xs sm:text-base md:text-xl tracking-wider sm:tracking-widest font-black text-primary">{roomCode}</span>
@@ -145,9 +145,8 @@ export const WatchPartyControls: React.FC = () => {
             variant={isLocked ? 'destructive' : 'outline'}
             chamfer="top-right"
             onClick={handleToggleRoomLock}
-            className={`px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 flex items-center justify-center gap-1.5 flex-shrink-0 h-auto ${
-              isLocked ? 'border-amber-500 text-amber-500 bg-amber-500/10' : ''
-            }`}
+            className={`px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 flex items-center justify-center gap-1.5 flex-shrink-0 h-auto ${isLocked ? 'border-amber-500 text-amber-500 bg-amber-500/10' : ''
+              }`}
             title={isLocked ? t('watchParty.unlockBtn') : t('watchParty.lockBtn')}
           >
             {isLocked ? (
@@ -162,12 +161,11 @@ export const WatchPartyControls: React.FC = () => {
             variant={roomState?.isAutoplay ? 'cyber' : 'outline'}
             chamfer="top-right"
             onClick={handleToggleAutoplay}
-            className={`px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 flex items-center justify-center gap-1.5 flex-shrink-0 h-auto ${
-              roomState?.isAutoplay ? 'border-purple-500 text-purple-400 bg-purple-500/10' : ''
-            }`}
+            className={`px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 flex items-center justify-center gap-1.5 flex-shrink-0 h-auto ${roomState?.isAutoplay ? 'border-purple-500 text-purple-400 bg-purple-500/10' : ''
+              }`}
             title="Toggle Autoplay (Last.fm recommendation)"
           >
-            <Sparkles className={`w-4 h-4 sm:w-5 sm:h-5 ${roomState?.isAutoplay ? 'text-purple-400 animate-pulse' : 'text-muted-foreground'}`} />
+            <Sparkles className={`w-4 h-4 sm:w-5 sm:h-5 ${roomState?.isAutoplay ? 'text-purple-400' : 'text-muted-foreground'}`} />
           </Button>
         </div>
 
@@ -179,14 +177,15 @@ export const WatchPartyControls: React.FC = () => {
             <span className="font-mono">{memberCount}</span>
           </Badge>
 
-          {/* End Room Button */}
+          {/* Leave Room Button */}
           <Button
             variant="destructive"
             chamfer="dual"
             onClick={handleEndRoom}
-            className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider flex items-center justify-center flex-shrink-0 whitespace-nowrap h-auto"
+            className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 flex items-center justify-center flex-shrink-0 h-auto"
+            title="Leave Room"
           >
-            {t('watchParty.endRoomBtn')}
+            <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
         </div>
       </div>

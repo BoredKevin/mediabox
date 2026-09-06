@@ -8,8 +8,6 @@
     "roomBadge": "ROOM",
     "qrCodeBtn": "QR Code",
     "openRemoteBtn": "Open Remote",
-    "endRoomBtn": "End Room",
-    "endRoomConfirm": "Are you sure you want to end this Watch Together session?",
     "playBtn": "Play",
     "pauseBtn": "Pause",
     "skipNextBtn": "Skip",
@@ -27,15 +25,15 @@
     "autoplayOff": "Autoplay OFF"
   },
   "mediaBox": {
-    "noVideoPlaying": "No video playing. Add a YouTube URL in the controls above or from mobile remote!",
-    "watchPartyIdle": "Watch Party idle. Create a room in the controls above to start watching together!",
+    "noVideoPlaying": " ",
+    "watchPartyIdle": " ",
     "scanToRemote": "Scan to Remote Control",
     "enterPinCode": "Or enter 6-digit PIN:",
     "openRemoteNewTab": "Open Remote in New Tab",
     "copyRemoteLink": "Copy Remote Link",
     "linkCopied": "Link Copied!",
     "roomLockedTitle": "ROOM LOCKED",
-    "roomLockedSubtitle": "Room locked"
+    "roomLockedSubtitle": " "
   },
   "player": {
     "embedRestrictedError": "The owner of this video has disabled playback in third-party embedded players.",
