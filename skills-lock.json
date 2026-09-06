@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "skills": {
+    "boredkevin-ui": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "ai-skill/SKILL.md",
+      "computedHash": "1f2f536d6313acc4ec41075e2e9d41b709c863a5d173c107bd1869f3a1cdea5a"
+    },
+    "boredkevin-ui-accordion": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-accordion/SKILL.md",
+      "computedHash": "b16cf6c03e8728f82f2cbbe68414200b6823e612df62e978f6cebb26c65b2165"
+    },
+    "boredkevin-ui-avatar": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-avatar/SKILL.md",
+      "computedHash": "ada5e49c238723484a0ea865eefa17b8f0272354840e5947d14ac59706c7d6b6"
+    },
+    "boredkevin-ui-backgrounds": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-backgrounds/SKILL.md",
+      "computedHash": "2a7ed9d0d814f5b7e78a44a569f43255a0eb4dcfc0e57b5862b2d65ca50c6e4c"
+    },
+    "boredkevin-ui-badge": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-badge/SKILL.md",
+      "computedHash": "b668ad287fcebd54dade51f6a5876e27052af8e13e5658c08046604cb270d112"
+    },
+    "boredkevin-ui-button": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-button/SKILL.md",
+      "computedHash": "37bfd6573625cf33101b9f93b8c77a9a595dfb275dab3d1b31dcb567f1886447"
+    },
+    "boredkevin-ui-calendar": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-calendar/SKILL.md",
+      "computedHash": "6f357272e0605be2119df28dd375d02bcff988b588c89bac787a4475e3ef0a4b"
+    },
+    "boredkevin-ui-card": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-card/SKILL.md",
+      "computedHash": "94606be5238c55c805112cb2a95bdfd27682b35aa19b8adac842be7c8f8edb34"
+    },
+    "boredkevin-ui-corner-edges": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-corner-edges/SKILL.md",
+      "computedHash": "51d70bf5843abed74465c77c1b2e5314ccd13a74972f46c89436e67f8eff8824"
+    },
+    "boredkevin-ui-dialog": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-dialog/SKILL.md",
+      "computedHash": "ed2661090116a63bda6790e1f3f8571a104d06470b76d38ca9630093c58d7184"
+    },
+    "boredkevin-ui-dropdown-menu": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-dropdown-menu/SKILL.md",
+      "computedHash": "7adb14a92af1697ea8106e8f587d0ad06b72923e175f17be79ff5d83f078f283"
+    },
+    "boredkevin-ui-input": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-input/SKILL.md",
+      "computedHash": "7f93f35a295e65df1cd7adead4cea581bac8dd6065a26dc1adf55a2e7de56625"
+    },
+    "boredkevin-ui-separator": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-separator/SKILL.md",
+      "computedHash": "ad9eda13e781dac9a05c044d68a864b3b16d83092b0adf4e7b044710b8b86767"
+    },
+    "boredkevin-ui-slider": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-slider/SKILL.md",
+      "computedHash": "36a8fd0f4085224856f63834dc22ab43b196cd44f9997233aa9511a81df7cbd7"
+    },
+    "boredkevin-ui-switch": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-switch/SKILL.md",
+      "computedHash": "27b431600b4b3af0901a1cd63f47ad321b49745dc581966c5faf3e91446aeb8d"
+    },
+    "boredkevin-ui-table": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-table/SKILL.md",
+      "computedHash": "62ab0fea1ad24e4a7ae8a23c8e8d7dff21318196ab1d4130ccd73af46c24fcf3"
+    },
+    "boredkevin-ui-tabs": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-tabs/SKILL.md",
+      "computedHash": "42bb89b40370f6e7f2b4d7e28fe5e75a7324b59dafc4c177f8e08beb6cc285ad"
+    },
+    "boredkevin-ui-tooltip": {
+      "source": "BoredKevin/ui",
+      "sourceType": "github",
+      "skillPath": "skills/boredkevin-ui-tooltip/SKILL.md",
+      "computedHash": "80bc90d6348e0b50987251db12c3f31795ae75171c8c5c0cf402ad3398659fef"
+    }
+  }
+}

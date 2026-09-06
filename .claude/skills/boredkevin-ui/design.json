@@ -1,0 +1,233 @@
+{
+  "$schema": "https://ui.bkev.in/ai-skill/schema/design.schema.json",
+  "library": "@boredkevin/ui",
+  "version": "0.1.1",
+  "brand": {
+    "name": "BoredKevin UI",
+    "aesthetic": "sci-fi HUD / tactical pitch dark",
+    "docsUrl": "https://ui.bkev.in/docs"
+  },
+  "typography": {
+    "fontFamilies": {
+      "sans": ["Inter", "Geist", "Outfit", "system-ui", "sans-serif"],
+      "mono": ["JetBrains Mono", "monospace"],
+      "display": ["Luna Obscura", "Inter", "sans-serif"]
+    },
+    "fontWeights": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "fontSizes": {
+      "xs": "0.75rem",
+      "sm": "0.875rem",
+      "base": "1rem",
+      "lg": "1.125rem",
+      "xl": "1.25rem",
+      "2xl": "1.5rem",
+      "3xl": "1.875rem"
+    },
+    "note": "Font family is controlled by ThemeConfig.fontFamily and injected as a CSS variable at runtime."
+  },
+  "colorTokens": {
+    "_note": "All values are HSL triples WITHOUT hsl() wrapper. Reference as hsl(var(--token-name)) in CSS, or use Tailwind semantic classes (e.g. bg-primary, text-foreground).",
+    "semantic": {
+      "--background": {
+        "darkDefault": "0 0% 3.9%",
+        "lightDefault": "0 0% 100%",
+        "role": "page/app background"
+      },
+      "--foreground": {
+        "darkDefault": "0 0% 98%",
+        "lightDefault": "0 0% 3.9%",
+        "role": "default text color"
+      },
+      "--card": {
+        "darkDefault": "0 0% 3.9%",
+        "lightDefault": "0 0% 100%",
+        "role": "card surface color"
+      },
+      "--card-foreground": {
+        "darkDefault": "0 0% 98%",
+        "lightDefault": "0 0% 3.9%",
+        "role": "card text"
+      },
+      "--popover": {
+        "darkDefault": "0 0% 3.9%",
+        "lightDefault": "0 0% 100%",
+        "role": "popover and dropdown background"
+      },
+      "--popover-foreground": {
+        "darkDefault": "0 0% 98%",
+        "lightDefault": "0 0% 3.9%",
+        "role": "popover text"
+      },
+      "--primary": {
+        "darkDefault": "0 0% 98%",
+        "lightDefault": "0 0% 9%",
+        "role": "primary actions, accents, glow source"
+      },
+      "--primary-foreground": {
+        "darkDefault": "0 0% 9%",
+        "lightDefault": "0 0% 98%",
+        "role": "text on primary bg"
+      },
+      "--secondary": {
+        "darkDefault": "0 0% 14.9%",
+        "lightDefault": "0 0% 96.1%",
+        "role": "secondary actions"
+      },
+      "--secondary-foreground": {
+        "darkDefault": "0 0% 98%",
+        "lightDefault": "0 0% 9%",
+        "role": "text on secondary bg"
+      },
+      "--muted": {
+        "darkDefault": "0 0% 14.9%",
+        "lightDefault": "0 0% 96.1%",
+        "role": "muted/subtle surfaces"
+      },
+      "--muted-foreground": {
+        "darkDefault": "0 0% 63.9%",
+        "lightDefault": "0 0% 45.1%",
+        "role": "placeholder text, captions, metadata"
+      },
+      "--accent": {
+        "darkDefault": "0 0% 14.9%",
+        "lightDefault": "0 0% 96.1%",
+        "role": "hover backgrounds"
+      },
+      "--accent-foreground": {
+        "darkDefault": "0 0% 98%",
+        "lightDefault": "0 0% 9%",
+        "role": "text on accent bg"
+      },
+      "--destructive": {
+        "darkDefault": "0 62.8% 30.6%",
+        "lightDefault": "0 84.2% 60.2%",
+        "role": "danger/error states"
+      },
+      "--destructive-foreground": {
+        "darkDefault": "0 0% 98%",
+        "lightDefault": "0 0% 98%",
+        "role": "text on destructive bg"
+      },
+      "--border": {
+        "darkDefault": "0 0% 14.9%",
+        "lightDefault": "0 0% 89.8%",
+        "role": "all border/divider colors"
+      },
+      "--input": {
+        "darkDefault": "0 0% 14.9%",
+        "lightDefault": "0 0% 89.8%",
+        "role": "input field borders/wrapper bg"
+      },
+      "--ring": {
+        "darkDefault": "0 0% 83.1%",
+        "lightDefault": "0 0% 3.9%",
+        "role": "focus ring color"
+      }
+    },
+    "chart": {
+      "--chart-1": { "darkDefault": "220 70% 50%", "lightDefault": "12 76% 61%", "role": "chart series 1" },
+      "--chart-2": { "darkDefault": "160 60% 45%", "lightDefault": "173 58% 39%", "role": "chart series 2" },
+      "--chart-3": { "darkDefault": "30 80% 55%", "lightDefault": "197 37% 24%", "role": "chart series 3" },
+      "--chart-4": { "darkDefault": "280 65% 60%", "lightDefault": "43 74% 66%", "role": "chart series 4" },
+      "--chart-5": { "darkDefault": "340 75% 55%", "lightDefault": "27 87% 67%", "role": "chart series 5" }
+    }
+  },
+  "spacing": {
+    "_note": "Follows Tailwind's default spacing scale. spacingScale in ThemeConfig multiplies all spacing at runtime (default 1).",
+    "1": "0.25rem",
+    "2": "0.5rem",
+    "3": "0.75rem",
+    "4": "1rem",
+    "6": "1.5rem",
+    "8": "2rem",
+    "12": "3rem",
+    "16": "4rem"
+  },
+  "borderRadius": {
+    "_note": "--radius is set by ThemeConfig.radius (in rem). Default: 0rem (sharp). Use rounded-[var(--radius)] in Tailwind.",
+    "--radius": {
+      "default": "0rem",
+      "range": "0rem to 0.75rem"
+    },
+    "tailwindMap": {
+      "lg": "var(--radius)",
+      "md": "calc(var(--radius) - 2px)",
+      "sm": "calc(var(--radius) - 4px)"
+    }
+  },
+  "shadows": {
+    "_note": "Controlled by ThemeConfig.shadowLevel. Do not add Tailwind shadow classes manually.",
+    "levels": ["none", "subtle", "crisp", "hard"]
+  },
+  "scifiTokens": {
+    "--chamfer-size": {
+      "default": "6px",
+      "range": "0 to 14px",
+      "role": "depth of the 45° corner clip-path cut on interactive elements"
+    },
+    "--chamfer-clip": {
+      "role": "computed CSS clip-path polygon — injected by ThemeProvider, do not set manually"
+    },
+    "--corner-lines": {
+      "default": "1",
+      "values": "0 | 1",
+      "role": "enables/disables L-bracket corner edge decorators globally"
+    },
+    "--corner-line-glow": {
+      "default": "1",
+      "values": "0 | 1",
+      "role": "adds neon drop-shadow to corner lines when enabled"
+    },
+    "--corner-highlight-length": {
+      "default": "8px",
+      "role": "length of animated corner highlight lines on hover (button/outline variants)"
+    },
+    "--liquid-glass": {
+      "default": "1",
+      "values": "0 | 1",
+      "role": "enables frosted glass material on Card and liquid-glass-* utility classes"
+    },
+    "--glass-blur": {
+      "default": "16px",
+      "role": "backdrop-filter blur depth for liquid glass surfaces"
+    },
+    "--glass-opacity": {
+      "default": "0.65",
+      "role": "surface opacity of glass card backgrounds (0 = fully transparent, 1 = opaque)"
+    },
+    "--ambient-lighting": {
+      "default": "1",
+      "values": "0 | 1",
+      "role": "enables fluid aurora/mesh ambient orbs in the background"
+    },
+    "--aurora-1": { "role": "first aurora orb color (CSS color string)" },
+    "--aurora-2": { "role": "second aurora orb color" },
+    "--aurora-3": { "role": "third aurora orb color" }
+  },
+  "utilityClasses": {
+    "liquid-glass-card": "Full frosted glass card surface (applied automatically by <Card>)",
+    "liquid-glass-panel": "Lighter frosted glass for sidebars/panels",
+    "liquid-glass-subtle": "Minimal frosted glass tint for nested elements",
+    "scifi-grid-bg": "Subtle 24px dot-grid overlay (border-color/25%)",
+    "scifi-dots-bg": "16px radial dot pattern background",
+    "scifi-glow": "drop-shadow(0 0 6px hsl(var(--primary)/0.6))",
+    "scifi-glow-subtle": "drop-shadow(0 0 3px hsl(var(--primary)/0.4))",
+    "chamfer-active": "Applies theme chamfer clip-path (auto mode)",
+    "chamfer-dual": "Explicit dual chamfer (top-right + bottom-left)",
+    "chamfer-tr": "Top-right chamfer only",
+    "chamfer-all": "All 4 corners chamfered",
+    "chamfer-none": "Disables all clip-path chamfers"
+  },
+  "rules": [
+    "NEVER hard-code color values (#hex, rgb(), hsl()). Always use semantic Tailwind classes (bg-primary, text-muted-foreground) or CSS var references (hsl(var(--primary))).",
+    "NEVER hard-code border-radius values. Use rounded-[var(--radius)] or the Tailwind borderRadius aliases (rounded-lg, rounded-md, rounded-sm).",
+    "NEVER add backdrop-filter directly. Use .liquid-glass-card, .liquid-glass-panel, or .liquid-glass-subtle classes.",
+    "NEVER set font-family inline. Font is injected by ThemeProvider via ThemeConfig.fontFamily.",
+    "DO reference --chart-1 through --chart-5 for any data visualization color needs."
+  ]
+}
