@@ -87,11 +87,14 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     // Only pass origin parameter if on https protocol to avoid "origin cannot be verified" error on http/localhost
     const playerVars: Record<string, any> = {
       autoplay: 1,
-      controls: 1,
+      controls: 0,
       modestbranding: 1,
       rel: 0,
       playsinline: 1,
       enablejsapi: 1,
+      disablekb: 1,
+      fs: 0,
+      iv_load_policy: 3,
     };
 
     if (window.location.protocol === 'https:') {
@@ -228,12 +231,15 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           playerRef.current.mute();
         } else {
           playerRef.current.unMute();
+          if (typeof playerRef.current.setVolume === 'function') {
+            playerRef.current.setVolume(volume);
+          }
         }
       } catch (e) {
         console.error('Error toggling mute:', e);
       }
     }
-  }, [muted]);
+  }, [muted, volume]);
 
   const handleStartPlayUserClick = () => {
     setNeedsUserInteraction(false);
@@ -286,8 +292,10 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
 
       <div
         ref={wrapperRef}
-        className="absolute inset-0 w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:border-none"
+        className="absolute inset-0 w-full h-full pointer-events-none select-none [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:border-none [&>iframe]:pointer-events-none"
       />
+      {/* Transparent Click Shield over YouTube iframe */}
+      <div className="absolute inset-0 z-10 pointer-events-auto" aria-hidden="true" />
     </div>
   );
 };

@@ -29,6 +29,7 @@ interface WatchPartyContextType {
   handleToggleRoomLock: () => Promise<void>;
   handleToggleAutoplay: () => Promise<void>;
   handleToggleCountdown: () => Promise<void>;
+  handleAdjustVolume: (volume: number) => Promise<void>;
   copyRemoteLink: () => void;
 }
 
@@ -553,6 +554,24 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
   };
 
+  const handleAdjustVolume = async (newVol: number) => {
+    const clamped = Math.min(100, Math.max(0, Math.round(newVol)));
+    setRoomState((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        playback: {
+          ...(prev.playback || { status: 'paused', progress: 0 }),
+          volume: clamped,
+        },
+      };
+    });
+    if (roomCode) {
+      const playbackRef = ref(database, `rooms/${roomCode}/state/playback`);
+      await update(playbackRef, { volume: clamped, updatedAt: Date.now() });
+    }
+  };
+
   return (
     <WatchPartyContext.Provider
       value={{
@@ -578,6 +597,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleToggleRoomLock,
         handleToggleAutoplay,
         handleToggleCountdown,
+        handleAdjustVolume,
         copyRemoteLink,
       }}
     >
