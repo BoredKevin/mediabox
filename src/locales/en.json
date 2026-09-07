@@ -165,5 +165,36 @@
   },
   "header": {
     "title": "Welcome to XII - Cravion • Informatics Engineering"
+  },
+  "tvSettings": {
+    "title": "TV Room Settings",
+    "description": "Configure YouTube API search mediation, rate limits, and room playback behavior.",
+    "tabApiKeys": "API Keys",
+    "tabRateLimits": "Rate Limits",
+    "tabRoom": "Room Settings",
+    "apiKeysTitle": "YouTube Data API Keys",
+    "apiKeysDesc": "All searches from clients are routed through these keys on the TV.",
+    "noKeys": "No YouTube API keys configured. Add one below to enable keyword search for the room.",
+    "keyLabel": "Key Label",
+    "keyLabelPlaceholder": "e.g. Primary Key",
+    "keyValue": "API Key",
+    "keyValuePlaceholder": "AIzaSy...",
+    "addKeyBtn": "Add API Key",
+    "strategyTitle": "Load Balancing Strategy",
+    "roundRobin": "Round Robin",
+    "leastUsed": "Least Used",
+    "maxResults": "Max Results per Search",
+    "allowHostManagement": "Allow Host to Manage Keys",
+    "allowHostDesc": "Permits the elected room host to add, delete, or toggle keys remotely.",
+    "rateLimitTitle": "Per-Member Rate Limiting",
+    "rateLimitDesc": "Prevent quota abuse by restricting searches per Google-authenticated member.",
+    "searches": "searches per",
+    "saveLimitBtn": "Save Limits",
+    "activeRateLimits": "Active Member Windows",
+    "noRateLimits": "No active search limits recorded for current members.",
+    "clearRateLimits": "Clear All Limits",
+    "countdownTitle": "10-Second Countdown",
+    "countdownDesc": "Shows a sci-fi countdown overlay on the TV before playing the next queued video.",
+    "countdownToggle": "Enable Countdown"
   }
 }

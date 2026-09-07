@@ -165,5 +165,36 @@
   },
   "header": {
     "title": "Welcome to XII - Cravion • Teknik Informatika"
+  },
+  "tvSettings": {
+    "title": "Pengaturan TV Room",
+    "description": "Konfigurasi mediasi pencarian YouTube API, batas kuota, dan perilaku putar ruangan.",
+    "tabApiKeys": "Kunci API",
+    "tabRateLimits": "Rate Limit",
+    "tabRoom": "Pengaturan Ruangan",
+    "apiKeysTitle": "Kunci YouTube Data API",
+    "apiKeysDesc": "Semua pencarian dari pengguna remote dilewatkan melalui kunci di TV ini.",
+    "noKeys": "Belum ada kunci YouTube API. Tambahkan di bawah untuk mengaktifkan pencarian kata kunci.",
+    "keyLabel": "Label Kunci",
+    "keyLabelPlaceholder": "mis. Kunci Utama",
+    "keyValue": "Kunci API",
+    "keyValuePlaceholder": "AIzaSy...",
+    "addKeyBtn": "Tambah Kunci API",
+    "strategyTitle": "Strategi Load Balancing",
+    "roundRobin": "Round Robin",
+    "leastUsed": "Paling Sedikit Dipakai",
+    "maxResults": "Maks Hasil per Pencarian",
+    "allowHostManagement": "Izinkan Host Mengelola Kunci",
+    "allowHostDesc": "Memungkinkan host remote menambah, menghapus, atau mengubah status kunci.",
+    "rateLimitTitle": "Rate Limit per Pengguna",
+    "rateLimitDesc": "Cegah pemborosan kuota dengan membatasi pencarian per akun Google.",
+    "searches": "pencarian per",
+    "saveLimitBtn": "Simpan Batas",
+    "activeRateLimits": "Jendela Laju Aktif Pengguna",
+    "noRateLimits": "Belum ada catatan rate limit untuk pengguna saat ini.",
+    "clearRateLimits": "Bersihkan Semua Batas",
+    "countdownTitle": "Hitung Mundur 10 Detik",
+    "countdownDesc": "Menampilkan overlay hitung mundur di TV sebelum video berikutnya diputar.",
+    "countdownToggle": "Aktifkan Hitung Mundur"
   }
 }
