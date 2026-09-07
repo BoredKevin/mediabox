@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ref, onValue, set, update, remove, off } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
 import { database } from '@/lib/firebase';
@@ -123,6 +123,12 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     return () => off(adminsRefNode);
   }, [user]);
 
+  const hasConfirmedMembership = useRef(false);
+
+  useEffect(() => {
+    hasConfirmedMembership.current = false;
+  }, [activeRoomCode, user?.uid]);
+
   // Subscribe to room updates (state, queue, members)
   useEffect(() => {
     if (!activeRoomCode || !user) return;
@@ -135,8 +141,10 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
       if (snapshot.exists()) {
         setRoomState(snapshot.val());
       } else {
-        onLeaveRoom();
-        showToast(t('toasts.roomClosedByHost'), 'error');
+        if (hasConfirmedMembership.current) {
+          onLeaveRoom();
+          showToast(t('toasts.roomClosedByHost'), 'error');
+        }
       }
     });
 
@@ -156,11 +164,24 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     const unsubMembers = onValue(membersRefNode, (snapshot) => {
       if (snapshot.exists()) {
         const membersData = snapshot.val();
-        // Check if kicked
-        if (user && !membersData[user.uid]) {
-          onLeaveRoom();
-          showToast(t('toasts.kickedByHost'), 'error', 6000);
-          return;
+
+        // Check if member is present in room
+        if (user && membersData[user.uid]) {
+          hasConfirmedMembership.current = true;
+        } else if (user && !membersData[user.uid]) {
+          if (hasConfirmedMembership.current) {
+            // Only kick if membership was previously active and confirmed
+            onLeaveRoom();
+            showToast(t('toasts.kickedByHost'), 'error', 6000);
+            return;
+          } else {
+            // Initial sync: Ensure our member record exists in RTDB
+            update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
+              uid: user.uid,
+              joinedAt: Date.now(),
+              ...(user.displayName ? { nickname: user.displayName.slice(0, 25) } : {}),
+            }).catch(() => {});
+          }
         }
 
         const list = Object.entries(membersData).map(([uid, m]: [string, any]) => ({
@@ -187,8 +208,10 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
           }
         }
       } else {
-        onLeaveRoom();
-        showToast(t('toasts.roomCleared'), 'error');
+        if (hasConfirmedMembership.current) {
+          onLeaveRoom();
+          showToast(t('toasts.roomCleared'), 'error');
+        }
       }
     });
 

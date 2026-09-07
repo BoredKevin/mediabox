@@ -13,7 +13,7 @@ interface JoinScreenProps {
   onJoin: (code: string) => Promise<void>;
   loading: boolean;
   user: FirebaseUser | null;
-  onGoogleSignIn: () => Promise<void>;
+  onGoogleSignIn: (roomCode?: string) => Promise<void>;
 }
 
 export const JoinScreen: React.FC<JoinScreenProps> = ({
@@ -115,7 +115,7 @@ export const JoinScreen: React.FC<JoinScreenProps> = ({
             <Button
               variant="outline"
               chamfer="dual"
-              onClick={onGoogleSignIn}
+              onClick={() => onGoogleSignIn(inputCode)}
               disabled={loading}
               className="w-full mt-2 py-3 text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2 h-12 border-primary/50 text-foreground hover:border-primary cursor-pointer"
             >

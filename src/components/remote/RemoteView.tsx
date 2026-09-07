@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ref, get, update } from 'firebase/database';
-import { User as FirebaseUser } from 'firebase/auth';
-import { ensureAnonymousAuth, signInWithGoogle, logoutUser, database } from '@/lib/firebase';
+import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
+import { auth, ensureAnonymousAuth, signInWithGoogle, logoutUser, database } from '@/lib/firebase';
 import { checkRoomExists } from '@/lib/roomUtils';
 import { useTranslation } from '@/context/LanguageContext';
 import { ConstellationsBackground } from '@boredkevin/ui';
@@ -15,83 +15,112 @@ export const RemoteView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRoom = searchParams.get('room') || '';
 
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(auth.currentUser);
   const [inputCode, setInputCode] = useState(initialRoom);
   const [activeRoomCode, setActiveRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Authenticate anonymously on mount if not already logged in
+  // Keep refs to avoid stale closures
+  const activeRoomCodeRef = useRef(activeRoomCode);
+  activeRoomCodeRef.current = activeRoomCode;
+  const inputCodeRef = useRef(inputCode);
+  inputCodeRef.current = inputCode;
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  // Listen to auth state changes
   useEffect(() => {
-    ensureAnonymousAuth()
-      .then((u) => setUser(u))
-      .catch((err) => console.error('Auth error in RemoteView:', err));
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        ensureAnonymousAuth()
+          .then((u) => setUser(u))
+          .catch((err) => console.error('Auth error in RemoteView:', err));
+      }
+    });
+    return () => unsubscribe();
   }, []);
+
+  const handleJoinRoom = useCallback(
+    async (codeToJoin: string, authUser?: FirebaseUser) => {
+      const cleanCode = codeToJoin.trim();
+      if (cleanCode.length !== 6) return;
+
+      setLoading(true);
+
+      try {
+        const u = authUser || auth.currentUser || userRef.current || (await ensureAnonymousAuth());
+        setUser(u);
+
+        const exists = await checkRoomExists(cleanCode);
+        if (!exists) {
+          setLoading(false);
+          return;
+        }
+
+        // Check if room requires Google Sign-In
+        const settingsSnap = await get(
+          ref(database, `rooms/${cleanCode}/state/searchSettings`)
+        );
+        const roomSettings = settingsSnap.exists() ? settingsSnap.val() : null;
+
+        if (roomSettings?.hasApiKeys && (!u || u.isAnonymous)) {
+          setLoading(false);
+          return;
+        }
+
+        // Write or update member node in RTDB BEFORE updating activeRoomCode
+        const memberRef = ref(database, `rooms/${cleanCode}/members/${u.uid}`);
+        const memberSnap = await get(memberRef);
+        const existingData = memberSnap.exists() ? memberSnap.val() : {};
+
+        await update(memberRef, {
+          uid: u.uid,
+          joinedAt: existingData.joinedAt || Date.now(),
+          ...(existingData.nickname
+            ? {}
+            : u.displayName
+            ? { nickname: u.displayName.slice(0, 25) }
+            : {}),
+        });
+
+        setUser(u);
+        setActiveRoomCode(cleanCode);
+        setSearchParams({ room: cleanCode });
+      } catch (err: any) {
+        console.error('Error joining room:', err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setSearchParams]
+  );
 
   // Auto-join if room code parameter present in URL
   useEffect(() => {
     if (user && initialRoom && !activeRoomCode) {
-      handleJoinRoom(initialRoom);
+      handleJoinRoom(initialRoom, user);
     }
-  }, [user, initialRoom]);
+  }, [user, initialRoom, activeRoomCode, handleJoinRoom]);
 
-  const handleJoinRoom = async (codeToJoin: string) => {
-    const cleanCode = codeToJoin.trim();
-    if (cleanCode.length !== 6) return;
-
-    setLoading(true);
-
-    try {
-      const u = user || (await ensureAnonymousAuth());
-      setUser(u);
-
-      const exists = await checkRoomExists(cleanCode);
-      if (!exists) {
-        setLoading(false);
-        return;
-      }
-
-      // Check if room requires Google Sign-In
-      const settingsSnap = await get(
-        ref(database, `rooms/${cleanCode}/state/searchSettings`)
-      );
-      const roomSettings = settingsSnap.exists() ? settingsSnap.val() : null;
-
-      if (roomSettings?.hasApiKeys && (!u || u.isAnonymous)) {
-        setLoading(false);
-        return;
-      }
-
-      // Write or update member node in RTDB
-      const memberRef = ref(database, `rooms/${cleanCode}/members/${u.uid}`);
-      const memberSnap = await get(memberRef);
-      const existingData = memberSnap.exists() ? memberSnap.val() : {};
-
-      await update(memberRef, {
-        uid: u.uid,
-        joinedAt: existingData.joinedAt || Date.now(),
-        ...(existingData.nickname
-          ? {}
-          : u.displayName
-          ? { nickname: u.displayName.slice(0, 25) }
-          : {}),
-      });
-
-      setActiveRoomCode(cleanCode);
-      setSearchParams({ room: cleanCode });
-    } catch (err: any) {
-      console.error('Error joining room:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async (codeOverride?: string) => {
     setLoading(true);
     try {
       const u = await signInWithGoogle();
       setUser(u);
-      if (inputCode.length === 6) {
-        await handleJoinRoom(inputCode);
+
+      const code = (
+        codeOverride ||
+        inputCodeRef.current ||
+        initialRoom ||
+        activeRoomCodeRef.current ||
+        searchParams.get('room') ||
+        ''
+      ).trim();
+
+      if (code.length === 6) {
+        await handleJoinRoom(code, u);
       }
     } catch (err: any) {
       console.error('Google Sign In Error:', err);
@@ -110,10 +139,10 @@ export const RemoteView: React.FC = () => {
     }
   };
 
-  const handleLeaveRoom = () => {
+  const handleLeaveRoom = useCallback(() => {
     setActiveRoomCode(null);
     setSearchParams({});
-  };
+  }, [setSearchParams]);
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans relative">
