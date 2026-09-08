@@ -93,6 +93,7 @@
     "searchPlaceholder": "Cari judul video atau topik...",
     "searchQueueLocked": "Antrean dikunci oleh Admin...",
     "searchBtn": "Cari",
+    "submitBtn": "Kirim",
     "searching": "Mencari...",
     "ytKeyNeededTitle": "Membutuhkan API Key YouTube Data untuk Pencarian Kata Kunci",
     "ytKeyNeededDesc": "Tambahkan VITE_YOUTUBE_API_KEY ke file .env untuk mengaktifkan pencarian langsung. Anda juga dapat menempelkan URL YouTube di tab Tempel Tautan tanpa pengaturan tambahan!",
@@ -105,7 +106,7 @@
     "kickMemberBtn": "Keluarkn",
     "kickMemberConfirm": "Apakah Anda yakin ingin mengeluarkan anggota ini dan menghapus permintaan videonya?",
     "noVideoRequestsInQueue": "Tidak ada permintaan video dalam antrean",
-    "upcomingQueue": "Antrean Berikutnya",
+    "upcomingQueue": "Berikutnya",
     "itemsCount": "{count} item",
     "itemsCount_plural": "{count} item",
     "moveUp": "Naik",
@@ -115,7 +116,15 @@
     "autoplayOff": "OFF",
     "countdownMode": "Mode Countdown",
     "countdownOn": "ON",
-    "countdownOff": "OFF"
+    "countdownOff": "OFF",
+    "hostSettings": "Pengaturan Host",
+    "noTvConnected": "Tidak Ada Kunci",
+    "noTvConnectedDesc": "TV ruang ini belum mengonfigurasi API key YouTube. Anda dapat menempelkan URL YouTube untuk memainkan video secara langsung.",
+    "pairTvKey": "Konfigurasi API Key",
+    "queueDrawerTitle": "Antrean",
+    "activeQueueTab": "Antrean",
+    "activeMembersTab": "Anggota",
+    "playerTvControl": "Kontrol TV"
   },
   "toasts": {
     "authFailed": "Gagal melakukan autentikasi dengan Firebase.",

@@ -93,6 +93,7 @@
     "searchPlaceholder": "Search video title or topic...",
     "searchQueueLocked": "Queue locked by Admin...",
     "searchBtn": "Search",
+    "submitBtn": "Submit",
     "searching": "Searching...",
     "ytKeyNeededTitle": "YouTube Data API Key Needed for Keyword Search",
     "ytKeyNeededDesc": "Add VITE_YOUTUBE_API_KEY to your .env file to enable live keyword search. You can also paste any YouTube URL under the Paste Link tab with zero setup and free automatic title fetching!",
@@ -105,7 +106,7 @@
     "kickMemberBtn": "Kick",
     "kickMemberConfirm": "Are you sure you want to kick this member and purge their video requests?",
     "noVideoRequestsInQueue": "No video requests in queue",
-    "upcomingQueue": "Upcoming Queue",
+    "upcomingQueue": "Upcoming",
     "itemsCount": "{count} item",
     "itemsCount_plural": "{count} items",
     "moveUp": "Move Up",
@@ -115,7 +116,15 @@
     "autoplayOff": "OFF",
     "countdownMode": "Countdown Mode",
     "countdownOn": "ON",
-    "countdownOff": "OFF"
+    "countdownOff": "OFF",
+    "hostSettings": "Host Settings",
+    "noTvConnected": "No Key Configured",
+    "noTvConnectedDesc": "This room's TV has not configured YouTube API keys yet. You can paste any direct YouTube link above to queue videos directly.",
+    "pairTvKey": "Configure API Keys",
+    "queueDrawerTitle": "Queue",
+    "activeQueueTab": "Queue",
+    "activeMembersTab": "Members",
+    "playerTvControl": "TV Controls"
   },
   "toasts": {
     "authFailed": "Failed to authenticate with Firebase.",

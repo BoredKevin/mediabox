@@ -12,6 +12,7 @@ interface QueuePanelProps {
   membersList: { uid: string; nickname?: string }[];
   onRemoveItem: (itemId: string, itemAddedBy?: string) => Promise<void>;
   onMoveItem: (index: number, direction: 'up' | 'down') => void;
+  embedded?: boolean;
 }
 
 export const QueuePanel: React.FC<QueuePanelProps> = ({
@@ -21,11 +22,12 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   membersList,
   onRemoveItem,
   onMoveItem,
+  embedded = false,
 }) => {
   const { t } = useTranslation();
 
-  return (
-    <Card cornerLines className="p-4 bg-card border-border flex-1 mb-5">
+  const content = (
+    <>
       <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-2 mb-3 flex items-center justify-between">
         <span>{t('remote.upcomingQueue')}</span>
         <span className="text-muted-foreground font-mono text-[11px]">
@@ -34,11 +36,15 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
       </div>
 
       {queue.length === 0 ? (
-        <p className="text-xs text-muted-foreground italic py-4 text-center">
+        <p className="text-xs text-muted-foreground italic py-6 text-center">
           {t('watchParty.queueEmpty')}
         </p>
       ) : (
-        <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+        <div
+          className={`flex flex-col gap-2 ${
+            embedded ? 'flex-1 min-h-0 overflow-y-auto pr-1' : 'max-h-64 overflow-y-auto pr-1'
+          }`}
+        >
           {queue.map((item, idx) => {
             const ytId = parseYouTubeVideoId(item.url);
             const isMyEntry = Boolean(user && item.addedBy === user.uid);
@@ -122,6 +128,18 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
           })}
         </div>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="flex-1 flex flex-col min-h-0 overflow-hidden">{content}</div>;
+  }
+
+  return (
+    <Card cornerLines className="p-4 bg-card border-border flex-1 mb-5">
+      {content}
     </Card>
   );
 };
+
+export default QueuePanel;

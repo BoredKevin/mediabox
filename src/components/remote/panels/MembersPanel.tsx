@@ -20,6 +20,7 @@ interface MembersPanelProps {
   queue: QueueItem[];
   onKickMember: (targetUid: string) => void;
   onRemoveQueueItem: (itemId: string, itemAddedBy?: string) => Promise<void>;
+  embedded?: boolean;
 }
 
 export const MembersPanel: React.FC<MembersPanelProps> = ({
@@ -31,11 +32,12 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
   queue,
   onKickMember,
   onRemoveQueueItem,
+  embedded = false,
 }) => {
   const { t } = useTranslation();
 
-  return (
-    <Card cornerLines className="p-4 bg-card border-border mb-5 flex flex-col gap-4">
+  const content = (
+    <>
       <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-2 flex items-center justify-between">
         <span className="flex items-center gap-2">
           <Users className="w-4 h-4 text-primary" />
@@ -46,7 +48,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
         </span>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className={`flex flex-col gap-3 ${embedded ? 'flex-1 min-h-0 overflow-y-auto pr-1' : ''}`}>
         {membersList.map((member, mIdx) => {
           const isMemberAdmin = adminsList.includes(member.uid);
           const isHostUser = member.uid === hostUid;
@@ -153,6 +155,18 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
           );
         })}
       </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="flex-1 flex flex-col min-h-0 overflow-hidden">{content}</div>;
+  }
+
+  return (
+    <Card cornerLines className="p-4 bg-card border-border mb-5 flex flex-col gap-4">
+      {content}
     </Card>
   );
 };
+
+export default MembersPanel;

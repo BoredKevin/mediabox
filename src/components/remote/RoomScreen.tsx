@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ref, onValue, set, update, remove, off } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
 import { database } from '@/lib/firebase';
-import { RoomState, QueueItem, parseYouTubeVideoId } from '@/lib/roomUtils';
+import { RoomState, QueueItem } from '@/lib/roomUtils';
 import { useTranslation } from '@/context/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { Card, Button, Input, Badge } from '@boredkevin/ui';
+import { Card, Button, Badge, Tabs, TabsList, TabsTrigger, TabsContent } from '@boredkevin/ui';
 import {
   Users,
   LogOut,
@@ -16,14 +16,17 @@ import {
   Shield,
   Crown,
   Lock,
-  User,
-  Edit3,
+  Settings,
+  Layers,
 } from 'lucide-react';
 
 import { SearchPanel } from './panels/SearchPanel';
 import { QueuePanel } from './panels/QueuePanel';
-import { ControlsPanel } from './panels/ControlsPanel';
 import { MembersPanel, MemberInfo } from './panels/MembersPanel';
+import { NowPlayingBar } from './NowPlayingBar';
+import { HostSettingsModal } from './HostSettingsModal';
+import { ProfileDropdown } from './ProfileDropdown';
+import { SideDrawer } from './SideDrawer';
 
 interface ToastMessage {
   id: string;
@@ -61,8 +64,6 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
 
   // Nickname state
   const [myNickname, setMyNickname] = useState<string>('');
-  const [isEditingNickname, setIsEditingNickname] = useState<boolean>(false);
-  const [nicknameInput, setNicknameInput] = useState<string>('');
 
   // Toast system
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -74,9 +75,9 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
   // Fullscreen cooldown
   const [fullscreenCooldown, setFullscreenCooldown] = useState<boolean>(false);
 
-  // QR Code & Join link
-  const [showQrCode, setShowQrCode] = useState<boolean>(false);
-  const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  // Modal / Drawer state
+  const [showHostSettings, setShowHostSettings] = useState<boolean>(false);
+  const [showSideDrawer, setShowSideDrawer] = useState<boolean>(false);
 
   const displayVolume =
     isDraggingVolume && localVolume !== null
@@ -170,12 +171,10 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
           hasConfirmedMembership.current = true;
         } else if (user && !membersData[user.uid]) {
           if (hasConfirmedMembership.current) {
-            // Only kick if membership was previously active and confirmed
             onLeaveRoom();
             showToast(t('toasts.kickedByHost'), 'error', 6000);
             return;
           } else {
-            // Initial sync: Ensure our member record exists in RTDB
             update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
               uid: user.uid,
               joinedAt: Date.now(),
@@ -196,10 +195,9 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
 
         const myRecord = list.find((m) => m.uid === user.uid);
         if (myRecord) {
-          if (myRecord.nickname && !isEditingNickname) {
+          if (myRecord.nickname) {
             setMyNickname(myRecord.nickname);
           } else if (!myRecord.nickname && user.displayName) {
-            // Auto-populate nickname from Google displayName
             const autoNick = user.displayName.slice(0, 25);
             update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
               nickname: autoNick,
@@ -220,7 +218,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
       off(queueRefNode);
       off(membersRefNode);
     };
-  }, [activeRoomCode, user, isEditingNickname, onLeaveRoom, t]);
+  }, [activeRoomCode, user, onLeaveRoom, t]);
 
   const sendCommand = async (type: any, payload?: any) => {
     if (!activeRoomCode || !user) return;
@@ -278,17 +276,15 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     }
   };
 
-  const handleSaveNickname = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleSaveNickname = async (name: string) => {
     if (!activeRoomCode || !user) return;
-    const cleanName = nicknameInput.trim().slice(0, 25);
+    const cleanName = name.trim().slice(0, 25);
 
     try {
       await update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
         nickname: cleanName || null,
       });
       setMyNickname(cleanName);
-      setIsEditingNickname(false);
       showToast(
         cleanName
           ? t('toasts.nicknameSet', { name: cleanName })
@@ -325,48 +321,46 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     }, 5000);
   };
 
-  const handleCopyJoinLink = () => {
-    if (!activeRoomCode) return;
-    const joinUrl = `${window.location.origin}/#/join?room=${activeRoomCode}`;
-    navigator.clipboard.writeText(joinUrl);
-    setCopiedLink(true);
-    showToast(t('remote.linkCopied'), 'success');
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
   const handleRemoveQueueItem = async (itemId: string, itemAddedBy?: string) => {
-    if (!activeRoomCode || !user) return;
-    const isMyEntry = itemAddedBy === user.uid;
-
-    if (isHostOrAdmin && !isMyEntry) {
-      sendCommand('forceRemoveFromQueue', { itemId });
+    const isMyEntry = Boolean(user && itemAddedBy === user.uid);
+    if (!isMyEntry && !isHostOrAdmin) {
+      showToast(t('toasts.controlsLockedByAdmin'), 'error');
       return;
     }
 
     try {
-      const itemRef = ref(database, `rooms/${activeRoomCode}/queue/${itemId}`);
-      await remove(itemRef);
-      showToast(t('toasts.itemRemoved'), 'success');
-    } catch {
-      sendCommand('removeFromQueue', { itemId });
+      if (isHostOrAdmin && !isMyEntry) {
+        await sendCommand('forceRemoveFromQueue', { itemId });
+      } else {
+        await sendCommand('removeFromQueue', { itemId });
+      }
+    } catch (err: any) {
+      console.error('Failed to remove item from queue:', err);
+      showToast(t('toasts.commandFailed'), 'error');
     }
   };
 
-  const handleKickMember = (targetUid: string) => {
+  const handleKickMember = async (targetUid: string) => {
     if (!isHostOrAdmin || targetUid === user?.uid) return;
     if (confirm(t('remote.kickMemberConfirm'))) {
-      sendCommand('kickMember', { targetUid, purgeQueue: true });
+      try {
+        await sendCommand('kickMember', { targetUid, purgeQueue: true });
+      } catch (err: any) {
+        console.error('Failed to kick member:', err);
+        showToast(t('toasts.commandFailed'), 'error');
+      }
     }
   };
 
   const handleMoveQueueItem = (index: number, direction: 'up' | 'down') => {
-    if (!isHostOrAdmin || queue.length <= 1) return;
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= queue.length) return;
-
+    if (!isHostOrAdmin) return;
     const newQueue = [...queue];
-    const [movedItem] = newQueue.splice(index, 1);
-    newQueue.splice(targetIndex, 0, movedItem);
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newQueue.length) return;
+
+    const temp = newQueue[index];
+    newQueue[index] = newQueue[targetIndex];
+    newQueue[targetIndex] = temp;
 
     const newOrderIds = newQueue.map((item) => item.id);
     sendCommand('reorderQueue', { queueOrder: newOrderIds });
@@ -385,7 +379,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
   };
 
   return (
-    <div className="relative z-10 flex min-h-screen flex-col p-4 sm:p-6 max-w-lg mx-auto">
+    <div className="relative z-10 flex flex-col h-screen overflow-hidden bg-background text-foreground">
       {/* Floating Toast Notification Container */}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 pointer-events-none flex flex-col items-center gap-2">
         {toasts.map((toast) => (
@@ -422,296 +416,255 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         ))}
       </div>
 
-      {/* Header bar */}
-      <div className="flex items-center justify-between border-b border-border pb-4 mb-5 gap-2">
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col">
-            <span className="text-xs text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-              {t('remote.connectedToRoom')}
+      {/* Header Bar: 2 lines on mobile, 1 line on desktop */}
+      <header className="px-3 py-2.5 sm:px-6 sm:py-3 border-b border-border bg-card/90 backdrop-blur-md flex flex-col lg:flex-row lg:h-16 lg:items-center lg:justify-between gap-2 lg:gap-4 flex-shrink-0">
+        {/* Mobile Line 1 / Desktop Left: Room Badge & Info */}
+        <div className="flex items-center justify-between lg:justify-start gap-2.5 sm:gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              {t('watchParty.roomBadge')}
             </span>
-            <span className="font-mono text-xl font-bold text-primary tracking-widest">
+            <span className="font-mono text-base sm:text-lg font-bold tracking-widest text-primary">
               {activeRoomCode}
             </span>
+
+            {/* Role badge */}
+            {isAdmin ? (
+              <Badge variant="destructive" className="text-[9px] uppercase px-1.5 py-0">
+                <Shield className="w-2.5 h-2.5 mr-1" />
+                {t('remote.adminBadge')}
+              </Badge>
+            ) : isHost ? (
+              <Badge variant="default" className="text-[9px] uppercase px-1.5 py-0">
+                <Crown className="w-2.5 h-2.5 mr-1" />
+                {t('remote.hostBadge')}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[9px] uppercase px-1.5 py-0">
+                {t('remote.memberBadge')}
+              </Badge>
+            )}
+
+            {/* Locked status */}
+            {roomState?.isLocked && (
+              <Badge variant="destructive" className="text-[9px] uppercase px-1.5 py-0">
+                <Lock className="w-2.5 h-2.5 mr-1" /> Locked
+              </Badge>
+            )}
           </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <LanguageSwitcher />
 
-          {isAdmin ? (
-            <Badge
-              variant="outline"
-              className="flex items-center gap-1 px-2.5 py-1 bg-purple-950/90 border-purple-500/70 text-xs font-bold text-purple-300 uppercase tracking-wider shadow-[0_0_12px_rgba(168,85,247,0.4)] rounded-none"
-            >
-              <Shield className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />
-              {t('remote.adminBadge')}
-            </Badge>
-          ) : isHost ? (
-            <Badge
-              variant="outline"
-              className="flex items-center gap-1 px-2.5 py-1 bg-amber-950/80 border-amber-500/60 text-xs font-bold text-amber-300 uppercase tracking-wider shadow-[0_0_10px_rgba(245,158,11,0.2)] rounded-none"
-            >
-              <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-              {t('remote.hostBadge')}
-            </Badge>
-          ) : (
-            <Badge
-              variant="outline"
-              className="flex items-center gap-1 px-2.5 py-1 bg-card border-border text-xs text-muted-foreground uppercase tracking-wider rounded-none"
-            >
-              {t('remote.memberBadge')}
-            </Badge>
-          )}
-
-          {roomState?.isLocked && (
-            <Badge
-              variant="destructive"
-              className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-none"
-            >
-              <Lock className="w-3 h-3" />
-            </Badge>
-          )}
-
-          <Badge
-            variant="outline"
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-card border-border text-xs text-foreground rounded-none"
+          {/* Mobile Drawer Trigger for Queue & Members (anchored to top-right of mobile header) */}
+          <button
+            onClick={() => setShowSideDrawer(true)}
+            className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold bg-muted/40 border border-border hover:border-primary/50 transition-colors cursor-pointer text-foreground"
+            title={t('remote.queueDrawerTitle')}
           >
             <Users className="w-3.5 h-3.5 text-primary" />
-            {memberCount}
-          </Badge>
-
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onLeaveRoom}
-            title={t('remote.leaveRoomBtn')}
-            className="h-9 w-9 text-muted-foreground hover:text-destructive hover:border-destructive transition-colors cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Profile & Google Auth Card */}
-      <Card cornerLines className="p-4 bg-card border-border mb-5 flex flex-col gap-3">
-        <div className="flex items-center justify-between border-b border-border pb-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-foreground uppercase tracking-wider">
-            <User className="w-4 h-4 text-primary" />
-            {t('remote.accountProfile')}
-          </div>
-
-          {user?.isAnonymous === false ? (
-            <button
-              onClick={onLogout}
-              className="text-[10px] font-semibold text-muted-foreground hover:text-destructive uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              <LogOut className="w-3 h-3" />
-              {t('remote.signOut')}
-            </button>
-          ) : (
-            <Button
-              variant="outline"
-              chamfer="top-right"
-              onClick={onGoogleSignIn}
-              className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider h-auto flex items-center gap-1.5"
-            >
-              <svg className="w-3 h-3" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <span>Sign in with Google</span>
-            </Button>
-          )}
+            <span>{memberCount}</span>
+          </button>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {user?.photoURL ? (
-              <img
-                src={user.photoURL}
-                alt="Avatar"
-                className="w-8 h-8 rounded-full border border-border"
-              />
-            ) : (
-              <div className="w-8 h-8 bg-muted border border-border flex items-center justify-center text-muted-foreground font-bold text-xs">
-                {(myNickname || 'G')[0].toUpperCase()}
-              </div>
+        {/* Mobile Line 2 / Desktop Right: Profile & Settings on left, i18n & Logout on right */}
+        <div className="flex items-center justify-between w-full lg:w-auto border-t border-border/40 lg:border-t-0 pt-2.5 lg:pt-0 gap-2">
+          {/* Left: User Profile & Host/Admin Room Settings */}
+          <div className="flex items-center gap-2">
+            <ProfileDropdown
+              user={user}
+              myNickname={myNickname}
+              isHost={isHost}
+              isAdmin={isAdmin}
+              onLogout={onLogout}
+              onGoogleSignIn={onGoogleSignIn}
+              onSaveNickname={handleSaveNickname}
+            />
+
+            {isHostOrAdmin && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowHostSettings(true)}
+                title={t('remote.hostSettings')}
+                className="h-11 w-11 text-muted-foreground hover:text-primary hover:border-primary/60 cursor-pointer"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
             )}
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                {user?.displayName || myNickname || `Guest (${user?.uid.substring(0, 4)})`}
-                {isAdmin && (
-                  <Shield className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />
-                )}
-              </span>
-              <span className="text-[10px] text-muted-foreground font-mono">
-                {user?.email || `UID: ${user?.uid.substring(0, 8)}...`}
-              </span>
-            </div>
           </div>
 
-          {!isEditingNickname ? (
+          {/* Right: Language Switcher, Desktop Member Count & Logout */}
+          <div className="flex items-center gap-2">
+            {/* Desktop Members Count Badge */}
+            <div className="hidden lg:flex items-center gap-1.5 px-3 h-11 text-xs font-mono bg-muted/20 border border-border text-foreground">
+              <Users className="w-3.5 h-3.5 text-primary" />
+              <span>{memberCount}</span>
+            </div>
+
+            <LanguageSwitcher className="relative static" hideOnFullscreen={false} />
+
             <Button
               variant="outline"
-              size="sm"
-              chamfer="top-right"
-              onClick={() => {
-                setNicknameInput(myNickname);
-                setIsEditingNickname(true);
-              }}
-              className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1 h-auto"
-              title="Edit your nickname"
+              size="icon"
+              onClick={onLeaveRoom}
+              title={t('remote.leaveRoomBtn')}
+              className="h-11 w-11 text-muted-foreground hover:text-destructive hover:border-destructive transition-colors cursor-pointer"
             >
-              <Edit3 className="w-3 h-3 text-primary" />
-              <span>{t('remote.editNickname')}</span>
+              <LogOut className="w-4 h-4" />
             </Button>
-          ) : null}
+          </div>
         </div>
+      </header>
 
-        {isEditingNickname && (
-          <form
-            onSubmit={handleSaveNickname}
-            className="flex items-center gap-2 pt-2 border-t border-border"
-          >
-            <div className="flex-1">
-              <Input
-                type="text"
-                maxLength={25}
-                chamfer="dual"
-                value={nicknameInput}
-                onChange={(e) => setNicknameInput(e.target.value)}
-                placeholder={t('remote.enterNicknamePlaceholder')}
-                className="font-mono text-xs"
-                autoFocus
-              />
+      {/* Main Content Area */}
+      <main className="flex-1 min-h-0 p-3 sm:p-5 md:p-6 pb-28 sm:pb-32 overflow-hidden">
+        <div className="max-w-[1800px] w-full mx-auto h-full flex flex-col">
+          {/* Desktop Two-Column Layout (>= 1024px / lg) */}
+          <div className="hidden lg:grid lg:grid-cols-[60fr_40fr] xl:grid-cols-[63fr_37fr] lg:gap-6 h-full min-h-0">
+            {/* Left Column: Search & URL Queue Input */}
+            <Card cornerLines className="h-full flex flex-col p-5 bg-card border-border overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                <SearchPanel
+                  roomCode={activeRoomCode}
+                  roomState={roomState}
+                  user={user}
+                  isHostOrAdmin={isHostOrAdmin}
+                  sendCommand={sendCommand}
+                  showToast={showToast}
+                  embedded
+                  onOpenHostSettings={() => setShowHostSettings(true)}
+                />
+              </div>
+            </Card>
+
+            {/* Right Column: Tabbed Queue & Members */}
+            <Card cornerLines className="h-full flex flex-col p-5 bg-card border-border overflow-hidden">
+              <Tabs defaultValue="queue" className="h-full flex flex-col min-h-0">
+                <TabsList className="grid w-full grid-cols-2 mb-4 flex-shrink-0">
+                  <TabsTrigger value="queue" className="text-xs uppercase font-bold tracking-wider">
+                    {t('remote.activeQueueTab')} ({queue.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="members" className="text-xs uppercase font-bold tracking-wider">
+                    {t('remote.activeMembersTab')} ({membersList.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent
+                  value="queue"
+                  className="flex-1 min-h-0 overflow-hidden flex flex-col mt-0 data-[state=inactive]:hidden"
+                >
+                  <QueuePanel
+                    queue={queue}
+                    user={user}
+                    isHostOrAdmin={isHostOrAdmin}
+                    membersList={membersList}
+                    onRemoveItem={handleRemoveQueueItem}
+                    onMoveItem={handleMoveQueueItem}
+                    embedded
+                  />
+                </TabsContent>
+
+                <TabsContent
+                  value="members"
+                  className="flex-1 min-h-0 overflow-hidden flex flex-col mt-0 data-[state=inactive]:hidden"
+                >
+                  <MembersPanel
+                    membersList={membersList}
+                    adminsList={adminsList}
+                    hostUid={roomState?.hostUid}
+                    user={user}
+                    isHostOrAdmin={isHostOrAdmin}
+                    queue={queue}
+                    onKickMember={handleKickMember}
+                    onRemoveQueueItem={handleRemoveQueueItem}
+                    embedded
+                  />
+                </TabsContent>
+              </Tabs>
+            </Card>
+          </div>
+
+          {/* Mobile / Tablet View (< 1024px / < lg) */}
+          <div className="lg:hidden h-full flex flex-col min-h-0">
+            {/* Quick Queue Summary Bar */}
+            <div className="flex items-center justify-between p-2.5 px-3 mb-3 bg-card border border-border flex-shrink-0">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground uppercase font-mono">
+                  {t('remote.upcomingQueue')}:
+                </span>
+                <span className="font-mono text-primary font-bold">{queue.length} items</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                chamfer="top-right"
+                onClick={() => setShowSideDrawer(true)}
+                className="h-7 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
+              >
+                <Layers className="w-3.5 h-3.5 text-primary" />
+                <span>{t('remote.queueDrawerTitle')}</span>
+              </Button>
             </div>
-            <Button
-              type="submit"
-              variant="cyber"
-              chamfer="dual"
-              className="px-3 py-1 text-[10px] font-bold uppercase h-9"
-            >
-              {t('remote.saveBtn')}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setIsEditingNickname(false)}
-              className="px-2.5 py-1 text-muted-foreground hover:text-foreground text-[10px] h-9"
-            >
-              {t('remote.cancelBtn')}
-            </Button>
-          </form>
-        )}
-      </Card>
 
-      {/* Currently Playing Card */}
-      <Card cornerLines className="p-4 bg-card border-border mb-5">
-        <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
-          <span>{t('remote.nowPlayingTv')}</span>
-          <Badge
-            variant={roomState?.playback?.status === 'playing' ? 'success' : 'secondary'}
-            className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-widest rounded-none"
-          >
-            {roomState?.playback?.status === 'playing'
-              ? t('remote.playingStatus')
-              : t('remote.pausedStatus')}
-          </Badge>
-        </div>
-        {roomState?.currentlyPlaying ? (
-          <div className="flex gap-3 items-center">
-            {parseYouTubeVideoId(roomState.currentlyPlaying) ? (
-              <img
-                src={`https://img.youtube.com/vi/${parseYouTubeVideoId(
-                  roomState.currentlyPlaying
-                )}/hqdefault.jpg`}
-                alt="Video thumbnail"
-                className="w-20 h-14 object-cover border border-border"
-              />
-            ) : null}
-            <div className="overflow-hidden flex-1 flex flex-col min-w-0">
-              {roomState?.currentlyPlayingTitle ? (
-                <p className="text-xs font-bold text-foreground truncate font-sans mb-0.5">
-                  {roomState.currentlyPlayingTitle}
-                </p>
-              ) : null}
-              <p className="text-[11px] font-mono text-primary truncate">
-                {roomState.currentlyPlaying}
-              </p>
+            {/* Scrollable Search & Add Panel */}
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+              <Card cornerLines className="p-4 bg-card border-border flex flex-col mb-4">
+                <SearchPanel
+                  roomCode={activeRoomCode}
+                  roomState={roomState}
+                  user={user}
+                  isHostOrAdmin={isHostOrAdmin}
+                  sendCommand={sendCommand}
+                  showToast={showToast}
+                  embedded
+                  onOpenHostSettings={() => setShowHostSettings(true)}
+                />
+              </Card>
             </div>
           </div>
-        ) : (
-          <p className="text-xs text-muted-foreground italic">
-            {t('remote.noVideoSelected')}
-          </p>
-        )}
-      </Card>
+        </div>
+      </main>
 
-      {/* 1. Main Controls Panel */}
-      <ControlsPanel
-        roomCode={activeRoomCode}
+      {/* Sticky Bottom Now Playing Bar */}
+      <NowPlayingBar
         roomState={roomState}
         isHostOrAdmin={isHostOrAdmin}
-        isAdmin={isAdmin}
-        queueLength={queue.length}
         sendCommand={sendCommand}
         displayVolume={displayVolume}
         handleVolumeValueChange={handleVolumeValueChange}
         handleVolumeValueCommit={handleVolumeValueCommit}
-        handleClearQueueAdmin={handleClearQueueAdmin}
-        handleToggleRoomLockAdmin={handleToggleRoomLockAdmin}
         fullscreenCooldown={fullscreenCooldown}
         handleToggleFullscreenClick={handleToggleFullscreenClick}
-        showQrCode={showQrCode}
-        setShowQrCode={setShowQrCode}
-        copiedLink={copiedLink}
-        handleCopyJoinLink={handleCopyJoinLink}
       />
 
-      {/* 2. Search & URL Input Panel */}
-      <SearchPanel
+      {/* Host / Admin Settings Dialog */}
+      <HostSettingsModal
+        open={showHostSettings}
+        onOpenChange={setShowHostSettings}
         roomCode={activeRoomCode}
         roomState={roomState}
-        user={user}
-        isHostOrAdmin={isHostOrAdmin}
+        isAdmin={isAdmin}
+        queueLength={queue.length}
         sendCommand={sendCommand}
+        handleClearQueueAdmin={handleClearQueueAdmin}
+        handleToggleRoomLockAdmin={handleToggleRoomLockAdmin}
         showToast={showToast}
       />
 
-      {/* 3. Members & Requests Panel */}
-      <MembersPanel
+      {/* Mobile Queue & Members Side Drawer */}
+      <SideDrawer
+        open={showSideDrawer}
+        onClose={() => setShowSideDrawer(false)}
+        queue={queue}
+        user={user}
+        isHostOrAdmin={isHostOrAdmin}
         membersList={membersList}
         adminsList={adminsList}
         hostUid={roomState?.hostUid}
-        user={user}
-        isHostOrAdmin={isHostOrAdmin}
-        queue={queue}
-        onKickMember={handleKickMember}
         onRemoveQueueItem={handleRemoveQueueItem}
-      />
-
-      {/* 4. Upcoming Queue Panel */}
-      <QueuePanel
-        queue={queue}
-        user={user}
-        isHostOrAdmin={isHostOrAdmin}
-        membersList={membersList}
-        onRemoveItem={handleRemoveQueueItem}
-        onMoveItem={handleMoveQueueItem}
+        onMoveQueueItem={handleMoveQueueItem}
+        onKickMember={handleKickMember}
       />
     </div>
   );
 };
+
+export default RoomScreen;
