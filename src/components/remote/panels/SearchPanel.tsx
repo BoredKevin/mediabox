@@ -12,6 +12,7 @@ import {
   Key,
   ExternalLink,
   Film,
+  X,
 } from 'lucide-react';
 import { RoomState, SearchResultItem } from '@/lib/roomUtils';
 import { fetchVideoTitle, parseYouTubeVideoId, VideoInfo } from '@/lib/youtube';
@@ -218,14 +219,13 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   const content = (
     <div className="flex flex-col gap-4">
-      {/* Search / Paste URL Form (Input line + Button line) */}
-      <form onSubmit={handleFormSubmit} className="flex flex-col gap-2.5">
-        {/* Line 1: Input Field across */}
-        <div className="relative w-full">
+      {/* YouTube-Style Search / Paste URL Form */}
+      <form onSubmit={handleFormSubmit} className="flex flex-col sm:flex-row items-stretch gap-2">
+        <div className="relative flex-1">
           {isDetectedUrl ? (
-            <Plus className="absolute left-3 top-3 h-4 w-4 text-primary pointer-events-none z-10" />
+            <Plus className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-primary pointer-events-none z-10" />
           ) : (
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
           )}
           <Input
             type="text"
@@ -241,11 +241,24 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 ? t('remote.searchQueueLocked')
                 : 'Search YouTube or paste video link / URL...'
             }
-            className="pl-9 text-xs sm:text-sm h-10 w-full"
+            className="pl-10 pr-9 text-xs sm:text-sm h-11 w-full"
           />
+          {inputValue && (
+            <button
+              type="button"
+              onClick={() => {
+                setInputValue('');
+                setPreviewInfo(null);
+                setSearchError(null);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
+              title="Clear"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* Line 2: Action Button below the input */}
         <Button
           type="submit"
           variant="cyber"
@@ -256,12 +269,12 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             isSubmittingLink ||
             !inputValue.trim()
           }
-          className="w-full py-2.5 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-2 h-10"
+          className="h-11 px-6 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 flex-shrink-0 cursor-pointer"
         >
           {isSubmittingLink || isSearching ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>{isDetectedUrl ? 'Resolving & Submitting...' : t('remote.searching')}</span>
+              <span>{isDetectedUrl ? 'Submitting...' : t('remote.searching')}</span>
             </>
           ) : isDetectedUrl ? (
             <>
@@ -279,37 +292,39 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
       {/* Detected Link Preview (Single Item Preview Card) */}
       {previewInfo && (
-        <div className="p-3 bg-muted/20 border border-primary/40 flex flex-col gap-2 animate-in fade-in-0">
+        <div className="p-3 sm:p-4 bg-card/80 border border-primary/40 flex flex-col gap-3 animate-in fade-in-0 rounded-[var(--radius)]">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-primary flex items-center gap-1">
-              <Film className="w-3 h-3" />
-              Detected Video Link
+            <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <Film className="w-3.5 h-3.5" />
+              Detected YouTube Video
             </span>
-            <span className="text-[10px] text-muted-foreground font-mono">
+            <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
               Ready to Queue
-            </span>
+            </Badge>
           </div>
 
-          <div className="flex items-center gap-3">
-            <img
-              src={
-                previewInfo.info?.thumbnailUrl ||
-                `https://img.youtube.com/vi/${previewInfo.id}/hqdefault.jpg`
-              }
-              alt="Preview thumbnail"
-              className="w-20 h-14 object-cover border border-border flex-shrink-0 bg-black"
-            />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative aspect-video w-full sm:w-48 bg-black overflow-hidden rounded-[calc(var(--radius)-2px)] border border-border flex-shrink-0">
+              <img
+                src={
+                  previewInfo.info?.thumbnailUrl ||
+                  `https://img.youtube.com/vi/${previewInfo.id}/hqdefault.jpg`
+                }
+                alt="Preview thumbnail"
+                className="w-full h-full object-cover"
+              />
+            </div>
 
             <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <p className="text-xs sm:text-sm font-bold text-foreground truncate font-sans">
+              <p className="text-xs sm:text-sm font-bold text-foreground line-clamp-2 leading-snug">
                 {previewInfo.info?.title || (previewInfo.isLoading ? 'Resolving title...' : 'YouTube Video')}
               </p>
               {previewInfo.info?.channelTitle && (
-                <p className="text-[11px] text-muted-foreground truncate">
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {previewInfo.info.channelTitle}
                 </p>
               )}
-              <p className="text-[10px] font-mono text-primary/80 truncate">
+              <p className="text-[10px] font-mono text-primary/80 mt-1 truncate">
                 {previewInfo.url}
               </p>
             </div>
@@ -317,11 +332,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             <Button
               type="button"
               variant="cyber"
-              size="sm"
-              chamfer="top-right"
+              chamfer="dual"
               onClick={handleAddDirectPreview}
               disabled={isLocked || isSubmittingLink}
-              className="px-3 py-2 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5 h-auto flex-shrink-0"
+              className="px-4 py-2 font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 h-10 sm:h-11 flex-shrink-0 cursor-pointer"
               title="Add this video to queue"
             >
               {isSubmittingLink ? (
@@ -337,7 +351,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
       {/* No Key Contextual Banner (Displayed Below Search Bar) */}
       {!searchSettings?.hasApiKeys && (
-        <div className="p-3 bg-muted/20 border border-amber-800/60 text-xs flex flex-col gap-2">
+        <div className="p-3 bg-muted/20 border border-amber-800/60 text-xs flex flex-col gap-2 rounded-[var(--radius)]">
           <div className="flex items-center justify-between gap-2">
             <span className="font-bold flex items-center gap-1.5 text-amber-400">
               <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
@@ -364,44 +378,123 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
       {/* Search Error Message */}
       {searchError && (
-        <p className="text-xs text-destructive font-mono p-2.5 bg-destructive/10 border border-destructive/30 leading-relaxed">
+        <p className="text-xs text-destructive font-mono p-2.5 bg-destructive/10 border border-destructive/30 leading-relaxed rounded-[var(--radius)]">
           {searchError}
         </p>
       )}
 
-      {/* Multi-result Keyword Search Results */}
-      {searchResults.length > 0 && (
-        <div className="flex flex-col gap-2 max-h-72 sm:max-h-96 overflow-y-auto pr-1">
-          {searchResults.map((res) => (
+      {/* Skeletons while searching */}
+      {isSearching && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 py-2 animate-pulse">
+          {Array.from({ length: 8 }).map((_, i) => (
             <div
-              key={res.id}
-              className="flex gap-2.5 p-2 bg-muted/30 border border-border hover:border-primary/50 transition-colors items-center"
+              key={i}
+              className="flex flex-col bg-muted/20 border border-border/40 rounded-[var(--radius)] overflow-hidden"
             >
-              <img
-                src={res.thumbnail}
-                alt={res.title}
-                className="w-16 h-11 object-cover border border-border flex-shrink-0"
-              />
-              <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                <p className="text-xs font-bold text-foreground truncate">{res.title}</p>
-                <p className="text-[10px] text-muted-foreground font-mono truncate">
-                  {res.channelTitle}
-                </p>
+              <div className="aspect-video bg-muted/40 w-full" />
+              <div className="p-3 flex flex-col gap-2">
+                <div className="h-3.5 bg-muted/50 rounded w-3/4" />
+                <div className="h-3 bg-muted/30 rounded w-1/2" />
+                <div className="h-7 bg-muted/20 rounded mt-2" />
               </div>
-              <Button
-                variant="cyber"
-                size="sm"
-                chamfer="top-right"
-                onClick={() => handleAddSearchResult(res)}
-                disabled={isLocked}
-                className="px-2.5 py-1.5 font-bold uppercase text-[10px] tracking-wider flex items-center gap-1 h-auto flex-shrink-0"
-                title="Add video to queue"
-              >
-                <Plus className="w-3 h-3" />
-                <span>{t('remote.addBtn')}</span>
-              </Button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* YouTube-Style Video Grid Search Results */}
+      {!isSearching && searchResults.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+              {searchResults.length} Results
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pr-1">
+            {searchResults.map((res) => (
+              <div
+                key={res.id}
+                onClick={() => handleAddSearchResult(res)}
+                className="group/card flex flex-col bg-card/70 hover:bg-card/95 border border-border/60 hover:border-primary/60 transition-all duration-200 overflow-hidden shadow-sm hover:shadow-[0_0_20px_rgba(0,200,212,0.15)] cursor-pointer select-none rounded-[var(--radius)]"
+              >
+                {/* 16:9 Thumbnail with duration overlay & hover action */}
+                <div className="relative aspect-video w-full bg-black overflow-hidden flex-shrink-0">
+                  <img
+                    src={res.thumbnail}
+                    alt={res.title}
+                    className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  {/* Hover Overlay with Add Button */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 flex items-center justify-center p-2">
+                    <Button
+                      variant="cyber"
+                      size="sm"
+                      chamfer="dual"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSearchResult(res);
+                      }}
+                      disabled={isLocked}
+                      className="px-3.5 py-2 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5 shadow-xl cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{t('remote.addBtn')}</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Video Info below thumbnail */}
+                <div className="p-3 flex flex-col flex-1 justify-between gap-2">
+                  <div>
+                    <h4
+                      className="text-xs sm:text-sm font-semibold text-foreground line-clamp-2 leading-snug group-hover/card:text-primary transition-colors"
+                      title={res.title}
+                    >
+                      {res.title}
+                    </h4>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">
+                      {res.channelTitle}
+                    </p>
+                  </div>
+
+                  {/* Direct Add Button on Mobile or for quick touch */}
+                  <div className="pt-1 mt-auto sm:hidden">
+                    <Button
+                      variant="cyber"
+                      size="sm"
+                      chamfer="top-right"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSearchResult(res);
+                      }}
+                      disabled={isLocked}
+                      className="w-full py-1 text-xs font-bold flex items-center justify-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{t('remote.addBtn')}</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty Starter State */}
+      {!isSearching && searchResults.length === 0 && !previewInfo && (
+        <div className="flex flex-col items-center justify-center py-12 px-4 text-center text-muted-foreground">
+          <div className="w-14 h-14 rounded-full bg-muted/20 border border-border flex items-center justify-center mb-3 text-muted-foreground/60">
+            <Search className="w-6 h-6" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">
+            Search YouTube for Videos
+          </p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm leading-relaxed">
+            Type any song, artist, title, or paste a YouTube video URL to find and queue up to 25 videos on the TV.
+          </p>
         </div>
       )}
     </div>

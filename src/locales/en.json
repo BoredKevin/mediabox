@@ -22,7 +22,10 @@
     "unlockBtn": "Unlock",
     "lockedBtn": "Locked",
     "autoplayOn": "Autoplay ON",
-    "autoplayOff": "Autoplay OFF"
+    "autoplayOff": "Autoplay OFF",
+    "searchBtn": "Search & Add Video",
+    "searchModalTitle": "Add to Queue",
+    "searchModalDesc": "Search YouTube or paste a direct video link to queue videos on the TV."
   },
   "mediaBox": {
     "noVideoPlaying": " ",

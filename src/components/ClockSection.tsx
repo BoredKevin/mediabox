@@ -65,7 +65,7 @@ export const ClockSection: React.FC = () => {
       <Card
         telemetry="SYS.SYNC"
         cornerLines
-        className="p-3 sm:p-4 flex flex-col justify-center min-h-[90px]"
+        className="p-2.5 sm:p-3 md:p-4 flex flex-col justify-center min-h-[90px]"
       >
         <WatchPartyControls />
       </Card>

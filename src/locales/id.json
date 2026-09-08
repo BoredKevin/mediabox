@@ -22,7 +22,10 @@
     "unlockBtn": "Buka Kunci",
     "lockedBtn": "Terkunci",
     "autoplayOn": "Autoplay ON",
-    "autoplayOff": "Autoplay OFF"
+    "autoplayOff": "Autoplay OFF",
+    "searchBtn": "Cari & Tambah Video",
+    "searchModalTitle": "Tambah ke Antrean",
+    "searchModalDesc": "Cari YouTube atau tempel tautan video langsung untuk menambahkan ke antrean TV."
   },
   "mediaBox": {
     "noVideoPlaying": " ",
