@@ -1,59 +1,31 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, AtmosphericAuroraBackground, useTheme } from '@boredkevin/ui';
-import { Header } from '@/components/Header';
-import { ClockSection } from '@/components/ClockSection';
-import { ScheduleSection } from '@/components/ScheduleSection';
-import { MediaBox } from '@/components/MediaBox';
-import { Footer } from '@/components/Footer';
-import { RemotePage } from '@/pages/RemotePage';
-import { WatchPartyProvider } from '@/context/WatchPartyContext';
+import { ThemeProvider } from '@boredkevin/ui';
 import { LanguageProvider } from '@/context/LanguageContext';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { Loader2 } from 'lucide-react';
 
-const Dashboard: React.FC = () => {
-  const { isDark, toggleThemeMode } = useTheme();
+const Dashboard = React.lazy(() => import('@/Dashboard'));
+const RemotePage = React.lazy(() => import('@/pages/RemotePage'));
 
-  return (
-    <WatchPartyProvider>
-      <LanguageSwitcher className="fixed top-4 right-18 sm:right-20 z-40" hideOnFullscreen />
-
-      {/* Dynamic Aurora Canvas Background */}
-      <AtmosphericAuroraBackground />
-
-      <div className="relative z-10 flex min-h-screen md:h-screen flex-col items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8 pb-10 sm:pb-10 md:pb-10">
-        <div className="w-full max-w-[1800px] flex-1 flex flex-col justify-between gap-3 sm:gap-4 md:gap-5 md:min-h-0">
-          <Header theme={isDark ? 'dark' : 'light'} toggleTheme={toggleThemeMode} />
-
-          {/* Main Content Section centered vertically between Header and Footer */}
-          <div className="my-auto flex flex-col gap-3 sm:gap-4 md:gap-5 w-full py-2 md:min-h-0">
-            {/* Top Grid: Clock (50%) + Watch Party Controls (50%) */}
-            <ClockSection />
-
-            {/* Bottom Grid: Schedule (Left 50%) + Media (Right 50%) */}
-            <main className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 md:grid-cols-2 items-stretch md:min-h-0">
-              <ScheduleSection />
-              <MediaBox />
-            </main>
-          </div>
-
-          <Footer />
-        </div>
-      </div>
-    </WatchPartyProvider>
-  );
-};
+const PageLoader: React.FC = () => (
+  <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3 text-primary">
+    <Loader2 className="w-8 h-8 animate-spin" />
+    <span className="text-xs font-mono tracking-widest text-muted-foreground uppercase">Loading...</span>
+  </div>
+);
 
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <LanguageProvider>
         <HashRouter>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/join" element={<RemotePage />} />
-            <Route path="/remote" element={<RemotePage />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/join" element={<RemotePage />} />
+              <Route path="/remote" element={<RemotePage />} />
+            </Routes>
+          </Suspense>
         </HashRouter>
       </LanguageProvider>
     </ThemeProvider>
@@ -61,6 +33,3 @@ export const App: React.FC = () => {
 };
 
 export default App;
-
-
-
