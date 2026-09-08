@@ -17,13 +17,10 @@ import {
   VolumeX,
   Maximize,
   Minimize,
-  Settings,
 } from 'lucide-react';
-import { TvSettingsModal } from '@/components/TvSettingsModal';
 
 export const MediaBox: React.FC = () => {
   const { t } = useTranslation();
-  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const {
     roomCode,
     roomState,
@@ -197,22 +194,6 @@ export const MediaBox: React.FC = () => {
         </div>
       )}
 
-      {/* Top-Right TV Settings Button */}
-      <div className="absolute top-3 right-3 z-30 pointer-events-auto">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowSettingsModal(true);
-          }}
-          aria-label="Room Settings"
-          className="h-8 w-8 sm:h-9 sm:w-9 bg-background/60 hover:bg-background/90 text-muted-foreground hover:text-foreground border border-border/50 backdrop-blur-md rounded-[var(--radius)] transition-colors shadow-sm"
-          title="Room & API Settings"
-        >
-          <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-        </Button>
-      </div>
 
       {/* Main Video Player Area */}
       <div
@@ -417,11 +398,6 @@ export const MediaBox: React.FC = () => {
         </div>
       )}
 
-      {/* TV Room Settings Modal */}
-      <TvSettingsModal
-        open={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-      />
     </Card>
   );
 };

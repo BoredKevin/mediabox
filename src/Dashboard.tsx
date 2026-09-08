@@ -1,18 +1,37 @@
 import React from 'react';
-import { AtmosphericAuroraBackground, useTheme } from '@boredkevin/ui';
+import { AtmosphericAuroraBackground, useTheme, Button } from '@boredkevin/ui';
+import { Settings } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ClockSection } from '@/components/ClockSection';
 import { ScheduleSection } from '@/components/ScheduleSection';
 import { MediaBox } from '@/components/MediaBox';
 import { Footer } from '@/components/Footer';
-import { WatchPartyProvider } from '@/context/WatchPartyContext';
+import { WatchPartyProvider, useWatchParty } from '@/context/WatchPartyContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { TvSettingsModal } from '@/components/TvSettingsModal';
 
-export const Dashboard: React.FC = () => {
+const DashboardContent: React.FC = () => {
   const { isDark, toggleThemeMode } = useTheme();
+  const { roomState, showSettingsModal, setShowSettingsModal } = useWatchParty();
+  const isFullscreen = Boolean(roomState?.isFullscreen);
 
   return (
-    <WatchPartyProvider>
+    <>
+      {/* Fixed Top-Left TV Settings Button */}
+      {!isFullscreen && (
+        <Button
+          variant="outline"
+          size="icon"
+          chamfer="dual"
+          onClick={() => setShowSettingsModal(true)}
+          aria-label="Room & API Settings"
+          title="Room & API Settings"
+          className="fixed top-4 left-4 z-40 h-11 w-11"
+        >
+          <Settings className="h-4 w-4 text-primary" />
+        </Button>
+      )}
+
       <LanguageSwitcher className="fixed top-4 right-18 sm:right-20 z-40" hideOnFullscreen />
 
       {/* Dynamic Aurora Canvas Background */}
@@ -37,6 +56,20 @@ export const Dashboard: React.FC = () => {
           <Footer />
         </div>
       </div>
+
+      {/* TV Room Settings Modal */}
+      <TvSettingsModal
+        open={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+      />
+    </>
+  );
+};
+
+export const Dashboard: React.FC = () => {
+  return (
+    <WatchPartyProvider>
+      <DashboardContent />
     </WatchPartyProvider>
   );
 };

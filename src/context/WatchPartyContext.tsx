@@ -49,7 +49,9 @@ interface WatchPartyContextType {
   handleTogglePlayPause: () => Promise<void>;
   handlePlayNextInQueue: () => Promise<void>;
   handleRemoveQueueItem: (itemId: string) => Promise<void>;
-  handleAddUrlHost: (url: string) => Promise<boolean>;
+  showSettingsModal: boolean;
+  setShowSettingsModal: (show: boolean) => void;
+  handleAddUrlHost: (url: string, explicitTitle?: string) => Promise<boolean>;
   handleToggleFullscreen: () => Promise<void>;
   handleToggleRoomLock: () => Promise<void>;
   handleToggleAutoplay: () => Promise<void>;
@@ -67,6 +69,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [user, setUser] = useState<User | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [memberCount, setMemberCount] = useState<number>(0);
 
@@ -519,7 +522,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           results = await searchYouTubeWithKey(
             req.query,
             keyRecord.key,
-            currentConfig.maxResults || 5
+            currentConfig.maxResults || 25
           );
           incrementUsage(keyRecord.id);
         } catch (err: any) {
@@ -730,7 +733,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     await remove(ref(database, `rooms/${roomCode}/queue/${itemId}`));
   };
 
-  const handleAddUrlHost = async (urlInput: string): Promise<boolean> => {
+  const handleAddUrlHost = async (urlInput: string, explicitTitle?: string): Promise<boolean> => {
     if (!urlInput.trim() || !roomCode) return false;
 
     const ytId = parseYouTubeVideoId(urlInput.trim());
@@ -740,8 +743,11 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
-    const info = await fetchVideoTitle(videoUrl);
-    const videoTitle = info.title || '';
+    let videoTitle = explicitTitle?.trim() || '';
+    if (!videoTitle) {
+      const info = await fetchVideoTitle(videoUrl);
+      videoTitle = info.title || '';
+    }
 
     if (!roomState?.currentlyPlaying) {
       await update(ref(database, `rooms/${roomCode}/state`), {
@@ -847,6 +853,8 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         creating,
         showQrModal,
         setShowQrModal,
+        showSettingsModal,
+        setShowSettingsModal,
         muted,
         setMuted,
         copiedLink,
