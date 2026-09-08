@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ref, get, update } from 'firebase/database';
+import { ref, get, update, remove } from 'firebase/database';
 import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
 import { auth, ensureAnonymousAuth, signInWithGoogle, logoutUser, database } from '@/lib/firebase';
 import { checkRoomExists } from '@/lib/roomUtils';
@@ -27,6 +27,9 @@ export const RemoteView: React.FC = () => {
   inputCodeRef.current = inputCode;
   const userRef = useRef(user);
   userRef.current = user;
+
+  // Track room codes that have already been auto-joined to prevent infinite rejoin loops on exit
+  const lastAutoJoinedRoomRef = useRef<string | null>(null);
 
   // Listen to auth state changes
   useEffect(() => {
@@ -85,9 +88,10 @@ export const RemoteView: React.FC = () => {
             : {}),
         });
 
+        lastAutoJoinedRoomRef.current = cleanCode;
         setUser(u);
         setActiveRoomCode(cleanCode);
-        setSearchParams({ room: cleanCode });
+        setSearchParams({ room: cleanCode }, { replace: true });
       } catch (err: any) {
         console.error('Error joining room:', err);
       } finally {
@@ -97,12 +101,14 @@ export const RemoteView: React.FC = () => {
     [setSearchParams]
   );
 
-  // Auto-join if room code parameter present in URL
+  // Auto-join if room code parameter present in URL (only once per unique room code)
   useEffect(() => {
-    if (user && initialRoom && !activeRoomCode) {
-      handleJoinRoom(initialRoom, user);
+    const roomParam = searchParams.get('room');
+    if (user && roomParam && roomParam !== lastAutoJoinedRoomRef.current && !activeRoomCode) {
+      lastAutoJoinedRoomRef.current = roomParam;
+      handleJoinRoom(roomParam, user);
     }
-  }, [user, initialRoom, activeRoomCode, handleJoinRoom]);
+  }, [user, searchParams, activeRoomCode, handleJoinRoom]);
 
   const handleGoogleSignIn = async (codeOverride?: string) => {
     setLoading(true);
@@ -139,9 +145,24 @@ export const RemoteView: React.FC = () => {
     }
   };
 
-  const handleLeaveRoom = useCallback(() => {
+  const handleLeaveRoom = useCallback(async () => {
+    const currentRoom = activeRoomCodeRef.current;
+    const currentUser = userRef.current;
+
+    // Prevent auto-join effect from immediately re-entering the room just exited
+    lastAutoJoinedRoomRef.current = currentRoom;
+
     setActiveRoomCode(null);
-    setSearchParams({});
+    setInputCode('');
+    setSearchParams({}, { replace: true });
+
+    if (currentRoom && currentUser) {
+      try {
+        await remove(ref(database, `rooms/${currentRoom}/members/${currentUser.uid}`));
+      } catch (err) {
+        console.warn('Failed to remove member node on leave:', err);
+      }
+    }
   }, [setSearchParams]);
 
   return (
