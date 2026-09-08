@@ -14,7 +14,7 @@ export interface SearchConfig {
 
 export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   strategy: 'roundRobin',
-  maxResults: 5,
+  maxResults: 25,
   rateLimitCount: 10,
   rateLimitWindowMs: 300000, // 5 minutes
   allowHostKeyManagement: false,
@@ -26,6 +26,9 @@ export const loadSearchConfig = (): SearchConfig => {
     const raw = localStorage.getItem(CONFIG_KEY);
     if (!raw) return DEFAULT_SEARCH_CONFIG;
     const parsed = JSON.parse(raw);
+    if (!parsed.maxResults || parsed.maxResults === 5) {
+      parsed.maxResults = 25;
+    }
     return { ...DEFAULT_SEARCH_CONFIG, ...parsed };
   } catch (err) {
     console.error('[apiKeyStore] Failed to load search config:', err);

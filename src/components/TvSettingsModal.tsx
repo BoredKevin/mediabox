@@ -79,7 +79,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
     searchSettings.rateLimitWindowMs || 300000
   );
   const [maxResultsInput, setMaxResultsInput] = useState<number>(
-    searchSettings.maxResults || 5
+    searchSettings.maxResults || 25
   );
   const [rateLimitSaved, setRateLimitSaved] = useState(false);
 
@@ -96,7 +96,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
       refreshKeys();
       setRateLimitCountInput(searchSettings.rateLimitCount || 10);
       setRateLimitWindowInput(searchSettings.rateLimitWindowMs || 300000);
-      setMaxResultsInput(searchSettings.maxResults || 5);
+      setMaxResultsInput(searchSettings.maxResults || 25);
     }
   }, [open, searchSettings]);
 
@@ -192,7 +192,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
     await handleUpdateSearchSettings({
       rateLimitCount: Number(rateLimitCountInput) || 10,
       rateLimitWindowMs: Number(rateLimitWindowInput) || 300000,
-      maxResults: Math.max(1, Math.min(50, Number(maxResultsInput) || 5)),
+      maxResults: Math.max(1, Math.min(50, Number(maxResultsInput) || 25)),
     });
     setRateLimitSaved(true);
     setTimeout(() => setRateLimitSaved(false), 2000);

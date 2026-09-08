@@ -47,6 +47,18 @@ export class YouTubeQuotaExceededError extends Error {
   }
 }
 
+export const decodeHtmlEntities = (text: string): string => {
+  if (!text) return '';
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+};
+
 /**
  * Searches YouTube videos using the official YouTube Data API v3 endpoint with an explicit API key.
  * Used by the TV room host as mediator.
@@ -54,7 +66,7 @@ export class YouTubeQuotaExceededError extends Error {
 export const searchYouTubeWithKey = async (
   query: string,
   apiKey: string,
-  maxResults: number = 5
+  maxResults: number = 25
 ): Promise<SearchResultItem[]> => {
   const cleanQuery = query.trim();
   if (!cleanQuery) return [];
@@ -79,9 +91,10 @@ export const searchYouTubeWithKey = async (
   const results: SearchResultItem[] = (data.items || [])
     .map((item: any) => ({
       id: item.id?.videoId || '',
-      title: item.snippet?.title || 'Untitled Video',
-      channelTitle: item.snippet?.channelTitle || 'YouTube Channel',
+      title: decodeHtmlEntities(item.snippet?.title || 'Untitled Video'),
+      channelTitle: decodeHtmlEntities(item.snippet?.channelTitle || 'YouTube Channel'),
       thumbnail:
+        item.snippet?.thumbnails?.high?.url ||
         item.snippet?.thumbnails?.medium?.url ||
         item.snippet?.thumbnails?.default?.url ||
         '',
@@ -110,7 +123,7 @@ export const searchYouTubeVideos = async (
   }
 
   try {
-    const results = await searchYouTubeWithKey(query, apiKey, 5);
+    const results = await searchYouTubeWithKey(query, apiKey, 25);
     return { results, hasApiKey: true };
   } catch (err: any) {
     if (err instanceof YouTubeQuotaExceededError) {
