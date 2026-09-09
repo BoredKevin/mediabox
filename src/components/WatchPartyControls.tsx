@@ -147,9 +147,8 @@ export const WatchPartyControls: React.FC = () => {
             variant={isLocked ? 'destructive' : 'outline'}
             chamfer="top-right"
             onClick={handleToggleRoomLock}
-            className={`flex-1 min-w-[32px] sm:min-w-[36px] max-w-[48px] px-1 sm:px-2 py-1 sm:py-1.5 flex items-center justify-center h-auto ${
-              isLocked ? 'border-amber-500 text-amber-500 bg-amber-500/10' : ''
-            }`}
+            className={`flex-1 min-w-[32px] sm:min-w-[36px] max-w-[48px] px-1 sm:px-2 py-1 sm:py-1.5 flex items-center justify-center h-auto ${isLocked ? 'border-amber-500 text-amber-500 bg-amber-500/10' : ''
+              }`}
             title={isLocked ? t('watchParty.unlockBtn') : t('watchParty.lockBtn')}
           >
             {isLocked ? (
@@ -164,9 +163,8 @@ export const WatchPartyControls: React.FC = () => {
             variant={roomState?.isAutoplay ? 'cyber' : 'outline'}
             chamfer="top-right"
             onClick={handleToggleAutoplay}
-            className={`flex-1 min-w-[32px] sm:min-w-[36px] max-w-[48px] px-1 sm:px-2 py-1 sm:py-1.5 flex items-center justify-center h-auto ${
-              roomState?.isAutoplay ? 'border-purple-500 text-purple-400 bg-purple-500/10' : ''
-            }`}
+            className={`flex-1 min-w-[32px] sm:min-w-[36px] max-w-[48px] px-1 sm:px-2 py-1 sm:py-1.5 flex items-center justify-center h-auto ${roomState?.isAutoplay ? 'border-purple-500 text-purple-400 bg-purple-500/10' : ''
+              }`}
             title="Toggle Autoplay (Last.fm recommendation)"
           >
             <Sparkles className={`w-4 h-4 sm:w-5 sm:h-5 ${roomState?.isAutoplay ? 'text-purple-400' : 'text-muted-foreground'}`} />

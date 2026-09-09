@@ -3,7 +3,8 @@ import { ref, set, onValue, off, remove } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
 import { database } from '@/lib/firebase';
 import { useTranslation } from '@/context/LanguageContext';
-import { Card, Button, Input, Badge } from '@boredkevin/ui';
+import { Card, Button, Badge } from '@boredkevin/ui';
+import { Input } from '@/components/ui/input';
 import {
   Search,
   Plus,
@@ -60,6 +61,39 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   // Active search request listener ref
   const activeReqRef = useRef<{ reqId: string; timeoutId: any; nodeRef: any } | null>(null);
   const titleFetchAbortRef = useRef<number>(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // WebOS Voice Recognition & Virtual Keyboard IME fix:
+  // WebOS virtual keyboard uses a non-standard IME/voice dictation method that
+  // inserts the full string directly into the DOM and suppresses React's SyntheticEvent onChange.
+  // Attaching native DOM listeners directly to the underlying <input> element via ref
+  // ensures raw DOM input events are captured and state is synced immediately.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+
+    const handleNativeInput = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (target) {
+        setInputValue(target.value);
+        setSearchError(null);
+      }
+    };
+
+    el.addEventListener('input', handleNativeInput);
+    el.addEventListener('change', handleNativeInput);
+    el.addEventListener('compositionend', handleNativeInput);
+    el.addEventListener('textInput', handleNativeInput as any);
+    el.addEventListener('blur', handleNativeInput);
+
+    return () => {
+      el.removeEventListener('input', handleNativeInput);
+      el.removeEventListener('change', handleNativeInput);
+      el.removeEventListener('compositionend', handleNativeInput);
+      el.removeEventListener('textInput', handleNativeInput as any);
+      el.removeEventListener('blur', handleNativeInput);
+    };
+  }, []);
 
   // Clean up any pending search listeners on unmount
   useEffect(() => {
@@ -105,17 +139,24 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanInput = inputValue.trim();
+    const currentValue = inputRef.current ? inputRef.current.value : inputValue;
+    const cleanInput = currentValue.trim();
+    if (currentValue !== inputValue) {
+      setInputValue(currentValue);
+    }
     if (!cleanInput || !user || !roomCode || isLocked) return;
 
+    const currentYtId = parseYouTubeVideoId(cleanInput);
+
     // Case 1: Pasted YouTube Link -> Submit to Queue
-    if (detectedYtId) {
+    if (currentYtId) {
       setIsSubmittingLink(true);
       try {
-        const fullUrl = `https://www.youtube.com/watch?v=${detectedYtId}`;
+        const fullUrl = `https://www.youtube.com/watch?v=${currentYtId}`;
         const title = previewInfo?.info?.title || (await fetchVideoTitle(fullUrl)).title;
         await sendCommand('addToQueue', { url: fullUrl, title });
         setInputValue('');
+        if (inputRef.current) inputRef.current.value = '';
         setPreviewInfo(null);
         showToast(t('toasts.videoAddedQueue'), 'success');
       } catch (err: any) {
@@ -208,6 +249,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         title: previewInfo.info?.title,
       });
       setInputValue('');
+      if (inputRef.current) inputRef.current.value = '';
       setPreviewInfo(null);
       showToast(t('toasts.videoAddedQueue'), 'success');
     } catch (err: any) {
@@ -221,13 +263,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     <div className="flex flex-col gap-4">
       {/* YouTube-Style Search / Paste URL Form */}
       <form onSubmit={handleFormSubmit} className="flex flex-col sm:flex-row items-stretch gap-2">
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           {isDetectedUrl ? (
             <Plus className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-primary pointer-events-none z-10" />
           ) : (
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
           )}
           <Input
+            ref={inputRef}
             type="text"
             chamfer="dual"
             value={inputValue}
@@ -248,6 +291,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               type="button"
               onClick={() => {
                 setInputValue('');
+                if (inputRef.current) inputRef.current.value = '';
                 setPreviewInfo(null);
                 setSearchError(null);
               }}

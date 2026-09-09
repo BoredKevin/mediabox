@@ -284,11 +284,10 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                   return (
                     <div
                       key={keyItem.id}
-                      className={`p-3 border transition-all flex flex-col gap-2 ${
-                        keyItem.enabled
+                      className={`p-3 border transition-all flex flex-col gap-2 ${keyItem.enabled
                           ? 'bg-muted/30 border-border'
                           : 'bg-muted/10 border-border/50 opacity-60'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">

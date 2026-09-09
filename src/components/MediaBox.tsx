@@ -197,9 +197,8 @@ export const MediaBox: React.FC = () => {
 
       {/* Main Video Player Area */}
       <div
-        className={`flex-1 w-full bg-black relative flex items-center justify-center overflow-hidden h-full group cursor-pointer ${
-          isFullscreen && !isOverlayVisible ? 'cursor-none' : ''
-        }`}
+        className={`flex-1 w-full bg-black relative flex items-center justify-center overflow-hidden h-full group cursor-pointer ${isFullscreen && !isOverlayVisible ? 'cursor-none' : ''
+          }`}
         onClick={handleVideoAreaClick}
         onMouseMove={handleMouseMove}
         onMouseEnter={handleMouseEnter}
@@ -246,9 +245,8 @@ export const MediaBox: React.FC = () => {
         {/* Overlay Player Controls for Playing State */}
         {roomState?.currentlyPlaying && !isLocked && (
           <div
-            className={`absolute inset-x-0 bottom-0 z-30 p-2.5 sm:p-3.5 bg-gradient-to-t from-background/90 via-background/50 to-transparent flex items-center justify-between pointer-events-none transition-opacity duration-300 ${
-              isOverlayVisible ? 'opacity-100' : 'opacity-0'
-            }`}
+            className={`absolute inset-x-0 bottom-0 z-30 p-2.5 sm:p-3.5 bg-gradient-to-t from-background/90 via-background/50 to-transparent flex items-center justify-between pointer-events-none transition-opacity duration-300 ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
+              }`}
           >
             {/* Left Controls: Play/Pause and Tactical Volume Control */}
             <div className="flex items-center gap-2">

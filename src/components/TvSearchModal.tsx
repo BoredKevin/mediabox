@@ -69,13 +69,12 @@ export const TvSearchModal: React.FC<TvSearchModalProps> = ({
 
         {toast && (
           <div
-            className={`mt-2 px-3 py-1.5 text-xs font-mono border rounded transition-all animate-in fade-in-0 flex items-center justify-between ${
-              toast.type === 'error'
+            className={`mt-2 px-3 py-1.5 text-xs font-mono border rounded transition-all animate-in fade-in-0 flex items-center justify-between ${toast.type === 'error'
                 ? 'bg-destructive/15 border-destructive/40 text-destructive'
                 : toast.type === 'success'
-                ? 'bg-primary/15 border-primary/40 text-primary'
-                : 'bg-muted border-border text-foreground'
-            }`}
+                  ? 'bg-primary/15 border-primary/40 text-primary'
+                  : 'bg-muted border-border text-foreground'
+              }`}
           >
             <span>{toast.text}</span>
           </div>
