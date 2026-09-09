@@ -79,18 +79,27 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
                 {displayName}
               </span>
               {isAdmin ? (
-                <Badge variant="destructive" className="text-[9px] px-1.5 py-0 uppercase">
-                  <Shield className="w-2.5 h-2.5 mr-0.5" />
-                  {t('remote.adminBadge')}
+                <Badge
+                  variant="outline"
+                  className="h-5 px-1.5 py-0 text-[9px] font-mono font-bold uppercase inline-flex items-center gap-1 rounded-none bg-purple-950/60 text-purple-300 border-purple-800/80"
+                >
+                  <Shield className="w-2.5 h-2.5 text-purple-400" />
+                  <span>{t('remote.adminBadge')}</span>
                 </Badge>
               ) : isHost ? (
-                <Badge variant="default" className="text-[9px] px-1.5 py-0 uppercase">
-                  <Crown className="w-2.5 h-2.5 mr-0.5" />
-                  {t('remote.hostBadge')}
+                <Badge
+                  variant="default"
+                  className="h-5 px-1.5 py-0 text-[9px] font-mono font-bold uppercase inline-flex items-center gap-1 rounded-none"
+                >
+                  <Crown className="w-2.5 h-2.5" />
+                  <span>{t('remote.hostBadge')}</span>
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-[9px] px-1.5 py-0 uppercase">
-                  {t('remote.memberBadge')}
+                <Badge
+                  variant="outline"
+                  className="h-5 px-1.5 py-0 text-[9px] font-mono font-bold uppercase inline-flex items-center gap-1 rounded-none text-muted-foreground border-border"
+                >
+                  <span>{t('remote.memberBadge')}</span>
                 </Badge>
               )}
             </div>

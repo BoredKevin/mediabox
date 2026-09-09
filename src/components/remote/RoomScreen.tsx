@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ref, onValue, set, update, remove, off } from 'firebase/database';
+import { ref, onValue, set, update, remove, off, onDisconnect, serverTimestamp } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
 import { database } from '@/lib/firebase';
 import { RoomState, QueueItem } from '@/lib/roomUtils';
@@ -55,6 +55,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [memberCount, setMemberCount] = useState<number>(1);
   const [membersList, setMembersList] = useState<MemberInfo[]>([]);
+  const [isTvOnline, setIsTvOnline] = useState<boolean>(true);
 
   // Admin & Host state
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -130,13 +131,50 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     hasConfirmedMembership.current = false;
   }, [activeRoomCode, user?.uid]);
 
-  // Subscribe to room updates (state, queue, members)
+  // Member presence tracking via .info/connected
+  useEffect(() => {
+    if (!activeRoomCode || !user) return;
+
+    const connectedRef = ref(database, '.info/connected');
+    const memberOnlineRef = ref(database, `rooms/${activeRoomCode}/members/${user.uid}/online`);
+    const memberLastSeenRef = ref(database, `rooms/${activeRoomCode}/members/${user.uid}/lastSeen`);
+
+    const unsubConnected = onValue(connectedRef, (snap) => {
+      if (snap.val() === true) {
+        onDisconnect(memberOnlineRef).set(false);
+        onDisconnect(memberLastSeenRef).set(serverTimestamp());
+
+        update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
+          online: true,
+          lastSeen: Date.now(),
+        }).catch(() => {});
+      }
+    });
+
+    return () => {
+      off(connectedRef);
+      onDisconnect(memberOnlineRef).cancel();
+      onDisconnect(memberLastSeenRef).cancel();
+    };
+  }, [activeRoomCode, user]);
+
+  // Subscribe to room updates (state, queue, members, tv)
   useEffect(() => {
     if (!activeRoomCode || !user) return;
 
     const stateRefNode = ref(database, `rooms/${activeRoomCode}/state`);
     const queueRefNode = ref(database, `rooms/${activeRoomCode}/queue`);
     const membersRefNode = ref(database, `rooms/${activeRoomCode}/members`);
+    const tvRefNode = ref(database, `rooms/${activeRoomCode}/tv`);
+
+    const unsubTv = onValue(tvRefNode, (snapshot) => {
+      if (snapshot.exists()) {
+        const tvVal = snapshot.val();
+        setIsTvOnline(tvVal?.online !== false);
+      } else {
+        setIsTvOnline(false);
+      }
+    });
 
     const unsubState = onValue(stateRefNode, (snapshot) => {
       if (snapshot.exists()) {
@@ -178,6 +216,8 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
             update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
               uid: user.uid,
               joinedAt: Date.now(),
+              online: true,
+              lastSeen: Date.now(),
               ...(user.displayName ? { nickname: user.displayName.slice(0, 25) } : {}),
             }).catch(() => {});
           }
@@ -187,11 +227,13 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
           uid,
           joinedAt: m?.joinedAt || 0,
           nickname: m?.nickname || '',
+          online: m?.online !== false,
+          lastSeen: m?.lastSeen || 0,
         }));
         list.sort((a, b) => a.joinedAt - b.joinedAt);
 
         setMembersList(list);
-        setMemberCount(list.length);
+        setMemberCount(list.filter((m) => m.online).length);
 
         const myRecord = list.find((m) => m.uid === user.uid);
         if (myRecord) {
@@ -217,6 +259,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
       off(stateRefNode);
       off(queueRefNode);
       off(membersRefNode);
+      off(tvRefNode);
     };
   }, [activeRoomCode, user, onLeaveRoom, t]);
 
@@ -430,25 +473,59 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
 
             {/* Role badge */}
             {isAdmin ? (
-              <Badge variant="destructive" className="text-[9px] uppercase px-1.5 py-0">
-                <Shield className="w-2.5 h-2.5 mr-1" />
-                {t('remote.adminBadge')}
+              <Badge
+                variant="outline"
+                className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none bg-purple-950/60 text-purple-300 border-purple-800/80"
+              >
+                <Shield className="w-2.5 h-2.5 text-purple-400" />
+                <span>{t('remote.adminBadge')}</span>
               </Badge>
             ) : isHost ? (
-              <Badge variant="default" className="text-[9px] uppercase px-1.5 py-0">
-                <Crown className="w-2.5 h-2.5 mr-1" />
-                {t('remote.hostBadge')}
+              <Badge
+                variant="default"
+                className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none"
+              >
+                <Crown className="w-2.5 h-2.5" />
+                <span>{t('remote.hostBadge')}</span>
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-[9px] uppercase px-1.5 py-0">
-                {t('remote.memberBadge')}
+              <Badge
+                variant="outline"
+                className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none text-muted-foreground border-border"
+              >
+                <span>{t('remote.memberBadge')}</span>
+              </Badge>
+            )}
+
+            {/* TV Online / Offline status badge */}
+            {isTvOnline ? (
+              <Badge
+                variant="success"
+                className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none"
+                title={t('remote.tvOnlineBadge')}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{t('remote.tvOnlineBadge')}</span>
+              </Badge>
+            ) : (
+              <Badge
+                variant="destructive"
+                className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none"
+                title={t('remote.tvOfflineBadge')}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                <span>{t('remote.tvOfflineBadge')}</span>
               </Badge>
             )}
 
             {/* Locked status */}
             {roomState?.isLocked && (
-              <Badge variant="destructive" className="text-[9px] uppercase px-1.5 py-0">
-                <Lock className="w-2.5 h-2.5 mr-1" /> Locked
+              <Badge
+                variant="warning"
+                className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none bg-amber-500/15 text-amber-300 border-amber-500/50"
+              >
+                <Lock className="w-2.5 h-2.5 text-amber-400" />
+                <span>Locked</span>
               </Badge>
             )}
           </div>

@@ -9,6 +9,8 @@ export interface MemberInfo {
   uid: string;
   joinedAt: number;
   nickname?: string;
+  online?: boolean;
+  lastSeen?: number;
 }
 
 interface MembersPanelProps {
@@ -36,6 +38,8 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
 }) => {
   const { t } = useTranslation();
 
+  const onlineCount = membersList.filter((m) => m.online !== false).length;
+
   const content = (
     <>
       <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-2 flex items-center justify-between">
@@ -44,7 +48,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
           {t('remote.roomMembersAndRequests')}
         </span>
         <span className="text-muted-foreground font-mono text-[11px]">
-          {t('remote.membersCount', { count: membersList.length })}
+          {onlineCount} {t('remote.onlineBadge').toLowerCase()} • {t('remote.membersCount', { count: membersList.length })}
         </span>
       </div>
 
@@ -53,6 +57,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
           const isMemberAdmin = adminsList.includes(member.uid);
           const isHostUser = member.uid === hostUid;
           const isSelf = member.uid === user?.uid;
+          const isOnline = member.online !== false;
           const memberRequests = queue.filter((item) => item.addedBy === member.uid);
           const displayName = member.nickname || `User #${mIdx + 1}`;
 
@@ -68,6 +73,26 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                   <span className="text-[10px] text-muted-foreground">
                     ({member.uid.substring(0, 6)})
                   </span>
+
+                  {/* Online / Offline status badge */}
+                  {isOnline ? (
+                    <Badge
+                      variant="success"
+                      className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-none flex items-center gap-1"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      {t('remote.onlineBadge')}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="px-1.5 py-0.5 text-[9px] text-muted-foreground border-border font-bold uppercase rounded-none flex items-center gap-1"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
+                      {t('remote.offlineBadge')}
+                    </Badge>
+                  )}
+
                   {isMemberAdmin && (
                     <Badge
                       variant="outline"

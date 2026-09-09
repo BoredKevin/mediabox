@@ -81,6 +81,8 @@ export const RemoteView: React.FC = () => {
         await update(memberRef, {
           uid: u.uid,
           joinedAt: existingData.joinedAt || Date.now(),
+          online: true,
+          lastSeen: Date.now(),
           ...(existingData.nickname
             ? {}
             : u.displayName
