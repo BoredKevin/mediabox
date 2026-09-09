@@ -16,6 +16,7 @@ import {
   Shield,
   Crown,
   Lock,
+  Unlock,
   Settings,
   Layers,
 } from 'lucide-react';
@@ -556,15 +557,37 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
             />
 
             {isHostOrAdmin && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowHostSettings(true)}
-                title={t('remote.hostSettings')}
-                className="h-11 w-11 text-muted-foreground hover:text-primary hover:border-primary/60 cursor-pointer"
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowHostSettings(true)}
+                  title={t('remote.hostSettings')}
+                  aria-label={t('remote.hostSettings')}
+                  className="h-11 w-11 text-muted-foreground hover:text-primary hover:border-primary/60 cursor-pointer"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleToggleRoomLockAdmin}
+                  title={roomState?.isLocked ? t('remote.unlockRoomBtn') : t('remote.lockRoomBtn')}
+                  aria-label={roomState?.isLocked ? t('remote.unlockRoomBtn') : t('remote.lockRoomBtn')}
+                  className={`h-11 w-11 cursor-pointer transition-colors ${
+                    roomState?.isLocked
+                      ? 'text-amber-400 border-amber-500/60 bg-amber-500/10 hover:border-amber-400 hover:text-amber-300'
+                      : 'text-muted-foreground hover:text-primary hover:border-primary/60'
+                  }`}
+                >
+                  {roomState?.isLocked ? (
+                    <Lock className="w-4 h-4 text-amber-400" />
+                  ) : (
+                    <Unlock className="w-4 h-4" />
+                  )}
+                </Button>
+              </>
             )}
           </div>
 
