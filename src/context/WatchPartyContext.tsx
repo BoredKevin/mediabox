@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User } from 'firebase/auth';
-import { ref, onValue, set, update, remove, off, get } from 'firebase/database';
+import { ref, onValue, set, update, remove, off, get, onDisconnect, serverTimestamp } from 'firebase/database';
 import { ensureAnonymousAuth, database } from '@/lib/firebase';
 import {
   createRoomAtomic,
+  checkRoomExists,
   RoomState,
   QueueItem,
   parseYouTubeVideoId,
@@ -128,12 +129,99 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     queueRefState.current = queue;
   }, [queue]);
 
-  // Authenticate anonymously on mount
+  const TV_SAVED_ROOM_KEY = 'mediabox_tv_room_code';
+
+  // Authenticate anonymously on mount and attempt room recovery on reload
   useEffect(() => {
     ensureAnonymousAuth()
-      .then((u) => setUser(u))
+      .then(async (u) => {
+        setUser(u);
+        const savedCode = localStorage.getItem(TV_SAVED_ROOM_KEY);
+        if (savedCode && savedCode.length === 6) {
+          try {
+            const exists = await checkRoomExists(savedCode);
+            if (exists) {
+              const tvUidSnap = await get(ref(database, `rooms/${savedCode}/tv/uid`));
+              if (tvUidSnap.exists() && tvUidSnap.val() === u.uid) {
+                setRoomCode(savedCode);
+              } else {
+                localStorage.removeItem(TV_SAVED_ROOM_KEY);
+              }
+            } else {
+              localStorage.removeItem(TV_SAVED_ROOM_KEY);
+            }
+          } catch (err) {
+            console.warn('Error checking saved room code:', err);
+          }
+        }
+      })
       .catch((err) => console.error('Auth error in WatchPartyContext:', err));
   }, []);
+
+  // TV presence tracking via .info/connected
+  useEffect(() => {
+    if (!roomCode || !user) return;
+
+    const connectedRef = ref(database, '.info/connected');
+    const tvOnlineRef = ref(database, `rooms/${roomCode}/tv/online`);
+    const tvLastSeenRef = ref(database, `rooms/${roomCode}/tv/lastSeen`);
+
+    const unsubConnected = onValue(connectedRef, (snap) => {
+      if (snap.val() === true) {
+        onDisconnect(tvOnlineRef).set(false);
+        onDisconnect(tvLastSeenRef).set(serverTimestamp());
+
+        update(ref(database, `rooms/${roomCode}/tv`), {
+          online: true,
+          lastSeen: Date.now(),
+        }).catch(() => {});
+      }
+    });
+
+    // Mark offline on tab unload
+    const handleUnload = () => {
+      update(ref(database, `rooms/${roomCode}/tv`), {
+        online: false,
+        lastSeen: Date.now(),
+      }).catch(() => {});
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      off(connectedRef);
+      onDisconnect(tvOnlineRef).cancel();
+      onDisconnect(tvLastSeenRef).cancel();
+    };
+  }, [roomCode, user]);
+
+  // Periodic garbage collection for stale offline members (> 2 hours offline with no queue items)
+  useEffect(() => {
+    if (!roomCode) return;
+
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const membersRef = ref(database, `rooms/${roomCode}/members`);
+      get(membersRef).then((snap) => {
+        if (!snap.exists()) return;
+        const members = snap.val();
+        const queuedMemberUids = new Set(queueRefState.current.map((q) => q.addedBy));
+
+        Object.entries(members).forEach(([mUid, mVal]: [string, any]) => {
+          if (
+            mVal?.online === false &&
+            mVal?.lastSeen &&
+            now - mVal.lastSeen > 2 * 60 * 60 * 1000 &&
+            !queuedMemberUids.has(mUid)
+          ) {
+            remove(ref(database, `rooms/${roomCode}/members/${mUid}`)).catch(() => {});
+          }
+        });
+      }).catch(() => {});
+    }, 15 * 60 * 1000);
+
+    return () => clearInterval(cleanupInterval);
+  }, [roomCode]);
 
   // Subscribe to room nodes when roomCode is active
   useEffect(() => {
@@ -185,17 +273,26 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const memberEntries = Object.entries(membersData).map(([uid, m]: [string, any]) => ({
         uid,
         joinedAt: m?.joinedAt || 0,
+        online: m?.online !== false,
+        lastSeen: m?.lastSeen || 0,
       }));
 
+      // Online members prioritized for host election & count
+      const onlineMembers = memberEntries.filter((m) => m.online);
+      onlineMembers.sort((a, b) => a.joinedAt - b.joinedAt);
       memberEntries.sort((a, b) => a.joinedAt - b.joinedAt);
-      const electedHostUid = memberEntries.length > 0 ? memberEntries[0].uid : null;
+
+      const electedHostUid = onlineMembers.length > 0
+        ? onlineMembers[0].uid
+        : (memberEntries.length > 0 ? memberEntries[0].uid : null);
+
       hostUidRef.current = electedHostUid;
 
       if (roomStateRef.current?.hostUid !== electedHostUid && electedHostUid) {
         update(ref(database, `rooms/${roomCode}/state`), { hostUid: electedHostUid });
       }
 
-      setMemberCount(memberEntries.length);
+      setMemberCount(onlineMembers.length);
 
       Object.entries(membersData).forEach(([memberUid, member]: [string, any]) => {
         if (member && member.command) {
@@ -604,6 +701,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       searchSettingsRef.current = effectiveSettings;
 
       const code = await createRoomAtomic(u.uid, effectiveSettings);
+      localStorage.setItem(TV_SAVED_ROOM_KEY, code);
       setRoomCode(code);
     } catch (err: any) {
       console.error('Error creating room:', err);
@@ -616,6 +714,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const handleEndRoom = async () => {
     if (!roomCode) return;
     if (confirm('Are you sure you want to end this Watch Together session?')) {
+      localStorage.removeItem(TV_SAVED_ROOM_KEY);
       await remove(ref(database, `rooms/${roomCode}`));
       setRoomCode(null);
       setRoomState(null);

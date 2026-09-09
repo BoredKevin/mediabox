@@ -32,8 +32,9 @@ import {
   ShieldAlert,
   RotateCcw,
   Sparkles,
+  X,
 } from 'lucide-react';
-import { loadKeys, getMaskedKey } from '@/lib/apiKeyStore';
+import { loadKeys, deleteKey, getMaskedKey } from '@/lib/apiKeyStore';
 import { ApiKeyRecord } from '@/lib/roomUtils';
 
 interface TvSettingsModalProps {
@@ -70,6 +71,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
   // Temporary key reveal state (5 seconds)
   const [revealedKeyId, setRevealedKeyId] = useState<string | null>(null);
   const [revealCountdown, setRevealCountdown] = useState<number>(0);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   // Rate Limit configuration form state
   const [rateLimitCountInput, setRateLimitCountInput] = useState<number>(
@@ -173,8 +175,13 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
   };
 
   const handleDeleteKey = async (keyId: string) => {
-    if (confirm('Delete this YouTube API key?')) {
+    try {
+      deleteKey(keyId);
+      refreshKeys();
+      setConfirmingDeleteId(null);
       await handleManageLocalKeys('delete', { id: keyId });
+    } catch (err) {
+      console.warn('Error deleting API key:', err);
       refreshKeys();
     }
   };
@@ -306,16 +313,43 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                             onCheckedChange={() => handleToggleKeyEnabled(keyItem)}
                             aria-label={`Toggle ${keyItem.label}`}
                           />
-                          {/* Delete Key Button */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteKey(keyItem.id)}
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors"
-                            title="Delete API key"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          {/* Delete Key Button with inline confirmation */}
+                          {confirmingDeleteId === keyItem.id ? (
+                            <div className="flex items-center gap-1 animate-in fade-in duration-150">
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteKey(keyItem.id)}
+                                className="h-7 px-2 text-[10px] font-bold uppercase rounded-none flex items-center gap-1"
+                                title="Confirm Delete"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>{t('tvSettings.confirmDelete') || 'Delete'}</span>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmingDeleteId(null)}
+                                className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground rounded-none"
+                                title="Cancel"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setConfirmingDeleteId(keyItem.id)}
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors rounded-none"
+                              title="Delete API key"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
 
