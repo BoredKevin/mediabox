@@ -502,24 +502,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                       {res.channelTitle}
                     </p>
                   </div>
-
-                  {/* Direct Add Button on Mobile or for quick touch */}
-                  <div className="pt-1 mt-auto sm:hidden">
-                    <Button
-                      variant="cyber"
-                      size="sm"
-                      chamfer="top-right"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddSearchResult(res);
-                      }}
-                      disabled={isLocked}
-                      className="w-full py-1 text-xs font-bold flex items-center justify-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>{t('remote.addBtn')}</span>
-                    </Button>
-                  </div>
                 </div>
               </div>
             ))}
