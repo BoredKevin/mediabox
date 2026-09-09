@@ -484,8 +484,10 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
       } else if (type === 'manageApiKeys' && payload) {
         const isHost = memberUid === hostUidRef.current;
-        const allowHost = roomStateRef.current?.searchSettings?.allowHostKeyManagement;
-        if ((isHost && allowHost) || isAuthorized) {
+        const isAdmin = adminsListRef.current.includes(memberUid);
+        const isTv = memberUid === user?.uid;
+        const allowHost = roomStateRef.current?.searchSettings?.allowHostKeyManagement ?? true;
+        if (isAdmin || isTv || (isHost && allowHost)) {
           const {
             action,
             keyId,
@@ -518,6 +520,8 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             });
           } else if (action === 'setAllowHost' && typeof allowHostKeyManagement === 'boolean') {
             saveSearchConfig({ allowHostKeyManagement });
+          } else if (action === 'clearRateLimits') {
+            await handleClearAllRateLimits();
           }
           await syncSearchSettingsToFirebase();
         } else {

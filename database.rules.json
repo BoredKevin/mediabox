@@ -30,9 +30,10 @@
           }
         },
         "searchRateLimits": {
+          ".read": "auth != null && (root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid || root.child('rooms/' + $roomId + '/state/hostUid').val() === auth.uid || root.child('admins/' + auth.uid).exists())",
           ".write": "root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid",
           "$memberUid": {
-            ".read": "auth != null && ($memberUid === auth.uid || root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid)",
+            ".read": "auth != null && ($memberUid === auth.uid || root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid || root.child('rooms/' + $roomId + '/state/hostUid').val() === auth.uid || root.child('admins/' + auth.uid).exists())",
             ".write": "root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid"
           }
         },
@@ -56,7 +57,7 @@
               ".validate": "newData.val() === null || newData.isNumber()"
             },
             "command": {
-              ".validate": "newData.val() === null || (newData.hasChildren(['type', 'createdAt']) && (newData.child('type').val() === 'play' || newData.child('type').val() === 'pause' || newData.child('type').val() === 'addToQueue' || newData.child('type').val() === 'removeFromQueue' || newData.child('type').val() === 'adjustVolume' || newData.child('type').val() === 'forceSkip' || newData.child('type').val() === 'reorderQueue' || newData.child('type').val() === 'forceRemoveFromQueue' || newData.child('type').val() === 'kickMember' || newData.child('type').val() === 'toggleFullscreen' || newData.child('type').val() === 'clearQueue' || newData.child('type').val() === 'toggleRoomLock' || newData.child('type').val() === 'toggleAutoplay' || newData.child('type').val() === 'toggleCountdown' || newData.child('type').val() === 'searchYouTube' || newData.child('type').val() === 'manageApiKeys'))"
+              ".validate": "newData.val() === null || (newData.hasChildren(['type', 'createdAt']) && (newData.child('type').val() === 'play' || newData.child('type').val() === 'pause' || newData.child('type').val() === 'addToQueue' || newData.child('type').val() === 'removeFromQueue' || newData.child('type').val() === 'adjustVolume' || newData.child('type').val() === 'forceSkip' || newData.child('type').val() === 'reorderQueue' || newData.child('type').val() === 'forceRemoveFromQueue' || newData.child('type').val() === 'kickMember' || newData.child('type').val() === 'toggleFullscreen' || newData.child('type').val() === 'clearQueue' || newData.child('type').val() === 'toggleRoomLock' || newData.child('type').val() === 'toggleAutoplay' || newData.child('type').val() === 'toggleCountdown' || newData.child('type').val() === 'searchYouTube' || newData.child('type').val() === 'manageApiKeys') && (newData.child('type').val() !== 'manageApiKeys' || $memberUid === root.child('rooms/' + $roomId + '/state/hostUid').val() || root.child('admins/' + auth.uid).exists() || root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid))"
             }
           }
         }

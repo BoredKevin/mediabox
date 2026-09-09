@@ -8,6 +8,14 @@ export interface PlaybackState {
   updatedAt: number;
 }
 
+export interface TruncatedApiKeyRecord {
+  id: string;
+  key: string; // Truncated/masked only, e.g. "AIza****...CPvI"
+  label: string;
+  enabled: boolean;
+  usageToday?: number;
+}
+
 export interface SearchSettings {
   hasApiKeys: boolean;
   keyCount: number;
@@ -16,6 +24,7 @@ export interface SearchSettings {
   rateLimitCount: number;
   rateLimitWindowMs: number;
   allowHostKeyManagement: boolean;
+  keys?: TruncatedApiKeyRecord[];
 }
 
 export interface RoomState {
@@ -68,7 +77,7 @@ export interface MemberCommand {
     purgeQueue?: boolean;
     query?: string;
     // For manageApiKeys:
-    action?: 'add' | 'delete' | 'update' | 'setStrategy' | 'setMaxResults' | 'setRateLimit' | 'setAllowHost';
+    action?: 'add' | 'delete' | 'update' | 'setStrategy' | 'setMaxResults' | 'setRateLimit' | 'setAllowHost' | 'clearRateLimits';
     keyId?: string;
     key?: string;
     label?: string;

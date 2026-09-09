@@ -17,7 +17,7 @@ export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   maxResults: 25,
   rateLimitCount: 10,
   rateLimitWindowMs: 300000, // 5 minutes
-  allowHostKeyManagement: false,
+  allowHostKeyManagement: true,
 };
 
 export const loadSearchConfig = (): SearchConfig => {
@@ -51,6 +51,7 @@ export const saveSearchConfig = (config: Partial<SearchConfig>): SearchConfig =>
 
 /**
  * Derives current SearchSettings for publishing to Firebase RTDB.
+ * Only truncated/masked keys are published to RTDB for privacy and security.
  */
 export const getEffectiveSearchSettings = (): SearchSettings => {
   const keys = loadKeys();
@@ -64,6 +65,13 @@ export const getEffectiveSearchSettings = (): SearchSettings => {
     rateLimitCount: config.rateLimitCount,
     rateLimitWindowMs: config.rateLimitWindowMs,
     allowHostKeyManagement: config.allowHostKeyManagement,
+    keys: keys.map((k) => ({
+      id: k.id,
+      label: k.label,
+      key: getMaskedKey(k.key),
+      enabled: k.enabled,
+      usageToday: k.usageToday || 0,
+    })),
   };
 };
 
