@@ -592,7 +592,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 min-h-0 p-3 sm:p-5 md:p-6 pb-28 sm:pb-32 overflow-hidden">
+      <main className="flex-1 min-h-0 p-3 sm:p-5 md:p-6 pb-36 sm:pb-40 overflow-hidden">
         <div className="max-w-[1800px] w-full mx-auto h-full flex flex-col">
           {/* Desktop Two-Column Layout (>= 1024px / lg) */}
           <div className="hidden lg:grid lg:grid-cols-[60fr_40fr] xl:grid-cols-[63fr_37fr] lg:gap-6 h-full min-h-0">
