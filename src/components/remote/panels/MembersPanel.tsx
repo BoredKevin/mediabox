@@ -120,10 +120,6 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    {memberRequests.length}{' '}
-                    {memberRequests.length === 1 ? 'request' : 'requests'}
-                  </span>
                   {isHostOrAdmin && !isSelf && !isMemberAdmin && (
                     <Button
                       variant="destructive"
