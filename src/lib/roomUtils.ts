@@ -116,12 +116,16 @@ export interface MemberRecord {
   joinedAt: number;
   nickname?: string;
   command?: MemberCommand | null;
+  online?: boolean;
+  lastSeen?: number;
 }
 
 export interface RoomData {
   tv: {
     uid: string;
     createdAt: number;
+    online?: boolean;
+    lastSeen?: number;
   };
   state: RoomState;
   queue: Record<string, QueueItem>;
@@ -153,6 +157,8 @@ export const createRoomAtomic = async (
         tv: {
           uid: tvUid,
           createdAt: Date.now(),
+          online: true,
+          lastSeen: Date.now(),
         },
         state: {
           currentlyPlaying: '',

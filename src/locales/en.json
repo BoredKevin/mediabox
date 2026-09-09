@@ -127,7 +127,11 @@
     "queueDrawerTitle": "Queue",
     "activeQueueTab": "Queue",
     "activeMembersTab": "Members",
-    "playerTvControl": "TV Controls"
+    "playerTvControl": "TV Controls",
+    "onlineBadge": "Online",
+    "offlineBadge": "Offline",
+    "tvOnlineBadge": "TV Online",
+    "tvOfflineBadge": "TV Offline"
   },
   "toasts": {
     "authFailed": "Failed to authenticate with Firebase.",
@@ -206,6 +210,8 @@
     "clearRateLimits": "Clear All Limits",
     "countdownTitle": "10-Second Countdown",
     "countdownDesc": "Shows a sci-fi countdown overlay on the TV before playing the next queued video.",
-    "countdownToggle": "Enable Countdown"
+    "countdownToggle": "Enable Countdown",
+    "confirmDelete": "Delete",
+    "cancel": "Cancel"
   }
 }

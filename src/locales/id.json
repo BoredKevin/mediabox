@@ -127,7 +127,11 @@
     "queueDrawerTitle": "Antrean",
     "activeQueueTab": "Antrean",
     "activeMembersTab": "Anggota",
-    "playerTvControl": "Kontrol TV"
+    "playerTvControl": "Kontrol TV",
+    "onlineBadge": "Online",
+    "offlineBadge": "Offline",
+    "tvOnlineBadge": "TV Online",
+    "tvOfflineBadge": "TV Offline"
   },
   "toasts": {
     "authFailed": "Gagal melakukan autentikasi dengan Firebase.",
@@ -206,6 +210,8 @@
     "clearRateLimits": "Bersihkan Semua Batas",
     "countdownTitle": "Hitung Mundur 10 Detik",
     "countdownDesc": "Menampilkan overlay hitung mundur di TV sebelum video berikutnya diputar.",
-    "countdownToggle": "Aktifkan Hitung Mundur"
+    "countdownToggle": "Aktifkan Hitung Mundur",
+    "confirmDelete": "Hapus",
+    "cancel": "Batal"
   }
 }
