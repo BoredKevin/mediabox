@@ -130,8 +130,8 @@
     "playerTvControl": "Kontrol TV",
     "onlineBadge": "Online",
     "offlineBadge": "Offline",
-    "tvOnlineBadge": "TV Online",
-    "tvOfflineBadge": "TV Offline"
+    "tvOnlineBadge": "Online",
+    "tvOfflineBadge": "Offline"
   },
   "toasts": {
     "authFailed": "Gagal melakukan autentikasi dengan Firebase.",
