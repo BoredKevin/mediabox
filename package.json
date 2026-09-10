@@ -14,8 +14,9 @@
   "homepage": "https://github.com/boredkevin/mediabox#readme",
   "type": "module",
   "scripts": {
+    "generate-licenses": "node scripts/generate-licenses.js",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run generate-licenses && tsc && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler pages deploy dist"
   },
