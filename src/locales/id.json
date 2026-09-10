@@ -101,6 +101,7 @@
     "ytKeyNeededTitle": "Membutuhkan API Key YouTube Data untuk Pencarian Kata Kunci",
     "ytKeyNeededDesc": "Tambahkan VITE_YOUTUBE_API_KEY ke file .env untuk mengaktifkan pencarian langsung. Anda juga dapat menempelkan URL YouTube di tab Tempel Tautan tanpa pengaturan tambahan!",
     "addBtn": "Tambah",
+    "addedBtn": "Ditambahkan",
     "pasteUrlPlaceholder": "Tempel tautan atau URL YouTube...",
     "submitVideoToQueue": "Kirim Video ke Antrean",
     "roomMembersAndRequests": "Anggota Ruang & Permintaan",

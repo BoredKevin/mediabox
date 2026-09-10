@@ -313,7 +313,9 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
           ? t('toasts.countdownDisabled')
           : t('toasts.countdownEnabled'),
       };
-      showToast(labelMap[type] || t('toasts.commandSent', { type }), 'success');
+      if (type !== 'addToQueue') {
+        showToast(labelMap[type] || t('toasts.commandSent', { type }), 'success');
+      }
     } catch (err: any) {
       console.error('Failed to send command:', err);
       showToast(t('toasts.commandFailed'), 'error');

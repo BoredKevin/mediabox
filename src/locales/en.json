@@ -101,6 +101,7 @@
     "ytKeyNeededTitle": "YouTube Data API Key Needed for Keyword Search",
     "ytKeyNeededDesc": "Add VITE_YOUTUBE_API_KEY to your .env file to enable live keyword search. You can also paste any YouTube URL under the Paste Link tab with zero setup and free automatic title fetching!",
     "addBtn": "Add",
+    "addedBtn": "Added",
     "pasteUrlPlaceholder": "Paste YouTube link or URL...",
     "submitVideoToQueue": "Submit Video to Queue",
     "roomMembersAndRequests": "Room Members & Requests",

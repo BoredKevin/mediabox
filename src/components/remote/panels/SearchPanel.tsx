@@ -5,9 +5,11 @@ import { database } from '@/lib/firebase';
 import { useTranslation } from '@/context/LanguageContext';
 import { Card, Button, Badge } from '@boredkevin/ui';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
   Search,
   Plus,
+  Check,
   Loader2,
   AlertCircle,
   Key,
@@ -49,6 +51,36 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [isSubmittingLink, setIsSubmittingLink] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
+  const [addedVideoIds, setAddedVideoIds] = useState<Set<string>>(new Set());
+
+  // Keep addedVideoIds synchronized with current room queue
+  useEffect(() => {
+    if (!roomCode) return;
+    const queueRefNode = ref(database, `rooms/${roomCode}/queue`);
+    const unsub = onValue(queueRefNode, (snapshot) => {
+      if (!snapshot.exists()) return;
+      const val = snapshot.val();
+      const ids = new Set<string>();
+      Object.values(val).forEach((item: any) => {
+        if (item?.url) {
+          ids.add(item.url);
+          const ytId = parseYouTubeVideoId(item.url);
+          if (ytId) ids.add(ytId);
+        }
+        if (item?.id) {
+          ids.add(item.id);
+        }
+      });
+      setAddedVideoIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.add(id));
+        return next;
+      });
+    });
+    return () => {
+      off(queueRefNode);
+    };
+  }, [roomCode]);
 
   // Detected link preview state
   const [previewInfo, setPreviewInfo] = useState<{
@@ -236,8 +268,19 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       showToast(t('toasts.controlsLockedByAdmin'), 'error');
       return;
     }
+    const isAlreadyAdded =
+      addedVideoIds.has(result.id) ||
+      (result.url ? addedVideoIds.has(result.url) : false);
+    if (isAlreadyAdded) {
+      return;
+    }
+    setAddedVideoIds((prev) => {
+      const next = new Set(prev);
+      if (result.id) next.add(result.id);
+      if (result.url) next.add(result.url);
+      return next;
+    });
     sendCommand('addToQueue', { url: result.url, title: result.title });
-    showToast(t('toasts.videoAddedQueue'), 'success');
   };
 
   const handleAddDirectPreview = async () => {
@@ -456,55 +499,96 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pr-1">
-            {searchResults.map((res) => (
-              <div
-                key={res.id}
-                onClick={() => handleAddSearchResult(res)}
-                className="group/card flex flex-col bg-card/70 hover:bg-card/95 border border-border/60 hover:border-primary/60 transition-all duration-200 overflow-hidden shadow-sm hover:shadow-[0_0_20px_rgba(0,200,212,0.15)] cursor-pointer select-none rounded-[var(--radius)]"
-              >
-                {/* 16:9 Thumbnail with duration overlay & hover action */}
-                <div className="relative aspect-video w-full bg-black overflow-hidden flex-shrink-0">
-                  <img
-                    src={res.thumbnail}
-                    alt={res.title}
-                    className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                  />
-                  {/* Hover Overlay with Add Button */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 flex items-center justify-center p-2">
-                    <Button
-                      variant="cyber"
-                      size="sm"
-                      chamfer="dual"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddSearchResult(res);
-                      }}
-                      disabled={isLocked}
-                      className="px-3.5 py-2 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5 shadow-xl cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{t('remote.addBtn')}</span>
-                    </Button>
-                  </div>
-                </div>
+            {searchResults.map((res) => {
+              const isAdded =
+                addedVideoIds.has(res.id) ||
+                (res.url ? addedVideoIds.has(res.url) : false);
 
-                {/* Video Info below thumbnail */}
-                <div className="p-3 flex flex-col flex-1 justify-between gap-2">
-                  <div>
-                    <h4
-                      className="text-xs sm:text-sm font-semibold text-foreground line-clamp-2 leading-snug group-hover/card:text-primary transition-colors"
-                      title={res.title}
-                    >
-                      {res.title}
-                    </h4>
-                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">
-                      {res.channelTitle}
-                    </p>
+              return (
+                <div
+                  key={res.id}
+                  onClick={() => handleAddSearchResult(res)}
+                  className={cn(
+                    "group/card flex flex-col transition-all duration-200 overflow-hidden select-none rounded-[var(--radius)]",
+                    isAdded
+                      ? "border-2 border-emerald-500/90 bg-emerald-950/30 hover:bg-emerald-950/40 shadow-[0_0_20px_rgba(16,185,129,0.25)] hover:border-emerald-400 cursor-default"
+                      : "bg-card/70 hover:bg-card/95 border border-border/60 hover:border-primary/60 shadow-sm hover:shadow-[0_0_20px_rgba(0,200,212,0.15)] cursor-pointer"
+                  )}
+                >
+                  {/* 16:9 Thumbnail with duration overlay & hover action */}
+                  <div className="relative aspect-video w-full bg-black overflow-hidden flex-shrink-0">
+                    <img
+                      src={res.thumbnail}
+                      alt={res.title}
+                      className={cn(
+                        "w-full h-full object-cover transition-transform duration-300",
+                        !isAdded && "group-hover/card:scale-105"
+                      )}
+                      loading="lazy"
+                    />
+
+                    {/* Added Corner Check Badge */}
+                    {isAdded && (
+                      <div className="absolute top-2 right-2 z-10 bg-emerald-600/95 border border-emerald-400 text-white rounded-full p-1 shadow-lg flex items-center justify-center pointer-events-none">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                    )}
+
+                    {/* Hover Overlay with Add / Added Button */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 flex items-center justify-center p-2">
+                      <Button
+                        variant="cyber"
+                        size="sm"
+                        chamfer="dual"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddSearchResult(res);
+                        }}
+                        disabled={isLocked}
+                        className={cn(
+                          "px-3.5 py-2 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5 shadow-xl transition-all duration-200",
+                          isAdded
+                            ? "!bg-emerald-600 hover:!bg-emerald-500 !text-white !border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)] cursor-default"
+                            : "cursor-pointer"
+                        )}
+                      >
+                        {isAdded ? (
+                          <>
+                            <Check className="w-4 h-4 text-white" />
+                            <span>{t('remote.addedBtn') || 'Added'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            <span>{t('remote.addBtn')}</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Video Info below thumbnail */}
+                  <div className="p-3 flex flex-col flex-1 justify-between gap-2">
+                    <div>
+                      <h4
+                        className={cn(
+                          "text-xs sm:text-sm font-semibold line-clamp-2 leading-snug transition-colors",
+                          isAdded
+                            ? "text-emerald-300"
+                            : "text-foreground group-hover/card:text-primary"
+                        )}
+                        title={res.title}
+                      >
+                        {res.title}
+                      </h4>
+                      <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">
+                        {res.channelTitle}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
