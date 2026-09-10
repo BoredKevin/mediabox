@@ -186,7 +186,7 @@
     "description": "Konfigurasi mediasi pencarian YouTube API, batas kuota, dan perilaku putar ruangan.",
     "tabApiKeys": "Kunci API",
     "tabRateLimits": "Rate Limit",
-    "tabRoom": "Pengaturan Ruangan",
+    "tabRoom": "Pengaturan",
     "apiKeysTitle": "Kunci YouTube Data API",
     "apiKeysDesc": "Semua pencarian dari pengguna remote dilewatkan melalui kunci di TV ini.",
     "noKeys": "Belum ada kunci YouTube API. Tambahkan di bawah untuk mengaktifkan pencarian kata kunci.",
