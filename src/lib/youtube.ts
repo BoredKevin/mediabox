@@ -1,5 +1,6 @@
 export { parseYouTubeVideoId } from './roomUtils';
 import { parseYouTubeVideoId } from './roomUtils';
+import { loadKeys, pickKey, incrementUsage, markKeyExhausted, loadSearchConfig } from './apiKeyStore';
 
 export interface SearchResultItem {
   id: string;
@@ -107,38 +108,79 @@ export const searchYouTubeWithKey = async (
 
 /**
  * Searches YouTube videos using the official YouTube Data API v3 endpoint.
- * @deprecated Use room-mediated search via TV host.
+ * Prioritizes active keys configured by the host in Room Settings (apiKeyStore),
+ * supporting key rotation and fallback to VITE_YOUTUBE_API_KEY.
  */
 export const searchYouTubeVideos = async (
   query: string
 ): Promise<{ results: SearchResultItem[]; hasApiKey: boolean; error?: string }> => {
-  const apiKey = (import.meta as any).env?.VITE_YOUTUBE_API_KEY;
+  const config = loadSearchConfig();
+  const maxResults = config.maxResults || 25;
+  const attemptedIds = new Set<string>();
 
-  if (!apiKey) {
-    return {
-      results: [],
-      hasApiKey: false,
-      error: 'VITE_YOUTUBE_API_KEY is not set in environment variables.',
-    };
-  }
+  while (true) {
+    const activeKeys = loadKeys().filter((k) => k.enabled && k.key.trim().length > 0);
+    const unattemptedKeys = activeKeys.filter((k) => !attemptedIds.has(k.id));
 
-  try {
-    const results = await searchYouTubeWithKey(query, apiKey, 25);
-    return { results, hasApiKey: true };
-  } catch (err: any) {
-    if (err instanceof YouTubeQuotaExceededError) {
-      return {
-        results: [],
-        hasApiKey: true,
-        error:
-          'Daily YouTube API search quota exceeded. You can switch to the "Paste Link" tab to paste YouTube URLs directly.',
-      };
+    if (unattemptedKeys.length > 0) {
+      const candidate = pickKey(config.strategy);
+      const keyRecord = candidate && !attemptedIds.has(candidate.id) ? candidate : unattemptedKeys[0];
+      attemptedIds.add(keyRecord.id);
+
+      try {
+        const results = await searchYouTubeWithKey(query, keyRecord.key, maxResults);
+        incrementUsage(keyRecord.id);
+        return { results, hasApiKey: true };
+      } catch (err: any) {
+        if (err instanceof YouTubeQuotaExceededError) {
+          console.warn(`[YouTube API] Quota exceeded for key ${keyRecord.id}, marking exhausted and trying next key.`);
+          markKeyExhausted(keyRecord.id);
+          continue;
+        }
+        console.error('[YouTube API Error]:', err);
+        return {
+          results: [],
+          hasApiKey: true,
+          error: err.message || 'YouTube search failed.',
+        };
+      }
     }
-    console.error('[YouTube API Error]:', err);
+
+    // Fallback to environment variable if no active keys remain
+    const envKey = (import.meta as any).env?.VITE_YOUTUBE_API_KEY;
+    if (envKey && !attemptedIds.has('env')) {
+      attemptedIds.add('env');
+      try {
+        const results = await searchYouTubeWithKey(query, envKey, maxResults);
+        return { results, hasApiKey: true };
+      } catch (err: any) {
+        if (err instanceof YouTubeQuotaExceededError) {
+          console.warn('[YouTube API] Quota exceeded for VITE_YOUTUBE_API_KEY.');
+          return {
+            results: [],
+            hasApiKey: true,
+            error: 'Daily YouTube API search quota exceeded.',
+          };
+        }
+        console.error('[YouTube API Error]:', err);
+        return {
+          results: [],
+          hasApiKey: true,
+          error: err.message || 'YouTube search failed.',
+        };
+      }
+    }
+
+    // No keys available
+    const totalStored = loadKeys().length;
+    const hasAnyConfiguredKey = totalStored > 0 || Boolean(envKey);
+    console.warn('[YouTube API] No active YouTube API keys available for search.');
     return {
       results: [],
-      hasApiKey: true,
-      error: err.message || 'Failed to fetch YouTube search results.',
+      hasApiKey: hasAnyConfiguredKey,
+      error: hasAnyConfiguredKey
+        ? 'All configured YouTube API keys have exceeded their daily quota.'
+        : 'No YouTube API key configured. Please add an API key in Room Settings.',
     };
   }
 };
