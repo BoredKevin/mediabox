@@ -33,6 +33,7 @@ import {
   X,
   RotateCcw,
   Clock,
+  Video,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState, TruncatedApiKeyRecord } from '@/lib/roomUtils';
@@ -381,6 +382,22 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
                     {roomState?.isAutoplay
                       ? t('remote.autoplayOn')
                       : t('remote.autoplayOff')}
+                  </span>
+                </Button>
+
+                {/* Prefer Music Videos Toggle */}
+                <Button
+                  variant={roomState?.searchSettings?.preferMusicVideos ?? true ? 'cyber' : 'outline'}
+                  chamfer="top-right"
+                  onClick={() => sendCommand('togglePreferMusicVideos')}
+                  className="py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-auto col-span-2"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>
+                    {t('tvSettings.preferMusicVideosTitle')}:{' '}
+                    {roomState?.searchSettings?.preferMusicVideos ?? true
+                      ? 'ON'
+                      : 'OFF'}
                   </span>
                 </Button>
               </div>

@@ -10,6 +10,7 @@ export interface SearchConfig {
   rateLimitCount: number;
   rateLimitWindowMs: number;
   allowHostKeyManagement: boolean;
+  preferMusicVideos: boolean;
 }
 
 export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
@@ -18,6 +19,7 @@ export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   rateLimitCount: 10,
   rateLimitWindowMs: 300000, // 5 minutes
   allowHostKeyManagement: true,
+  preferMusicVideos: true,
 };
 
 export const loadSearchConfig = (): SearchConfig => {
@@ -65,6 +67,7 @@ export const getEffectiveSearchSettings = (): SearchSettings => {
     rateLimitCount: config.rateLimitCount,
     rateLimitWindowMs: config.rateLimitWindowMs,
     allowHostKeyManagement: config.allowHostKeyManagement,
+    preferMusicVideos: config.preferMusicVideos ?? true,
     keys: keys.map((k) => ({
       id: k.id,
       label: k.label,

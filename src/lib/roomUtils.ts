@@ -25,6 +25,7 @@ export interface SearchSettings {
   rateLimitWindowMs: number;
   allowHostKeyManagement: boolean;
   keys?: TruncatedApiKeyRecord[];
+  preferMusicVideos?: boolean;
 }
 
 export interface RoomState {
@@ -63,6 +64,7 @@ export interface MemberCommand {
     | 'toggleRoomLock'
     | 'toggleAutoplay'
     | 'toggleCountdown'
+    | 'togglePreferMusicVideos'
     | 'searchYouTube'
     | 'manageApiKeys';
   createdAt: number;
@@ -77,7 +79,7 @@ export interface MemberCommand {
     purgeQueue?: boolean;
     query?: string;
     // For manageApiKeys:
-    action?: 'add' | 'delete' | 'update' | 'setStrategy' | 'setMaxResults' | 'setRateLimit' | 'setAllowHost' | 'clearRateLimits';
+    action?: 'add' | 'delete' | 'update' | 'setStrategy' | 'setMaxResults' | 'setRateLimit' | 'setAllowHost' | 'setPreferMusicVideos' | 'clearRateLimits';
     keyId?: string;
     key?: string;
     label?: string;
@@ -87,6 +89,7 @@ export interface MemberCommand {
     rateLimitCount?: number;
     rateLimitWindowMs?: number;
     allowHostKeyManagement?: boolean;
+    preferMusicVideos?: boolean;
   };
 }
 

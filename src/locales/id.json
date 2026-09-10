@@ -211,6 +211,8 @@
     "countdownTitle": "Hitung Mundur 10 Detik",
     "countdownDesc": "Menampilkan overlay hitung mundur di TV sebelum video berikutnya diputar.",
     "countdownToggle": "Aktifkan Hitung Mundur",
+    "preferMusicVideosTitle": "Prioritaskan Video Musik",
+    "preferMusicVideosDesc": "Jika AKTIF, autoplay mencari hasil video musik. Jika NONAKTIF, memprioritaskan audio murni / channel topik dan mengecualikan judul berisi \"Music Video\".",
     "confirmDelete": "Hapus",
     "cancel": "Batal"
   }

@@ -211,6 +211,8 @@
     "countdownTitle": "10-Second Countdown",
     "countdownDesc": "Shows a sci-fi countdown overlay on the TV before playing the next queued video.",
     "countdownToggle": "Enable Countdown",
+    "preferMusicVideosTitle": "Prefer Music Videos",
+    "preferMusicVideosDesc": "When ON, autoplay targets music video results. When OFF, it prefers pure audio / topic-channel uploads and excludes titles containing \"Music Video\".",
     "confirmDelete": "Delete",
     "cancel": "Cancel"
   }

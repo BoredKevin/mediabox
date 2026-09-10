@@ -620,7 +620,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
 
           {/* TAB 3: ROOM SETTINGS */}
           <TabsContent value="room" className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-4 focus-visible:outline-none">
-            <div className="p-4 bg-muted/20 border border-border space-y-3">
+            <div className="p-4 bg-muted/20 border border-border space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-foreground uppercase tracking-wider block">
@@ -634,6 +634,22 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                   checked={Boolean(roomState?.isCountdownEnabled)}
                   onCheckedChange={handleToggleCountdown}
                   aria-label="Toggle Countdown"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-border/50 flex items-center justify-between gap-4">
+                <div>
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wider block">
+                    {t('tvSettings.preferMusicVideosTitle')}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {t('tvSettings.preferMusicVideosDesc')}
+                  </span>
+                </div>
+                <Switch
+                  checked={searchSettings?.preferMusicVideos ?? true}
+                  onCheckedChange={(checked) => handleUpdateSearchSettings({ preferMusicVideos: checked })}
+                  aria-label="Toggle Prefer Music Videos"
                 />
               </div>
             </div>

@@ -109,6 +109,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const adminsListRef = useRef<string[]>([]);
   const recentAutoplayHistoryRef = useRef<string[]>([]);
   const recentAutoplayUrlHistoryRef = useRef<string[]>([]);
+  const recentAutoplayArtistHistoryRef = useRef<string[]>([]);
 
   // Subscribe to admins list from Firebase RTDB
   useEffect(() => {
@@ -475,6 +476,16 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         await update(ref(database, `rooms/${roomCode}/state`), {
           isCountdownEnabled: nextCountdown,
         });
+      } else if (type === 'togglePreferMusicVideos') {
+        const isHost = memberUid === hostUidRef.current;
+        const isAdmin = adminsListRef.current.includes(memberUid);
+        const isTv = memberUid === user?.uid;
+        if (isAdmin || isTv || isHost) {
+          const currentVal = roomStateRef.current?.searchSettings?.preferMusicVideos ?? true;
+          await handleUpdateSearchSettings({ preferMusicVideos: !currentVal });
+        } else {
+          console.warn('[TV Host] Unauthorized togglePreferMusicVideos command from member:', memberUid);
+        }
       } else if (type === 'searchYouTube' && payload && payload.query) {
         const reqId = `${memberUid}_${Date.now()}`;
         processSearchRequest(reqId, {
@@ -499,6 +510,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             rateLimitCount,
             rateLimitWindowMs,
             allowHostKeyManagement,
+            preferMusicVideos,
           } = payload;
           if (action === 'add' && key) {
             addKey(key, label || '');
@@ -520,6 +532,8 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             });
           } else if (action === 'setAllowHost' && typeof allowHostKeyManagement === 'boolean') {
             saveSearchConfig({ allowHostKeyManagement });
+          } else if (action === 'setPreferMusicVideos' && typeof preferMusicVideos === 'boolean') {
+            saveSearchConfig({ preferMusicVideos });
           } else if (action === 'clearRateLimits') {
             await handleClearAllRateLimits();
           }
@@ -733,6 +747,15 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const currentQueue = queueRefState.current;
     if (currentQueue && currentQueue.length > 0) {
       const nextItem = currentQueue[0];
+      if (nextItem.title) {
+        const parsed = parseTrackAndArtist(nextItem.title, '');
+        if (parsed.artist) {
+          recentAutoplayArtistHistoryRef.current = [
+            parsed.artist,
+            ...recentAutoplayArtistHistoryRef.current,
+          ].slice(0, 10);
+        }
+      }
       await update(ref(database, `rooms/${roomCode}/state`), {
         currentlyPlaying: nextItem.url,
         currentlyPlayingTitle: nextItem.title || '',
@@ -770,6 +793,10 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             ...recentAutoplayHistoryRef.current,
           ])
         ).slice(0, 20);
+
+        if (parsed.artist && recentAutoplayArtistHistoryRef.current.length === 0) {
+          recentAutoplayArtistHistoryRef.current = [parsed.artist];
+        }
       }
 
       if (currentUrl) {
@@ -780,17 +807,35 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         ].slice(0, 15);
       }
 
-      console.log('[TV Host] Autoplay active. Searching for track similar to title:', currentTitle, 'channel:', channelTitle);
+      const preferMusicVideos = roomStateRef.current?.searchSettings?.preferMusicVideos ?? true;
+
+      console.log(
+        '[TV Host] Autoplay active. Searching for track similar to title:',
+        currentTitle,
+        'channel:',
+        channelTitle,
+        'preferMusicVideos:',
+        preferMusicVideos
+      );
       const nextTrack = await getAutoplayNextYouTubeTrack(
         currentTitle,
         channelTitle,
         recentAutoplayHistoryRef.current,
         currentUrl,
-        recentAutoplayUrlHistoryRef.current
+        recentAutoplayUrlHistoryRef.current,
+        preferMusicVideos,
+        recentAutoplayArtistHistoryRef.current
       );
 
       if (nextTrack) {
-        console.log('[TV Host] Autoplay next track resolved:', nextTrack.title, nextTrack.url);
+        console.log('[TV Host] Autoplay next track resolved:', nextTrack.title, nextTrack.url, 'artist:', nextTrack.artist);
+        const resolvedArtist = nextTrack.artist || parseTrackAndArtist(nextTrack.title, '').artist;
+        if (resolvedArtist) {
+          recentAutoplayArtistHistoryRef.current = [
+            resolvedArtist,
+            ...recentAutoplayArtistHistoryRef.current,
+          ].slice(0, 10);
+        }
         await update(ref(database, `rooms/${roomCode}/state`), {
           currentlyPlaying: nextTrack.url,
           currentlyPlayingTitle: nextTrack.title,
