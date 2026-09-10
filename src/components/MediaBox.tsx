@@ -18,6 +18,8 @@ import {
   Maximize,
   Minimize,
 } from 'lucide-react';
+import { fetchVideoTitle } from '@/lib/youtube';
+import { parseTrackAndArtist } from '@/lib/lastfm';
 
 export const MediaBox: React.FC = () => {
   const { t } = useTranslation();
@@ -36,6 +38,51 @@ export const MediaBox: React.FC = () => {
   } = useWatchParty();
 
   const [secondsLeft, setSecondsLeft] = useState<number>(30);
+
+  // Live metadata for currently playing video and author
+  const [currentVideoMeta, setCurrentVideoMeta] = useState<{
+    title: string;
+    author: string;
+  }>({ title: '', author: '' });
+
+  useEffect(() => {
+    const currentUrl = roomState?.currentlyPlaying;
+    if (!currentUrl) {
+      setCurrentVideoMeta({ title: '', author: '' });
+      return;
+    }
+
+    let cancelled = false;
+
+    // Fast initial metadata from roomState
+    const initialTitle = roomState.currentlyPlayingTitle || '';
+    if (initialTitle) {
+      const parsed = parseTrackAndArtist(initialTitle);
+      setCurrentVideoMeta({
+        title: initialTitle,
+        author: parsed.artist || '',
+      });
+    }
+
+    // Resolve full title and channel/author from oEmbed
+    fetchVideoTitle(currentUrl)
+      .then((info) => {
+        if (cancelled) return;
+        const title = info.title || initialTitle || roomState.currentlyPlayingTitle || '';
+        const author = info.channelTitle || (title ? parseTrackAndArtist(title).artist : '');
+        setCurrentVideoMeta({
+          title,
+          author,
+        });
+      })
+      .catch(() => {
+        // Keep initialTitle
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomState?.currentlyPlaying, roomState?.currentlyPlayingTitle]);
 
   // Live time display for top-right clock overlay in fullscreen
   const [clockTime, setClockTime] = useState(() => {
@@ -185,7 +232,7 @@ export const MediaBox: React.FC = () => {
         }`}
     >
       {isFullscreen && (
-        <div className="absolute top-4 left-4 z-[110] bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-5xl font-normal tracking-wider text-foreground opacity-80 transition-opacity flex items-center gap-2 shadow-lg pointer-events-none select-none">
+        <div className="absolute top-4 right-4 z-[110] bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-5xl font-normal tracking-wider text-foreground opacity-80 transition-opacity flex items-center gap-2 shadow-lg pointer-events-none select-none">
           <span>
             {clockTime.hours}
             <span className="text-primary opacity-80 animate-blink">:</span>
@@ -242,14 +289,44 @@ export const MediaBox: React.FC = () => {
           </div>
         )}
 
+        {/* Top Overlay: Video Title & Author Name (YouTube embed style) */}
+        {roomState?.currentlyPlaying && !isLocked && (
+          <div
+            className={`absolute inset-x-0 top-0 z-30 pt-4 sm:pt-6 pb-12 sm:pb-16 px-5 sm:px-8 ${isFullscreen ? 'pr-52 sm:pr-72' : ''
+              } bg-gradient-to-b from-black/90 via-black/55 to-transparent flex items-start justify-between gap-4 pointer-events-none transition-opacity duration-300 select-none ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
+              }`}
+          >
+            <div className="flex flex-col min-w-0 max-w-full">
+              <a
+                href={roomState.currentlyPlaying}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-white text-base sm:text-2xl md:text-3xl font-bold truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] hover:underline tracking-tight leading-snug pointer-events-auto transition-colors"
+                title={currentVideoMeta.title || roomState.currentlyPlayingTitle || 'YouTube Video'}
+              >
+                {currentVideoMeta.title || roomState.currentlyPlayingTitle || 'YouTube Video'}
+              </a>
+              {currentVideoMeta.author && (
+                <span
+                  className="text-white/85 text-xs sm:text-base md:text-lg font-medium truncate drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] mt-0.5 sm:mt-1"
+                  title={currentVideoMeta.author}
+                >
+                  {currentVideoMeta.author}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Overlay Player Controls for Playing State */}
         {roomState?.currentlyPlaying && !isLocked && (
           <div
-            className={`absolute inset-x-0 bottom-0 z-30 p-2.5 sm:p-3.5 bg-gradient-to-t from-background/90 via-background/50 to-transparent flex items-center justify-between pointer-events-none transition-opacity duration-300 ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
+            className={`absolute inset-x-0 bottom-0 z-30 p-4 sm:p-6 md:p-8 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex items-center justify-between pointer-events-none transition-opacity duration-300 ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
               }`}
           >
             {/* Left Controls: Play/Pause and Tactical Volume Control */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 sm:gap-4">
               <Button
                 variant="ghost"
                 size="icon"
@@ -258,19 +335,19 @@ export const MediaBox: React.FC = () => {
                   handleTogglePlayPause();
                 }}
                 aria-label={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-                className="h-8 w-8 sm:h-9 sm:w-9 text-foreground hover:text-primary hover:bg-secondary/50 rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-colors"
+                className="h-11 w-11 sm:h-14 sm:w-14 text-foreground hover:text-primary hover:bg-secondary/60 rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-all shadow-md active:scale-95"
                 title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
               >
                 {isPlaying ? (
-                  <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+                  <Pause className="w-5 h-5 sm:w-7 sm:h-7 fill-current" />
                 ) : (
-                  <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" />
+                  <Play className="w-5 h-5 sm:w-7 sm:h-7 fill-current ml-0.5 sm:ml-1" />
                 )}
               </Button>
 
               {/* Volume HUD Control */}
               <div
-                className="flex items-center gap-2 px-2.5 py-1 rounded-[var(--radius)] bg-background/70 border border-border/50 backdrop-blur-md pointer-events-auto shadow-sm"
+                className="flex items-center gap-3 sm:gap-4 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-[var(--radius)] bg-background/80 border border-border/60 backdrop-blur-md pointer-events-auto shadow-lg"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Button
@@ -278,15 +355,15 @@ export const MediaBox: React.FC = () => {
                   size="icon"
                   onClick={() => setMuted((prev) => !prev)}
                   aria-label={muted ? 'Unmute' : 'Mute'}
-                  className="h-7 w-7 text-foreground hover:text-primary transition-colors"
+                  className="h-8 w-8 sm:h-10 sm:w-10 text-foreground hover:text-primary transition-colors active:scale-95"
                   title={muted ? 'Unmute' : 'Mute'}
                 >
                   {muted || displayVolume === 0 ? (
-                    <VolumeX className="w-4 h-4 text-destructive" />
+                    <VolumeX className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
                   ) : displayVolume > 50 ? (
-                    <Volume2 className="w-4 h-4" />
+                    <Volume2 className="w-5 h-5 sm:w-6 sm:h-6" />
                   ) : (
-                    <Volume1 className="w-4 h-4" />
+                    <Volume1 className="w-5 h-5 sm:w-6 sm:h-6" />
                   )}
                 </Button>
 
@@ -299,10 +376,10 @@ export const MediaBox: React.FC = () => {
                   onValueChange={handleVolumeValueChange}
                   onValueCommit={handleVolumeValueCommit}
                   aria-label="Volume slider"
-                  className="w-16 sm:w-24 cursor-pointer py-1"
+                  className="w-28 sm:w-44 md:w-56 cursor-pointer py-2"
                 />
 
-                <span className="font-mono text-[11px] font-bold text-muted-foreground w-7 text-right select-none">
+                <span className="font-mono text-xs sm:text-sm md:text-base font-bold text-muted-foreground w-10 sm:w-12 text-right select-none">
                   {muted ? 0 : displayVolume}%
                 </span>
               </div>
@@ -318,13 +395,13 @@ export const MediaBox: React.FC = () => {
                   toggleFullscreen();
                 }}
                 aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                className="h-8 w-8 sm:h-9 sm:w-9 text-foreground hover:text-primary hover:bg-secondary/50 rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-colors"
+                className="h-11 w-11 sm:h-14 sm:w-14 text-foreground hover:text-primary hover:bg-secondary/60 rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-all shadow-md active:scale-95"
                 title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
               >
                 {isFullscreen ? (
-                  <Minimize className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Minimize className="w-5 h-5 sm:w-7 sm:h-7" />
                 ) : (
-                  <Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Maximize className="w-5 h-5 sm:w-7 sm:h-7" />
                 )}
               </Button>
             </div>
@@ -333,7 +410,7 @@ export const MediaBox: React.FC = () => {
 
         {/* Overlay Fullscreen Button for Idle or Locked State */}
         {(!roomState?.currentlyPlaying || isLocked) && (
-          <div className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 z-30 pointer-events-auto">
+          <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-30 pointer-events-auto">
             <Button
               variant="ghost"
               size="icon"
@@ -342,13 +419,13 @@ export const MediaBox: React.FC = () => {
                 toggleFullscreen();
               }}
               aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-[var(--radius)] flex items-center justify-center transition-colors"
+              className="h-11 w-11 sm:h-14 sm:w-14 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-[var(--radius)] flex items-center justify-center transition-all shadow-md active:scale-95"
               title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             >
               {isFullscreen ? (
-                <Minimize className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Minimize className="w-5 h-5 sm:w-7 sm:h-7" />
               ) : (
-                <Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Maximize className="w-5 h-5 sm:w-7 sm:h-7" />
               )}
             </Button>
           </div>
