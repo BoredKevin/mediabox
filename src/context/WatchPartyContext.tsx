@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { User } from 'firebase/auth';
-import { ref, onValue, set, update, remove, off, get, onDisconnect, serverTimestamp } from 'firebase/database';
+import { ref, update, remove, get } from 'firebase/database';
 import { ensureAnonymousAuth, database } from '@/lib/firebase';
 import {
   createRoomAtomic,
@@ -9,27 +9,24 @@ import {
   QueueItem,
   parseYouTubeVideoId,
   SearchSettings,
-  ApiKeyRecord,
 } from '@/lib/roomUtils';
+import { fetchVideoTitle } from '@/lib/youtube';
 import {
-  fetchVideoTitle,
-  searchYouTubeWithKey,
-  YouTubeQuotaExceededError,
-  SearchResultItem,
-} from '@/lib/youtube';
-import {
-  loadKeys,
   addKey,
   deleteKey,
   updateKey,
-  pickKey,
-  incrementUsage,
-  markKeyExhausted,
-  resetDailyUsageIfNeeded,
   saveSearchConfig,
   getEffectiveSearchSettings,
 } from '@/lib/apiKeyStore';
-import { getAutoplayNextYouTubeTrack, parseTrackAndArtist } from '@/lib/lastfm';
+import { parseTrackAndArtist } from '@/lib/trackParser';
+import { playNextQueueItem, removeQueueItem, addToQueue } from '@/handlers/queueHandler';
+import { getAutoplayNextYouTubeTrack } from '@/handlers/autoplayHandler';
+import { processMemberCommand, CommandHandlerContext } from '@/handlers/commandHandler';
+import { processSearchRequest } from '@/handlers/searchProxyHandler';
+import { useAutoplayHistory } from './hooks/useAutoplayHistory';
+import { useRoomSubscriptions } from './hooks/useRoomSubscriptions';
+
+const TV_SAVED_ROOM_KEY = 'mediabox_tv_room_code';
 
 interface WatchPartyContextType {
   user: User | null;
@@ -69,70 +66,54 @@ const WatchPartyContext = createContext<WatchPartyContextType | undefined>(undef
 export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
-  const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [memberCount, setMemberCount] = useState<number>(0);
-
   const [creating, setCreating] = useState<boolean>(false);
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [muted, setMuted] = useState<boolean>(false);
 
-  // Search settings state & refs
+  // Search settings
   const [searchSettings, setSearchSettings] = useState<SearchSettings>(() => getEffectiveSearchSettings());
   const searchSettingsRef = useRef<SearchSettings>(searchSettings);
   useEffect(() => {
     searchSettingsRef.current = searchSettings;
   }, [searchSettings]);
 
+  // Autoplay history management
+  const {
+    historyRef,
+    urlHistoryRef,
+    artistHistoryRef,
+    pushTrack,
+    pushUrl,
+    pushArtist,
+    clearHistory,
+  } = useAutoplayHistory();
+
+  // Execution tracking & cooldowns
   const processingRequestsRef = useRef<Set<string>>(new Set());
+  const processingCommandsRef = useRef<Set<string>>(new Set());
+  const lastFullscreenToggleRef = useRef<number>(0);
+  const volumeDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-close QR code popup after 30 seconds
   useEffect(() => {
     if (showQrModal) {
-      const timer = setTimeout(() => {
-        setShowQrModal(false);
-      }, 30000);
+      const timer = setTimeout(() => setShowQrModal(false), 30000);
       return () => clearTimeout(timer);
     }
   }, [showQrModal]);
 
-  // Ref tracking to avoid stale closures in listeners
-  const roomStateRef = useRef<RoomState | null>(null);
+  // Clean up debounce timer on unmount
   useEffect(() => {
-    roomStateRef.current = roomState;
-  }, [roomState]);
-
-  const hostUidRef = useRef<string | null>(null);
-  const lastFullscreenToggleRef = useRef<number>(0);
-  const adminsListRef = useRef<string[]>([]);
-  const recentAutoplayHistoryRef = useRef<string[]>([]);
-  const recentAutoplayUrlHistoryRef = useRef<string[]>([]);
-  const recentAutoplayArtistHistoryRef = useRef<string[]>([]);
-
-  // Subscribe to admins list from Firebase RTDB
-  useEffect(() => {
-    const adminsRefNode = ref(database, 'admins');
-    const unsubAdmins = onValue(adminsRefNode, (snapshot) => {
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        adminsListRef.current = Object.keys(val);
-      } else {
-        adminsListRef.current = [];
+    return () => {
+      if (volumeDebounceTimerRef.current) {
+        clearTimeout(volumeDebounceTimerRef.current);
       }
-    });
-    return () => off(adminsRefNode);
+    };
   }, []);
 
-  const queueRefState = useRef<QueueItem[]>([]);
-  useEffect(() => {
-    queueRefState.current = queue;
-  }, [queue]);
-
-  const TV_SAVED_ROOM_KEY = 'mediabox_tv_room_code';
-
-  // Authenticate anonymously on mount and attempt room recovery on reload
+  // Authenticate anonymously on mount and recover saved room
   useEffect(() => {
     ensureAnonymousAuth()
       .then(async (u) => {
@@ -159,539 +140,21 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       .catch((err) => console.error('Auth error in WatchPartyContext:', err));
   }, []);
 
-  // TV presence tracking via .info/connected
-  useEffect(() => {
-    if (!roomCode || !user) return;
-
-    const connectedRef = ref(database, '.info/connected');
-    const tvOnlineRef = ref(database, `rooms/${roomCode}/tv/online`);
-    const tvLastSeenRef = ref(database, `rooms/${roomCode}/tv/lastSeen`);
-
-    const unsubConnected = onValue(connectedRef, (snap) => {
-      if (snap.val() === true) {
-        onDisconnect(tvOnlineRef).set(false);
-        onDisconnect(tvLastSeenRef).set(serverTimestamp());
-
-        update(ref(database, `rooms/${roomCode}/tv`), {
-          online: true,
-          lastSeen: Date.now(),
-        }).catch(() => {});
-      }
-    });
-
-    // Mark offline on tab unload
-    const handleUnload = () => {
-      update(ref(database, `rooms/${roomCode}/tv`), {
-        online: false,
-        lastSeen: Date.now(),
-      }).catch(() => {});
-    };
-    window.addEventListener('beforeunload', handleUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleUnload);
-      off(connectedRef);
-      onDisconnect(tvOnlineRef).cancel();
-      onDisconnect(tvLastSeenRef).cancel();
-    };
-  }, [roomCode, user]);
-
-  // Periodic garbage collection for stale offline members (> 2 hours offline with no queue items)
-  useEffect(() => {
-    if (!roomCode) return;
-
-    const cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      const membersRef = ref(database, `rooms/${roomCode}/members`);
-      get(membersRef).then((snap) => {
-        if (!snap.exists()) return;
-        const members = snap.val();
-        const queuedMemberUids = new Set(queueRefState.current.map((q) => q.addedBy));
-
-        Object.entries(members).forEach(([mUid, mVal]: [string, any]) => {
-          if (
-            mVal?.online === false &&
-            mVal?.lastSeen &&
-            now - mVal.lastSeen > 2 * 60 * 60 * 1000 &&
-            !queuedMemberUids.has(mUid)
-          ) {
-            remove(ref(database, `rooms/${roomCode}/members/${mUid}`)).catch(() => {});
-          }
-        });
-      }).catch(() => {});
-    }, 15 * 60 * 1000);
-
-    return () => clearInterval(cleanupInterval);
-  }, [roomCode]);
-
-  // Subscribe to room nodes when roomCode is active
-  useEffect(() => {
-    if (!roomCode || !user) return;
-
-    const stateRefNode = ref(database, `rooms/${roomCode}/state`);
-    const queueRefNode = ref(database, `rooms/${roomCode}/queue`);
-    const membersRefNode = ref(database, `rooms/${roomCode}/members`);
-    const searchRequestsRefNode = ref(database, `rooms/${roomCode}/searchRequests`);
-
-    // 1. Shared state
-    const unsubState = onValue(stateRefNode, (snapshot) => {
-      if (snapshot.exists()) {
-        const stateVal = snapshot.val();
-        setRoomState(stateVal);
-        if (stateVal.hostUid) {
-          hostUidRef.current = stateVal.hostUid;
-        }
-        if (stateVal.searchSettings) {
-          setSearchSettings(stateVal.searchSettings);
-        }
-      }
-    });
-
-    // 2. Queue
-    const unsubQueue = onValue(queueRefNode, (snapshot) => {
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        const items = Object.entries(val).map(([id, item]: [string, any]) => ({
-          id,
-          ...item,
-        }));
-        setQueue(items.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0)));
-      } else {
-        setQueue([]);
-      }
-    });
-
-    // 3. Members & pending member commands & host election
-    const unsubMembers = onValue(membersRefNode, (snapshot) => {
-      if (!snapshot.exists()) {
-        setMemberCount(0);
-        hostUidRef.current = null;
-        update(ref(database, `rooms/${roomCode}/state`), { hostUid: null });
-        return;
-      }
-
-      const membersData = snapshot.val();
-      const memberEntries = Object.entries(membersData).map(([uid, m]: [string, any]) => ({
-        uid,
-        joinedAt: m?.joinedAt || 0,
-        online: m?.online !== false,
-        lastSeen: m?.lastSeen || 0,
-      }));
-
-      // Online members prioritized for host election & count
-      const onlineMembers = memberEntries.filter((m) => m.online);
-      onlineMembers.sort((a, b) => a.joinedAt - b.joinedAt);
-      memberEntries.sort((a, b) => a.joinedAt - b.joinedAt);
-
-      const electedHostUid = onlineMembers.length > 0
-        ? onlineMembers[0].uid
-        : (memberEntries.length > 0 ? memberEntries[0].uid : null);
-
-      hostUidRef.current = electedHostUid;
-
-      if (roomStateRef.current?.hostUid !== electedHostUid && electedHostUid) {
-        update(ref(database, `rooms/${roomCode}/state`), { hostUid: electedHostUid });
-      }
-
-      setMemberCount(onlineMembers.length);
-
-      Object.entries(membersData).forEach(([memberUid, member]: [string, any]) => {
-        if (member && member.command) {
-          processMemberCommand(memberUid, member.command);
-        }
-      });
-    });
-
-    // 4. Search requests from clients
-    const unsubSearchRequests = onValue(searchRequestsRefNode, (snapshot) => {
-      if (!snapshot.exists()) return;
-      const requests = snapshot.val();
-      const now = Date.now();
-      Object.entries(requests).forEach(([reqId, req]: [string, any]) => {
-        if (!req) return;
-        // GC orphaned requests older than 30s
-        if (req.createdAt && now - req.createdAt > 30000) {
-          remove(ref(database, `rooms/${roomCode}/searchRequests/${reqId}`)).catch(() => {});
-          return;
-        }
-        processSearchRequest(reqId, req);
-      });
-    });
-
-    return () => {
-      off(stateRefNode);
-      off(queueRefNode);
-      off(membersRefNode);
-      off(searchRequestsRefNode);
-    };
-  }, [roomCode, user]);
-
-  const processMemberCommand = async (memberUid: string, command: any) => {
-    if (!roomCode || !command || !command.type) return;
-
-    const { type, payload } = command;
-    const isAuthorized =
-      memberUid === hostUidRef.current ||
-      memberUid === user?.uid ||
-      adminsListRef.current.includes(memberUid);
-
-    // Reject commands if room is locked by admin and user is not authorized
-    if (roomStateRef.current?.isLocked && !isAuthorized) {
-      if (type === 'addToQueue' || type === 'play' || type === 'pause' || type === 'adjustVolume') {
-        console.warn('[TV Host] Rejected member command because room controls are locked by admin:', type, memberUid);
-        return;
-      }
-    }
-
-    try {
-      if (type === 'play') {
-        await update(ref(database, `rooms/${roomCode}/state/playback`), {
-          status: 'playing',
-          updatedAt: Date.now(),
-        });
-      } else if (type === 'pause') {
-        await update(ref(database, `rooms/${roomCode}/state/playback`), {
-          status: 'paused',
-          updatedAt: Date.now(),
-        });
-      } else if (type === 'adjustVolume' && payload && typeof payload.volume === 'number') {
-        await update(ref(database, `rooms/${roomCode}/state/playback`), {
-          volume: Math.min(100, Math.max(0, payload.volume)),
-          updatedAt: Date.now(),
-        });
-      } else if (type === 'addToQueue' && payload && payload.url) {
-        const ytId = parseYouTubeVideoId(payload.url);
-        if (ytId) {
-          const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
-          const currentPlaying = roomStateRef.current?.currentlyPlaying;
-
-          let videoTitle = payload.title || '';
-          if (!videoTitle) {
-            const info = await fetchVideoTitle(videoUrl);
-            videoTitle = info.title || '';
-          }
-
-          if (!currentPlaying) {
-            await update(ref(database, `rooms/${roomCode}/state`), {
-              currentlyPlaying: videoUrl,
-              currentlyPlayingTitle: videoTitle,
-            });
-            await update(ref(database, `rooms/${roomCode}/state/playback`), {
-              status: 'playing',
-              updatedAt: Date.now(),
-            });
-          } else {
-            const queueKey = `${Date.now()}_${memberUid.substring(0, 4)}`;
-            const newQueueRefNode = ref(database, `rooms/${roomCode}/queue/${queueKey}`);
-            await set(newQueueRefNode, {
-              url: videoUrl,
-              title: videoTitle,
-              addedBy: memberUid,
-              addedAt: Date.now(),
-            });
-          }
-        }
-      } else if (type === 'removeFromQueue' && payload && payload.itemId) {
-        const queueItem = queueRefState.current.find((item) => item.id === payload.itemId);
-        if (queueItem && (queueItem.addedBy === memberUid || isAuthorized)) {
-          await remove(ref(database, `rooms/${roomCode}/queue/${payload.itemId}`));
-        }
-      } else if (type === 'forceSkip') {
-        if (isAuthorized) {
-          await handlePlayNextInQueue();
-        } else {
-          console.warn('[TV Host] Rejected forceSkip command from non-authorized member:', memberUid);
-        }
-      } else if (type === 'forceRemoveFromQueue' && payload && payload.itemId) {
-        if (isAuthorized) {
-          await remove(ref(database, `rooms/${roomCode}/queue/${payload.itemId}`));
-        } else {
-          console.warn('[TV Host] Rejected forceRemoveFromQueue command from non-authorized member:', memberUid);
-        }
-      } else if (type === 'reorderQueue' && payload && Array.isArray(payload.queueOrder)) {
-        if (isAuthorized) {
-          const baseTime = Date.now();
-          const updates: Record<string, any> = {};
-          payload.queueOrder.forEach((itemId: string, index: number) => {
-            updates[`${itemId}/addedAt`] = baseTime + index * 1000;
-          });
-          if (Object.keys(updates).length > 0) {
-            await update(ref(database, `rooms/${roomCode}/queue`), updates);
-          }
-        } else {
-          console.warn('[TV Host] Rejected reorderQueue command from non-authorized member:', memberUid);
-        }
-      } else if (type === 'kickMember' && payload && payload.targetUid) {
-        if (isAuthorized) {
-          const targetUid = payload.targetUid;
-          await remove(ref(database, `rooms/${roomCode}/members/${targetUid}`));
-
-          if (payload.purgeQueue !== false) {
-            const memberQueueItems = queueRefState.current.filter((item) => item.addedBy === targetUid);
-            for (const item of memberQueueItems) {
-              await remove(ref(database, `rooms/${roomCode}/queue/${item.id}`));
-            }
-          }
-        } else {
-          console.warn('[TV Host] Rejected kickMember command from non-authorized member:', memberUid);
-        }
-      } else if (type === 'toggleFullscreen') {
-        const now = Date.now();
-        if (now - lastFullscreenToggleRef.current < 5000) {
-          console.warn('[TV Host] Cooldown active (5s) for toggleFullscreen command from member:', memberUid);
-        } else {
-          lastFullscreenToggleRef.current = now;
-          const nextFullscreen = !roomStateRef.current?.isFullscreen;
-          await update(ref(database, `rooms/${roomCode}/state`), {
-            isFullscreen: nextFullscreen,
-          });
-        }
-      } else if (type === 'clearQueue') {
-        if (isAuthorized) {
-          await remove(ref(database, `rooms/${roomCode}/queue`));
-        } else {
-          console.warn('[TV Host] Rejected clearQueue command from non-authorized member:', memberUid);
-        }
-      } else if (type === 'toggleRoomLock') {
-        if (isAuthorized) {
-          const nextIsLocked = !roomStateRef.current?.isLocked;
-          const updates: Record<string, any> = {
-            isLocked: nextIsLocked,
-          };
-          if (nextIsLocked) {
-            updates['playback/status'] = 'paused';
-            updates['playback/updatedAt'] = Date.now();
-          }
-          await update(ref(database, `rooms/${roomCode}/state`), updates);
-        } else {
-          console.warn('[TV Host] Rejected toggleRoomLock command from non-authorized member:', memberUid);
-        }
-      } else if (type === 'toggleAutoplay') {
-        const nextAutoplay = !roomStateRef.current?.isAutoplay;
-        await update(ref(database, `rooms/${roomCode}/state`), {
-          isAutoplay: nextAutoplay,
-        });
-      } else if (type === 'toggleCountdown') {
-        const nextCountdown = !roomStateRef.current?.isCountdownEnabled;
-        await update(ref(database, `rooms/${roomCode}/state`), {
-          isCountdownEnabled: nextCountdown,
-        });
-      } else if (type === 'togglePreferMusicVideos') {
-        const isHost = memberUid === hostUidRef.current;
-        const isAdmin = adminsListRef.current.includes(memberUid);
-        const isTv = memberUid === user?.uid;
-        if (isAdmin || isTv || isHost) {
-          const currentVal = roomStateRef.current?.searchSettings?.preferMusicVideos ?? true;
-          await handleUpdateSearchSettings({ preferMusicVideos: !currentVal });
-        } else {
-          console.warn('[TV Host] Unauthorized togglePreferMusicVideos command from member:', memberUid);
-        }
-      } else if (type === 'searchYouTube' && payload && payload.query) {
-        const reqId = `${memberUid}_${Date.now()}`;
-        processSearchRequest(reqId, {
-          requestedBy: memberUid,
-          query: payload.query,
-          createdAt: Date.now(),
-        });
-      } else if (type === 'manageApiKeys' && payload) {
-        const isHost = memberUid === hostUidRef.current;
-        const isAdmin = adminsListRef.current.includes(memberUid);
-        const isTv = memberUid === user?.uid;
-        const allowHost = roomStateRef.current?.searchSettings?.allowHostKeyManagement ?? true;
-        if (isAdmin || isTv || (isHost && allowHost)) {
-          const {
-            action,
-            keyId,
-            key,
-            label,
-            enabled,
-            strategy,
-            maxResults,
-            rateLimitCount,
-            rateLimitWindowMs,
-            allowHostKeyManagement,
-            preferMusicVideos,
-          } = payload;
-          if (action === 'add' && key) {
-            addKey(key, label || '');
-          } else if (action === 'delete' && keyId) {
-            deleteKey(keyId);
-          } else if (action === 'update' && keyId) {
-            updateKey(keyId, {
-              ...(label !== undefined ? { label } : {}),
-              ...(enabled !== undefined ? { enabled } : {}),
-            });
-          } else if (action === 'setStrategy' && strategy) {
-            saveSearchConfig({ strategy });
-          } else if (action === 'setMaxResults' && typeof maxResults === 'number') {
-            saveSearchConfig({ maxResults });
-          } else if (action === 'setRateLimit') {
-            saveSearchConfig({
-              ...(typeof rateLimitCount === 'number' ? { rateLimitCount } : {}),
-              ...(typeof rateLimitWindowMs === 'number' ? { rateLimitWindowMs } : {}),
-            });
-          } else if (action === 'setAllowHost' && typeof allowHostKeyManagement === 'boolean') {
-            saveSearchConfig({ allowHostKeyManagement });
-          } else if (action === 'setPreferMusicVideos' && typeof preferMusicVideos === 'boolean') {
-            saveSearchConfig({ preferMusicVideos });
-          } else if (action === 'clearRateLimits') {
-            await handleClearAllRateLimits();
-          }
-          await syncSearchSettingsToFirebase();
-        } else {
-          console.warn('[TV Host] Unauthorized manageApiKeys command from member:', memberUid);
-        }
-      }
-    } catch (err) {
-      console.error('[TV Host] Error executing member command:', err);
-    } finally {
-      try {
-        const commandRefNode = ref(database, `rooms/${roomCode}/members/${memberUid}/command`);
-        await remove(commandRefNode);
-      } catch (err) {
-        console.error('[TV Host] Failed to clear command node:', err);
-      }
-    }
-  };
-
-  const syncSearchSettingsToFirebase = async () => {
+  const syncSearchSettingsToFirebase = useCallback(async () => {
     const effective = getEffectiveSearchSettings();
     setSearchSettings(effective);
     searchSettingsRef.current = effective;
     if (roomCode) {
       await update(ref(database, `rooms/${roomCode}/state/searchSettings`), effective);
     }
-  };
+  }, [roomCode]);
 
-  const processSearchRequest = async (
-    reqId: string,
-    req: { requestedBy: string; query: string; createdAt: number }
-  ) => {
-    if (!roomCode || !req || !req.requestedBy || !req.query) return;
-    if (processingRequestsRef.current.has(reqId)) return;
-    processingRequestsRef.current.add(reqId);
-
-    try {
-      const uid = req.requestedBy;
-      const currentConfig = searchSettingsRef.current;
-      const windowMs = currentConfig.rateLimitWindowMs || 300000;
-      const maxCount = currentConfig.rateLimitCount || 10;
-      const now = Date.now();
-
-      // 1. Check rate limit in RTDB
-      const rateLimitRefNode = ref(database, `rooms/${roomCode}/searchRateLimits/${uid}`);
-      const rateSnap = await get(rateLimitRefNode);
-      let currentRate = rateSnap.exists()
-        ? rateSnap.val()
-        : { count: 0, windowStart: now };
-
-      if (now - (currentRate.windowStart || 0) > windowMs) {
-        // Window expired, reset
-        currentRate = { count: 1, windowStart: now };
-        await set(rateLimitRefNode, currentRate);
-      } else {
-        if (currentRate.count >= maxCount) {
-          // Rate limit exceeded
-          const remainingSecs = Math.ceil((windowMs - (now - currentRate.windowStart)) / 1000);
-          const remainingMins = Math.ceil(remainingSecs / 60);
-          await set(ref(database, `rooms/${roomCode}/searchResults/${reqId}`), {
-            results: [],
-            error: `Rate limit reached (${maxCount} searches / ${Math.round(windowMs / 60000)}m). Please wait ${
-              remainingMins > 1 ? `${remainingMins} minutes` : `${remainingSecs}s`
-            }.`,
-            respondedAt: Date.now(),
-          });
-          await remove(ref(database, `rooms/${roomCode}/searchRequests/${reqId}`));
-          return;
-        }
-        currentRate.count = (currentRate.count || 0) + 1;
-        await update(rateLimitRefNode, { count: currentRate.count });
-      }
-
-      // 2. Perform search with key fallback
-      resetDailyUsageIfNeeded();
-
-      let results: SearchResultItem[] | null = null;
-      let errorMessage: string | null = null;
-      const attemptedIds = new Set<string>();
-
-      while (results === null) {
-        const activeKeys = loadKeys().filter(
-          (k) => k.enabled && k.key.trim().length > 0 && !attemptedIds.has(k.id)
-        );
-        if (activeKeys.length === 0) {
-          errorMessage =
-            attemptedIds.size > 0
-              ? 'All configured YouTube API keys on the TV have exceeded their daily quota.'
-              : 'No active YouTube API key configured on TV.';
-          break;
-        }
-
-        const strategy = currentConfig.strategy || 'roundRobin';
-        const candidate = pickKey(strategy);
-        const keyRecord = candidate && !attemptedIds.has(candidate.id) ? candidate : activeKeys[0];
-
-        attemptedIds.add(keyRecord.id);
-
-        try {
-          results = await searchYouTubeWithKey(
-            req.query,
-            keyRecord.key,
-            currentConfig.maxResults || 25
-          );
-          incrementUsage(keyRecord.id);
-        } catch (err: any) {
-          if (err instanceof YouTubeQuotaExceededError) {
-            console.warn(
-              `[TV Host] Quota exceeded for key ${keyRecord.id}, marking exhausted and trying next key.`
-            );
-            markKeyExhausted(keyRecord.id);
-            syncSearchSettingsToFirebase();
-          } else {
-            console.error('[TV Host] Error executing YouTube search:', err);
-            errorMessage = err.message || 'YouTube search failed.';
-            break;
-          }
-        }
-      }
-
-      // 3. Write result for client
-      await set(ref(database, `rooms/${roomCode}/searchResults/${reqId}`), {
-        results: results || [],
-        error: errorMessage,
-        respondedAt: Date.now(),
-      });
-
-      // 4. Delete request
-      await remove(ref(database, `rooms/${roomCode}/searchRequests/${reqId}`));
-
-      // 5. Clean up stale search results (> 60s)
-      try {
-        const resultsSnap = await get(ref(database, `rooms/${roomCode}/searchResults`));
-        if (resultsSnap.exists()) {
-          const allRes = resultsSnap.val();
-          Object.entries(allRes).forEach(([resKey, resVal]: [string, any]) => {
-            if (resVal?.respondedAt && now - resVal.respondedAt > 60000) {
-              remove(ref(database, `rooms/${roomCode}/searchResults/${resKey}`)).catch(() => {});
-            }
-          });
-        }
-      } catch {
-        // ignore GC errors
-      }
-    } catch (err) {
-      console.error('[TV Host] processSearchRequest failure:', err);
-    } finally {
-      processingRequestsRef.current.delete(reqId);
-    }
-  };
-
-  const handleUpdateSearchSettings = async (patch: Partial<SearchSettings>) => {
+  const handleUpdateSearchSettings = useCallback(async (patch: Partial<SearchSettings>) => {
     saveSearchConfig(patch);
     await syncSearchSettingsToFirebase();
-  };
+  }, [syncSearchSettingsToFirebase]);
 
-  const handleManageLocalKeys = async (action: 'add' | 'delete' | 'update', data: any) => {
+  const handleManageLocalKeys = useCallback(async (action: 'add' | 'delete' | 'update', data: any) => {
     if (action === 'add' && data?.key) {
       addKey(data.key, data.label || '');
     } else if (action === 'delete' && data?.id) {
@@ -700,13 +163,227 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       updateKey(data.id, data.patch);
     }
     await syncSearchSettingsToFirebase();
-  };
+  }, [syncSearchSettingsToFirebase]);
 
-  const handleClearAllRateLimits = async () => {
+  const handleClearAllRateLimits = useCallback(async () => {
     if (roomCode) {
       await remove(ref(database, `rooms/${roomCode}/searchRateLimits`));
     }
-  };
+  }, [roomCode]);
+
+  // Resolves the next song to play, prioritizing the member queue above autoplay recommendations
+  const handlePlayNextInQueue = useCallback(async () => {
+    if (!roomCode) return;
+
+    // 1. Check queue first
+    const currentQueue = queueRefState.current;
+    if (currentQueue && currentQueue.length > 0) {
+      const nextItem = currentQueue[0];
+      if (nextItem.title) {
+        const parsed = parseTrackAndArtist(nextItem.title, '');
+        if (parsed.artist) {
+          pushArtist(parsed.artist);
+        }
+      }
+      await playNextQueueItem(roomCode, nextItem);
+      return;
+    }
+
+    // 2. Queue empty: check if Autoplay is enabled
+    if (roomStateRef.current?.isAutoplay) {
+      let currentTitle = roomStateRef.current?.currentlyPlayingTitle || '';
+      let channelTitle = '';
+      const currentUrl = roomStateRef.current?.currentlyPlaying || '';
+
+      if (currentUrl) {
+        const info = await fetchVideoTitle(currentUrl);
+        if (info.title && !currentTitle) {
+          currentTitle = info.title;
+        }
+        if (info.channelTitle) {
+          channelTitle = info.channelTitle;
+        }
+      }
+
+      // Race-condition guard: Did a member queue a song while resolving title?
+      if (queueRefState.current && queueRefState.current.length > 0) {
+        console.log('[TV Host] Queue item arrived during title resolution. Prioritizing queue.');
+        const nextItem = queueRefState.current[0];
+        if (nextItem.title) {
+          const parsed = parseTrackAndArtist(nextItem.title, '');
+          if (parsed.artist) {
+            pushArtist(parsed.artist);
+          }
+        }
+        await playNextQueueItem(roomCode, nextItem);
+        return;
+      }
+
+      if (currentTitle) {
+        pushTrack(currentTitle, channelTitle);
+      }
+
+      if (currentUrl) {
+        pushUrl(currentUrl);
+      }
+
+      const preferMusicVideos = roomStateRef.current?.searchSettings?.preferMusicVideos ?? true;
+
+      console.log(
+        '[TV Host] Autoplay active. Searching for track similar to title:',
+        currentTitle,
+        'channel:',
+        channelTitle,
+        'preferMusicVideos:',
+        preferMusicVideos
+      );
+
+      const nextTrack = await getAutoplayNextYouTubeTrack(
+        currentTitle,
+        channelTitle,
+        historyRef.current,
+        currentUrl,
+        urlHistoryRef.current,
+        preferMusicVideos,
+        artistHistoryRef.current
+      );
+
+      // Race-condition guard: Queue ALWAYS wins over autoplay recommendations!
+      if (queueRefState.current && queueRefState.current.length > 0) {
+        console.log('[TV Host] Queue item arrived during autoplay search. Prioritizing queue over autoplay recommendation.');
+        const nextItem = queueRefState.current[0];
+        if (nextItem.title) {
+          const parsed = parseTrackAndArtist(nextItem.title, '');
+          if (parsed.artist) {
+            pushArtist(parsed.artist);
+          }
+        }
+        await playNextQueueItem(roomCode, nextItem);
+        return;
+      }
+
+      if (nextTrack) {
+        console.log('[TV Host] Autoplay next track resolved:', nextTrack.title, nextTrack.url, 'artist:', nextTrack.artist);
+        const resolvedArtist = nextTrack.artist || parseTrackAndArtist(nextTrack.title, '').artist;
+        if (resolvedArtist) {
+          pushArtist(resolvedArtist);
+        }
+        await update(ref(database, `rooms/${roomCode}/state`), {
+          currentlyPlaying: nextTrack.url,
+          currentlyPlayingTitle: nextTrack.title,
+        });
+        await update(ref(database, `rooms/${roomCode}/state/playback`), {
+          status: 'playing',
+          updatedAt: Date.now(),
+        });
+      } else {
+        // Double check queue before clearing and pausing
+        if (queueRefState.current && queueRefState.current.length > 0) {
+          console.log('[TV Host] Queue item arrived before clear-and-pause. Playing queue.');
+          const nextItem = queueRefState.current[0];
+          if (nextItem.title) {
+            const parsed = parseTrackAndArtist(nextItem.title, '');
+            if (parsed.artist) {
+              pushArtist(parsed.artist);
+            }
+          }
+          await playNextQueueItem(roomCode, nextItem);
+          return;
+        }
+
+        console.warn('[TV Host] Autoplay found no similar tracks or YouTube results.');
+        await update(ref(database, `rooms/${roomCode}/state`), {
+          currentlyPlaying: '',
+          currentlyPlayingTitle: '',
+        });
+        await update(ref(database, `rooms/${roomCode}/state/playback`), {
+          status: 'paused',
+          updatedAt: Date.now(),
+        });
+      }
+    } else {
+      await update(ref(database, `rooms/${roomCode}/state`), {
+        currentlyPlaying: '',
+        currentlyPlayingTitle: '',
+      });
+      await update(ref(database, `rooms/${roomCode}/state/playback`), {
+        status: 'paused',
+        updatedAt: Date.now(),
+      });
+    }
+  }, [roomCode, pushArtist, pushTrack, pushUrl, historyRef, urlHistoryRef, artistHistoryRef]);
+
+  // Dispatchers for remote member commands and search requests
+  const onMemberCommand = useCallback(
+    (memberUid: string, command: any) => {
+      if (!roomCode) return;
+
+      const ctx: CommandHandlerContext = {
+        roomCode,
+        roomState: roomStateRef.current,
+        queue: queueRefState.current,
+        hostUid: hostUidRef.current,
+        tvOwnerUid: user?.uid || null,
+        admins: adminsListRef.current,
+        searchSettings: searchSettingsRef.current,
+        lastFullscreenToggleTime: lastFullscreenToggleRef.current,
+        setLastFullscreenToggleTime: (time: number) => {
+          lastFullscreenToggleRef.current = time;
+        },
+        onPlayNextInQueue: handlePlayNextInQueue,
+        onUpdateSearchSettings: handleUpdateSearchSettings,
+        onClearAllRateLimits: handleClearAllRateLimits,
+        onProcessSearchRequest: (reqId, req) => {
+          if (!roomCode) return;
+          processSearchRequest(
+            reqId,
+            req,
+            roomCode,
+            searchSettingsRef.current,
+            processingRequestsRef.current,
+            syncSearchSettingsToFirebase
+          );
+        },
+      };
+
+      processMemberCommand(memberUid, command, ctx, processingCommandsRef.current);
+    },
+    [roomCode, user?.uid, handlePlayNextInQueue, handleUpdateSearchSettings, handleClearAllRateLimits, syncSearchSettingsToFirebase]
+  );
+
+  const onSearchRequest = useCallback(
+    (reqId: string, req: any) => {
+      if (!roomCode) return;
+      processSearchRequest(
+        reqId,
+        req,
+        roomCode,
+        searchSettingsRef.current,
+        processingRequestsRef.current,
+        syncSearchSettingsToFirebase
+      );
+    },
+    [roomCode, syncSearchSettingsToFirebase]
+  );
+
+  // Hook for Firebase subscriptions
+  const {
+    roomState,
+    setRoomState,
+    queue,
+    setQueue,
+    memberCount,
+    hostUidRef,
+    adminsListRef,
+    roomStateRef,
+    queueRefState,
+  } = useRoomSubscriptions({
+    roomCode,
+    userUid: user?.uid,
+    onSearchSettingsChanged: (settings) => setSearchSettings(settings),
+    onMemberCommand,
+    onSearchRequest,
+  });
 
   const handleCreateRoom = async () => {
     setCreating(true);
@@ -738,132 +415,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setRoomState(null);
       setQueue([]);
       setShowQrModal(false);
-    }
-  };
-
-  const handlePlayNextInQueue = async () => {
-    if (!roomCode) return;
-
-    const currentQueue = queueRefState.current;
-    if (currentQueue && currentQueue.length > 0) {
-      const nextItem = currentQueue[0];
-      if (nextItem.title) {
-        const parsed = parseTrackAndArtist(nextItem.title, '');
-        if (parsed.artist) {
-          recentAutoplayArtistHistoryRef.current = [
-            parsed.artist,
-            ...recentAutoplayArtistHistoryRef.current,
-          ].slice(0, 10);
-        }
-      }
-      await update(ref(database, `rooms/${roomCode}/state`), {
-        currentlyPlaying: nextItem.url,
-        currentlyPlayingTitle: nextItem.title || '',
-      });
-      await update(ref(database, `rooms/${roomCode}/state/playback`), {
-        status: 'playing',
-        updatedAt: Date.now(),
-      });
-      await remove(ref(database, `rooms/${roomCode}/queue/${nextItem.id}`));
-    } else if (roomStateRef.current?.isAutoplay) {
-      // Queue is empty but Autoplay is enabled!
-      let currentTitle = roomStateRef.current?.currentlyPlayingTitle || '';
-      let channelTitle = '';
-
-      const currentUrl = roomStateRef.current?.currentlyPlaying || '';
-
-      if (currentUrl) {
-        const info = await fetchVideoTitle(currentUrl);
-        if (info.title && !currentTitle) {
-          currentTitle = info.title;
-        }
-        if (info.channelTitle) {
-          channelTitle = info.channelTitle;
-        }
-      }
-
-      if (currentTitle) {
-        const parsed = parseTrackAndArtist(currentTitle, channelTitle);
-        const cleanTrackName = parsed.track || currentTitle;
-        // Maintain history of clean track names and raw titles
-        recentAutoplayHistoryRef.current = Array.from(
-          new Set([
-            cleanTrackName,
-            currentTitle,
-            ...recentAutoplayHistoryRef.current,
-          ])
-        ).slice(0, 20);
-
-        if (parsed.artist && recentAutoplayArtistHistoryRef.current.length === 0) {
-          recentAutoplayArtistHistoryRef.current = [parsed.artist];
-        }
-      }
-
-      if (currentUrl) {
-        // Maintain history of last 15 URLs
-        recentAutoplayUrlHistoryRef.current = [
-          currentUrl,
-          ...recentAutoplayUrlHistoryRef.current.filter((u) => u !== currentUrl),
-        ].slice(0, 15);
-      }
-
-      const preferMusicVideos = roomStateRef.current?.searchSettings?.preferMusicVideos ?? true;
-
-      console.log(
-        '[TV Host] Autoplay active. Searching for track similar to title:',
-        currentTitle,
-        'channel:',
-        channelTitle,
-        'preferMusicVideos:',
-        preferMusicVideos
-      );
-      const nextTrack = await getAutoplayNextYouTubeTrack(
-        currentTitle,
-        channelTitle,
-        recentAutoplayHistoryRef.current,
-        currentUrl,
-        recentAutoplayUrlHistoryRef.current,
-        preferMusicVideos,
-        recentAutoplayArtistHistoryRef.current
-      );
-
-      if (nextTrack) {
-        console.log('[TV Host] Autoplay next track resolved:', nextTrack.title, nextTrack.url, 'artist:', nextTrack.artist);
-        const resolvedArtist = nextTrack.artist || parseTrackAndArtist(nextTrack.title, '').artist;
-        if (resolvedArtist) {
-          recentAutoplayArtistHistoryRef.current = [
-            resolvedArtist,
-            ...recentAutoplayArtistHistoryRef.current,
-          ].slice(0, 10);
-        }
-        await update(ref(database, `rooms/${roomCode}/state`), {
-          currentlyPlaying: nextTrack.url,
-          currentlyPlayingTitle: nextTrack.title,
-        });
-        await update(ref(database, `rooms/${roomCode}/state/playback`), {
-          status: 'playing',
-          updatedAt: Date.now(),
-        });
-      } else {
-        console.warn('[TV Host] Autoplay found no similar tracks or YouTube results.');
-        await update(ref(database, `rooms/${roomCode}/state`), {
-          currentlyPlaying: '',
-          currentlyPlayingTitle: '',
-        });
-        await update(ref(database, `rooms/${roomCode}/state/playback`), {
-          status: 'paused',
-          updatedAt: Date.now(),
-        });
-      }
-    } else {
-      await update(ref(database, `rooms/${roomCode}/state`), {
-        currentlyPlaying: '',
-        currentlyPlayingTitle: '',
-      });
-      await update(ref(database, `rooms/${roomCode}/state/playback`), {
-        status: 'paused',
-        updatedAt: Date.now(),
-      });
+      clearHistory();
     }
   };
 
@@ -878,7 +430,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const handleRemoveQueueItem = async (itemId: string) => {
     if (!roomCode) return;
-    await remove(ref(database, `rooms/${roomCode}/queue/${itemId}`));
+    await removeQueueItem(roomCode, itemId);
   };
 
   const handleAddUrlHost = async (urlInput: string, explicitTitle?: string): Promise<boolean> => {
@@ -897,25 +449,13 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       videoTitle = info.title || '';
     }
 
-    if (!roomState?.currentlyPlaying) {
-      await update(ref(database, `rooms/${roomCode}/state`), {
-        currentlyPlaying: videoUrl,
-        currentlyPlayingTitle: videoTitle,
-      });
-      await update(ref(database, `rooms/${roomCode}/state/playback`), {
-        status: 'playing',
-        updatedAt: Date.now(),
-      });
-    } else {
-      const queueKey = `${Date.now()}_host`;
-      const newQueueRefNode = ref(database, `rooms/${roomCode}/queue/${queueKey}`);
-      await set(newQueueRefNode, {
-        url: videoUrl,
-        title: videoTitle,
-        addedBy: user?.uid || 'host',
-        addedAt: Date.now(),
-      });
-    }
+    await addToQueue(
+      roomCode,
+      videoUrl,
+      videoTitle,
+      user?.uid || 'host',
+      Boolean(roomState?.currentlyPlaying)
+    );
     return true;
   };
 
@@ -984,10 +524,18 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         },
       };
     });
-    if (roomCode) {
-      const playbackRef = ref(database, `rooms/${roomCode}/state/playback`);
-      await update(playbackRef, { volume: clamped, updatedAt: Date.now() });
+
+    if (!roomCode) return;
+
+    if (volumeDebounceTimerRef.current) {
+      clearTimeout(volumeDebounceTimerRef.current);
     }
+    volumeDebounceTimerRef.current = setTimeout(() => {
+      const playbackRef = ref(database, `rooms/${roomCode}/state/playback`);
+      update(playbackRef, { volume: clamped, updatedAt: Date.now() }).catch((err) =>
+        console.warn('[TV Host] Debounced volume update failed:', err)
+      );
+    }, 150);
   };
 
   return (

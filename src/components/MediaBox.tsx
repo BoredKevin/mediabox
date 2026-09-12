@@ -19,7 +19,7 @@ import {
   Minimize,
 } from 'lucide-react';
 import { fetchVideoTitle } from '@/lib/youtube';
-import { parseTrackAndArtist } from '@/lib/lastfm';
+import { parseTrackAndArtist } from '@/lib/trackParser';
 
 export const MediaBox: React.FC = () => {
   const { t } = useTranslation();
