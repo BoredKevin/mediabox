@@ -64,4 +64,4 @@ desktop.ini
 *.tmp
 *.temp
 
-package-lock.json
+.wrangler/
