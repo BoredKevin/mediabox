@@ -34,9 +34,12 @@ import {
   RotateCcw,
   Clock,
   Video,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState, TruncatedApiKeyRecord } from '@/lib/roomUtils';
+import { loadProxyConfig, saveProxyConfig, isProxyConfigured } from '@/lib/proxyConfig';
 
 interface HostSettingsModalProps {
   open: boolean;
@@ -92,17 +95,53 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
   );
   const [rateLimitSaved, setRateLimitSaved] = useState(false);
 
+  // YouTube Music CORS Proxy configuration (admin/host only)
+  const [proxyUrl, setProxyUrl] = useState('');
+  const [proxyToken, setProxyToken] = useState('');
+  const [proxyTokenRevealed, setProxyTokenRevealed] = useState(false);
+  const [proxyRevealCountdown, setProxyRevealCountdown] = useState(0);
+  const [proxySaved, setProxySaved] = useState(false);
+
   // Active Rate Limits data from RTDB
   const [activeRateLimits, setActiveRateLimits] = useState<RateLimitEntry[]>([]);
 
-  // Sync rate limit inputs when settings update or modal opens
+  // Sync rate limit inputs and proxy settings when modal opens
   useEffect(() => {
     if (open) {
       setRateLimitCountInput(searchSettings?.rateLimitCount || 10);
       setRateLimitWindowInput(searchSettings?.rateLimitWindowMs || 300000);
       setMaxResultsInput(searchSettings?.maxResults || 25);
+      const pCfg = loadProxyConfig();
+      setProxyUrl(pCfg.proxyUrl);
+      setProxyToken(pCfg.proxyToken);
+      setProxySaved(false);
     }
   }, [open, searchSettings]);
+
+  // Handle 5-second countdown for proxy token reveal
+  useEffect(() => {
+    if (!proxyTokenRevealed) return;
+    setProxyRevealCountdown(5);
+    const interval = setInterval(() => {
+      setProxyRevealCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setProxyTokenRevealed(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [proxyTokenRevealed]);
+
+  const handleSaveProxy = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveProxyConfig({ proxyUrl, proxyToken });
+    setProxySaved(true);
+    showToast(t('tvSettings.ytProxySavedNotice'), 'success');
+    setTimeout(() => setProxySaved(false), 3000);
+  };
 
   // Subscribe to RTDB searchRateLimits when modal is open on Rate Limits tab
   useEffect(() => {
@@ -621,6 +660,100 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
                 <span>{t('tvSettings.addKeyBtn')}</span>
               </Button>
             </form>
+
+            {/* YouTube Music CORS Proxy Settings (Host Only) */}
+            {isAdmin && (
+              <div className="p-3 bg-muted/20 border border-border space-y-3">
+                <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                        {t('tvSettings.ytProxyTitle')}
+                      </span>
+                      <Badge
+                        variant={isProxyConfigured({ proxyUrl, proxyToken }) ? 'default' : 'outline'}
+                        className="text-[9px] px-1.5 py-0 h-4"
+                      >
+                        {isProxyConfigured({ proxyUrl, proxyToken })
+                          ? t('tvSettings.ytProxyStatusConnected')
+                          : t('tvSettings.ytProxyStatusDisconnected')}
+                      </Badge>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5">
+                      {t('tvSettings.ytProxyDesc')}
+                    </span>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSaveProxy} className="space-y-2">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
+                      {t('tvSettings.ytProxyUrlLabel')}
+                    </label>
+                    <Input
+                      type="url"
+                      value={proxyUrl}
+                      onChange={(e) => setProxyUrl(e.target.value)}
+                      placeholder={t('tvSettings.ytProxyUrlPlaceholder')}
+                      className="text-xs font-mono h-8"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
+                      {t('tvSettings.ytProxyTokenLabel')}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type={proxyTokenRevealed ? 'text' : 'password'}
+                        value={proxyToken}
+                        onChange={(e) => setProxyToken(e.target.value)}
+                        placeholder={t('tvSettings.ytProxyTokenPlaceholder')}
+                        className="text-xs font-mono h-8 flex-1"
+                      />
+                      {proxyToken && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setProxyTokenRevealed(!proxyTokenRevealed)}
+                          className="h-8 px-2 text-muted-foreground hover:text-foreground text-[10px]"
+                          title={proxyTokenRevealed ? 'Hide' : 'Reveal for 5s'}
+                        >
+                          {proxyTokenRevealed ? (
+                            <span className="flex items-center gap-1 font-mono text-[10px] text-primary">
+                              <EyeOff className="w-3.5 h-3.5" />
+                              {proxyRevealCountdown}s
+                            </span>
+                          ) : (
+                            <Eye className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    {proxySaved ? (
+                      <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" />
+                        {t('tvSettings.ytProxySavedNotice')}
+                      </span>
+                    ) : <span />}
+
+                    <Button
+                      type="submit"
+                      variant="cyber"
+                      chamfer="top-right"
+                      size="sm"
+                      className="py-1 px-3 text-xs font-bold uppercase tracking-wider h-7"
+                    >
+                      {t('tvSettings.ytProxySaveBtn')}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {/* Strategy & Host Management Settings */}
             <div className="p-3 bg-muted/20 border border-border space-y-3">

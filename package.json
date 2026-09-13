@@ -35,7 +35,8 @@
     "react-player": "^3.4.0",
     "react-router-dom": "^7.18.1",
     "tailwind-merge": "^3.0.1",
-    "youtube-search-api": "^2.0.1"
+    "youtube-search-api": "^2.0.1",
+    "youtubei.js": "^18.0.0"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
