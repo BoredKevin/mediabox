@@ -153,7 +153,7 @@ export const fetchSimilarTracksFromLastFm = async (
       recommendations.push({
         title: `${artist} song`,
         artist: artist,
-        query: `${artist} music`,
+        query: `${artist} song`,
       });
     }
   }

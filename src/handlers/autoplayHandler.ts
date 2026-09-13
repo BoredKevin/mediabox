@@ -39,6 +39,35 @@ export const isTopicChannel = (channel: string): boolean => {
 };
 
 /**
+ * Scores a YouTube search result item for audio purity (0 to 3) when preferMusicVideos is false.
+ * Score 3: Topic channel (official YouTube Music audio track)
+ * Score 2: Dedicated audio track (official audio, lyric video, audio) or label channel (without VEVO)
+ * Score 1: Ambiguous / standard video without clear audio or music video markers
+ * Score 0: Music video / VEVO (kept as a last resort, never hard-blocked)
+ */
+export const scoreAudioPurity = (item: SearchResultItem): number => {
+  const channel = (item.channelTitle || '').toLowerCase();
+  const title = (item.title || '').toLowerCase();
+
+  // Tier 3: YouTube Music auto-generated "- Topic" channel
+  if (isTopicChannel(item.channelTitle || '')) return 3;
+
+  // Tier 2: Official audio / lyric video or dedicated music label
+  const isAudioTitle = /\b(official\s+audio|audio|lyric\s+video|lyric)\b/.test(title);
+  const isLabelChannel = /\bmusic\b/.test(channel) && !channel.includes('vevo');
+  if (isAudioTitle || isLabelChannel) return 2;
+
+  // Tier 0: Explicit music video indicators or VEVO channel
+  const isMusicVideoTitle = /\b(official\s+(music\s+)?video|music\s+video|\bmv\b|official\s+mv|video\s+clip)\b/.test(title);
+  const isVevo = channel.includes('vevo');
+  if (isMusicVideoTitle || isVevo) return 0;
+
+  // Tier 1: Neutral / ambiguous
+  return 1;
+};
+
+
+/**
  * Determines whether a search result item matches the currently playing track or recent history.
  */
 export const isDuplicateSong = (
@@ -112,10 +141,7 @@ export const getAutoplayNextYouTubeTrack = async (
         continue;
       }
 
-      let searchQuery = rec.query;
-      if (!preferMusicVideos) {
-        searchQuery = searchQuery.replace(/\bmusic\b/gi, '').trim() + ' audio';
-      }
+      const searchQuery = !preferMusicVideos ? `${rec.query} topic` : rec.query;
 
       console.log('[Autoplay] Searching YouTube for recommendation:', searchQuery);
       const searchRes = await searchYouTubeVideos(searchQuery);
@@ -131,11 +157,7 @@ export const getAutoplayNextYouTubeTrack = async (
       if (searchRes.results && searchRes.results.length > 0) {
         const candidateResults = preferMusicVideos
           ? searchRes.results
-          : [...searchRes.results].sort((a, b) => {
-              const aTopic = isTopicChannel(a.channelTitle || '') ? 1 : 0;
-              const bTopic = isTopicChannel(b.channelTitle || '') ? 1 : 0;
-              return bTopic - aTopic;
-            });
+          : [...searchRes.results].sort((a, b) => scoreAudioPurity(b) - scoreAudioPurity(a));
 
         const validMatch = candidateResults.find((item: SearchResultItem) => {
           const itemVideoId = parseYouTubeVideoId(item.url) || item.id;
@@ -144,10 +166,6 @@ export const getAutoplayNextYouTubeTrack = async (
           }
           if (isDuplicateSong(item.title, item.channelTitle, cleanCurrentTrackNorm, historyNorms)) {
             console.log(`[Autoplay Filter] Skipped duplicate/recent song version: "${item.title}"`);
-            return false;
-          }
-          if (!preferMusicVideos && item.title.toLowerCase().includes('music video')) {
-            console.log(`[Autoplay Filter] Skipped Music Video title (preferMusicVideos=false): "${item.title}"`);
             return false;
           }
           const itemParsed = parseTrackAndArtist(item.title, item.channelTitle);
@@ -162,7 +180,14 @@ export const getAutoplayNextYouTubeTrack = async (
         if (validMatch) {
           const matchedParsed = parseTrackAndArtist(validMatch.title, validMatch.channelTitle);
           const matchedArtist = matchedParsed.artist || rec.artist || validMatch.channelTitle;
-          console.log('[Autoplay] Resolved non-duplicate YouTube track:', validMatch.title, validMatch.url, 'artist:', matchedArtist);
+          console.log(
+            '[Autoplay] Resolved non-duplicate YouTube track:',
+            validMatch.title,
+            validMatch.url,
+            'artist:',
+            matchedArtist,
+            preferMusicVideos ? '' : `(purity score: ${scoreAudioPurity(validMatch)})`
+          );
           return {
             url: validMatch.url,
             title: validMatch.title,
@@ -183,8 +208,8 @@ export const getAutoplayNextYouTubeTrack = async (
             'popular music video',
           ]
         : [
-            !isCurrentArtistRepeat && artist ? `${artist} audio` : null,
-            cleanCurrentTrack ? `${cleanCurrentTrack} audio` : null,
+            !isCurrentArtistRepeat && artist ? `${artist} topic` : null,
+            cleanCurrentTrack ? `${cleanCurrentTrack} topic` : null,
             'popular music',
           ]
     ).filter(Boolean) as string[];
@@ -204,11 +229,7 @@ export const getAutoplayNextYouTubeTrack = async (
       if (searchRes.results && searchRes.results.length > 0) {
         const candidateResults = preferMusicVideos
           ? searchRes.results
-          : [...searchRes.results].sort((a, b) => {
-              const aTopic = isTopicChannel(a.channelTitle || '') ? 1 : 0;
-              const bTopic = isTopicChannel(b.channelTitle || '') ? 1 : 0;
-              return bTopic - aTopic;
-            });
+          : [...searchRes.results].sort((a, b) => scoreAudioPurity(b) - scoreAudioPurity(a));
 
         const validMatch = candidateResults.find((item: SearchResultItem) => {
           const itemVideoId = parseYouTubeVideoId(item.url) || item.id;
@@ -217,10 +238,6 @@ export const getAutoplayNextYouTubeTrack = async (
           }
           if (isDuplicateSong(item.title, item.channelTitle, cleanCurrentTrackNorm, historyNorms)) {
             console.log(`[Autoplay Filter] Skipped duplicate/recent song version in fallback: "${item.title}"`);
-            return false;
-          }
-          if (!preferMusicVideos && item.title.toLowerCase().includes('music video')) {
-            console.log(`[Autoplay Filter] Skipped Music Video title in fallback (preferMusicVideos=false): "${item.title}"`);
             return false;
           }
           const itemParsed = parseTrackAndArtist(item.title, item.channelTitle);
@@ -235,7 +252,14 @@ export const getAutoplayNextYouTubeTrack = async (
         if (validMatch) {
           const matchedParsed = parseTrackAndArtist(validMatch.title, validMatch.channelTitle);
           const matchedArtist = matchedParsed.artist || validMatch.channelTitle;
-          console.log('[Autoplay] Resolved fallback YouTube track:', validMatch.title, validMatch.url, 'artist:', matchedArtist);
+          console.log(
+            '[Autoplay] Resolved fallback YouTube track:',
+            validMatch.title,
+            validMatch.url,
+            'artist:',
+            matchedArtist,
+            preferMusicVideos ? '' : `(purity score: ${scoreAudioPurity(validMatch)})`
+          );
           return {
             url: validMatch.url,
             title: validMatch.title,
