@@ -105,6 +105,7 @@ export interface SearchResultItem {
   channelTitle: string;
   thumbnail: string;
   url: string;
+  durationSeconds?: number;
 }
 
 export interface SearchResult {

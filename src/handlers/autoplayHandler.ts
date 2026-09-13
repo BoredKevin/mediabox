@@ -2,6 +2,32 @@ import { searchYouTubeVideos, SearchResultItem } from '@/lib/youtube';
 import { parseYouTubeVideoId } from '@/lib/roomUtils';
 import { parseTrackAndArtist, normalizeStr, cleanArtistName } from '@/lib/trackParser';
 import { fetchSimilarTracksFromLastFm } from '@/lib/lastfmApi';
+import { searchYTMusic } from '@/lib/ytmusicSearch';
+import { isProxyConfigured } from '@/lib/proxyConfig';
+
+/**
+ * Searches for tracks during autoplay: prefers YouTube Music via CORS proxy if configured,
+ * seamlessly falling back to YouTube Data API if proxy is unconfigured or returns no results.
+ */
+async function searchForAutoplay(query: string): Promise<{ results: SearchResultItem[]; error?: string; hasApiKey: boolean }> {
+  if (isProxyConfigured()) {
+    try {
+      const ytMusicQuery = query.replace(/\s+topic$/i, '');
+      console.log('[Autoplay] Attempting YTMusic search for:', ytMusicQuery);
+      const results = await searchYTMusic(ytMusicQuery);
+      if (results && results.length > 0) {
+        console.log(`[Autoplay] Using ${results.length} YTMusic results for: "${ytMusicQuery}"`);
+        return { results, hasApiKey: true };
+      }
+      console.log('[Autoplay] YTMusic returned 0 results, falling back to YouTube Data API...');
+    } catch (err: any) {
+      console.warn('[Autoplay] YTMusic search failed, falling back to YouTube Data API:', err?.message || err);
+    }
+  }
+
+  // Restrict YouTube Data API fallback to Music category (videoCategoryId: '10')
+  return searchYouTubeVideos(query, { videoCategoryId: '10' });
+}
 
 /**
  * Checks if two artist names are identical or have fuzzy substring match after cleaning.
@@ -39,6 +65,30 @@ export const isTopicChannel = (channel: string): boolean => {
 };
 
 /**
+ * Detects whether a video title indicates a non-standard music track, such as:
+ * - Multi-hour / 1-hour loops or extended mixes
+ * - Full albums, compilations, or discographies
+ * - 24/7 live streams
+ */
+export const isUnwantedLongOrCompilation = (title: string): boolean => {
+  const t = title.toLowerCase();
+
+  // Multi-hour or hour indicators (e.g. "1 hour", "10 hours", "2 hrs", "10h")
+  if (/\b\d+\s*(hours?|hrs?|h)\b/.test(t)) return true;
+  if (/\b(10\s*hours?|1\s*hour|hour\s*loop|hours\s*loop|\d+\s*h\s*loop)\b/.test(t)) return true;
+
+  // Loops & extended versions
+  if (/\b(infinite\s*loop|continuous\s*loop|1\s*hour\s*version|10\s*hour\s*version)\b/.test(t)) return true;
+  if (/\bloop\b/.test(t) && /\b(hour|hrs|\d+h|extended|repeat)\b/.test(t)) return true;
+
+  // Compilations / Full albums / Discographies / Mixes
+  if (/\b(full\s*album|complete\s*album|discography|all\s*songs|greatest\s*hits\s*full)\b/.test(t)) return true;
+  if (/\b(compilation|mega\s*mix|megamix|mashup\s*mix|dj\s*mix|album\s*mix|live\s*stream|24\/7)\b/.test(t)) return true;
+
+  return false;
+};
+
+/**
  * Scores a YouTube search result item for audio purity (0 to 3) when preferMusicVideos is false.
  * Score 3: Topic channel (official YouTube Music audio track)
  * Score 2: Dedicated audio track (official audio, lyric video, audio) or label channel (without VEVO)
@@ -46,13 +96,18 @@ export const isTopicChannel = (channel: string): boolean => {
  * Score 0: Music video / VEVO (kept as a last resort, never hard-blocked)
  */
 export const scoreAudioPurity = (item: SearchResultItem): number => {
+  // If the video is a long compilation/loop or > 12 minutes, penalize purity score to 0
+  if (isUnwantedLongOrCompilation(item.title) || (typeof item.durationSeconds === 'number' && item.durationSeconds > 720)) {
+    return 0;
+  }
+
   const channel = (item.channelTitle || '').toLowerCase();
   const title = (item.title || '').toLowerCase();
 
   // Tier 3: YouTube Music auto-generated "- Topic" channel
   if (isTopicChannel(item.channelTitle || '')) return 3;
 
-  // Tier 2: Official audio / lyric video or dedicated music label
+  // Tier 2: Dedicated audio track (official audio, lyric video, audio) or label channel (without VEVO)
   const isAudioTitle = /\b(official\s+audio|audio|lyric\s+video|lyric)\b/.test(title);
   const isLabelChannel = /\bmusic\b/.test(channel) && !channel.includes('vevo');
   if (isAudioTitle || isLabelChannel) return 2;
@@ -65,7 +120,6 @@ export const scoreAudioPurity = (item: SearchResultItem): number => {
   // Tier 1: Neutral / ambiguous
   return 1;
 };
-
 
 /**
  * Determines whether a search result item matches the currently playing track or recent history.
@@ -144,7 +198,7 @@ export const getAutoplayNextYouTubeTrack = async (
       const searchQuery = !preferMusicVideos ? `${rec.query} topic` : rec.query;
 
       console.log('[Autoplay] Searching YouTube for recommendation:', searchQuery);
-      const searchRes = await searchYouTubeVideos(searchQuery);
+      const searchRes = await searchForAutoplay(searchQuery);
 
       if (searchRes.error) {
         console.warn(`[Autoplay] YouTube search error for "${searchQuery}":`, searchRes.error);
@@ -162,6 +216,22 @@ export const getAutoplayNextYouTubeTrack = async (
         const validMatch = candidateResults.find((item: SearchResultItem) => {
           const itemVideoId = parseYouTubeVideoId(item.url) || item.id;
           if (itemVideoId && excludedVideoIds.has(itemVideoId)) {
+            return false;
+          }
+          // Duration filter: exclude shorts (<60s) and long videos/loops (>12m)
+          if (typeof item.durationSeconds === 'number') {
+            if (item.durationSeconds < 60) {
+              console.log(`[Autoplay Filter] Skipped short track (${item.durationSeconds}s): "${item.title}"`);
+              return false;
+            }
+            if (item.durationSeconds > 720) {
+              console.log(`[Autoplay Filter] Skipped long track (${item.durationSeconds}s): "${item.title}"`);
+              return false;
+            }
+          }
+          // Title filter: exclude loops, compilations, full albums
+          if (isUnwantedLongOrCompilation(item.title)) {
+            console.log(`[Autoplay Filter] Skipped long/compilation title: "${item.title}"`);
             return false;
           }
           if (isDuplicateSong(item.title, item.channelTitle, cleanCurrentTrackNorm, historyNorms)) {
@@ -186,6 +256,7 @@ export const getAutoplayNextYouTubeTrack = async (
             validMatch.url,
             'artist:',
             matchedArtist,
+            typeof validMatch.durationSeconds === 'number' ? `(${validMatch.durationSeconds}s)` : '',
             preferMusicVideos ? '' : `(purity score: ${scoreAudioPurity(validMatch)})`
           );
           return {
@@ -216,7 +287,7 @@ export const getAutoplayNextYouTubeTrack = async (
 
     for (const searchQuery of fallbackQueries) {
       console.log('[Autoplay] Fallback searching YouTube for:', searchQuery);
-      const searchRes = await searchYouTubeVideos(searchQuery);
+      const searchRes = await searchForAutoplay(searchQuery);
 
       if (searchRes.error) {
         console.warn(`[Autoplay] Fallback search error for "${searchQuery}":`, searchRes.error);
@@ -234,6 +305,22 @@ export const getAutoplayNextYouTubeTrack = async (
         const validMatch = candidateResults.find((item: SearchResultItem) => {
           const itemVideoId = parseYouTubeVideoId(item.url) || item.id;
           if (itemVideoId && excludedVideoIds.has(itemVideoId)) {
+            return false;
+          }
+          // Duration filter: exclude shorts (<60s) and long videos/loops (>12m)
+          if (typeof item.durationSeconds === 'number') {
+            if (item.durationSeconds < 60) {
+              console.log(`[Autoplay Filter] Skipped short track in fallback (${item.durationSeconds}s): "${item.title}"`);
+              return false;
+            }
+            if (item.durationSeconds > 720) {
+              console.log(`[Autoplay Filter] Skipped long track in fallback (${item.durationSeconds}s): "${item.title}"`);
+              return false;
+            }
+          }
+          // Title filter: exclude loops, compilations, full albums
+          if (isUnwantedLongOrCompilation(item.title)) {
+            console.log(`[Autoplay Filter] Skipped long/compilation title in fallback: "${item.title}"`);
             return false;
           }
           if (isDuplicateSong(item.title, item.channelTitle, cleanCurrentTrackNorm, historyNorms)) {
@@ -258,6 +345,7 @@ export const getAutoplayNextYouTubeTrack = async (
             validMatch.url,
             'artist:',
             matchedArtist,
+            typeof validMatch.durationSeconds === 'number' ? `(${validMatch.durationSeconds}s)` : '',
             preferMusicVideos ? '' : `(purity score: ${scoreAudioPurity(validMatch)})`
           );
           return {

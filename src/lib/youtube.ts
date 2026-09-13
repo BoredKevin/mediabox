@@ -70,21 +70,45 @@ export const decodeHtmlEntities = (text: string): string => {
 };
 
 /**
+ * Parses an ISO 8601 duration string (e.g. "PT3M45S", "PT1H2M30S") into total seconds.
+ */
+export const parseIsoDuration = (duration: string): number => {
+  if (!duration) return 0;
+  const match = duration.match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i);
+  if (!match) return 0;
+  const days = parseInt(match[1] || '0', 10);
+  const hours = parseInt(match[2] || '0', 10);
+  const minutes = parseInt(match[3] || '0', 10);
+  const seconds = parseInt(match[4] || '0', 10);
+  return days * 86400 + hours * 3600 + minutes * 60 + seconds;
+};
+
+export interface YouTubeSearchOptions {
+  videoCategoryId?: string;
+}
+
+/**
  * Searches YouTube videos using the official YouTube Data API v3 endpoint with an explicit API key.
  * Used by the TV room host as mediator.
+ * Automatically fetches video duration details in a single batch call (1 quota unit).
  */
 export const searchYouTubeWithKey = async (
   query: string,
   apiKey: string,
-  maxResults: number = 25
+  maxResults: number = 25,
+  options?: YouTubeSearchOptions
 ): Promise<SearchResultItem[]> => {
   const cleanQuery = query.trim();
   if (!cleanQuery) return [];
 
   const count = Math.max(1, Math.min(50, maxResults));
-  const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${count}&q=${encodeURIComponent(
+  let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${count}&q=${encodeURIComponent(
     cleanQuery
   )}&key=${apiKey.trim()}`;
+
+  if (options?.videoCategoryId) {
+    searchUrl += `&videoCategoryId=${encodeURIComponent(options.videoCategoryId)}`;
+  }
 
   const res = await fetch(searchUrl);
   if (!res.ok) {
@@ -112,6 +136,31 @@ export const searchYouTubeWithKey = async (
     }))
     .filter((item: SearchResultItem) => Boolean(item.id));
 
+  // Batch enrich video durations using videos.list endpoint (costs only 1 quota unit)
+  if (results.length > 0) {
+    try {
+      const videoIds = results.map((r) => r.id).filter(Boolean).join(',');
+      const videosUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoIds}&key=${apiKey.trim()}`;
+      const vRes = await fetch(videosUrl);
+      if (vRes.ok) {
+        const vData = await vRes.json();
+        const durationMap = new Map<string, number>();
+        for (const vItem of vData.items || []) {
+          if (vItem.id && vItem.contentDetails?.duration) {
+            durationMap.set(vItem.id, parseIsoDuration(vItem.contentDetails.duration));
+          }
+        }
+        for (const item of results) {
+          if (durationMap.has(item.id)) {
+            item.durationSeconds = durationMap.get(item.id);
+          }
+        }
+      }
+    } catch (vErr) {
+      console.warn('[YouTube API] Failed to fetch video durations (non-fatal):', vErr);
+    }
+  }
+
   return results;
 };
 
@@ -121,7 +170,8 @@ export const searchYouTubeWithKey = async (
  * supporting key rotation and fallback to VITE_YOUTUBE_API_KEY.
  */
 export const searchYouTubeVideos = async (
-  query: string
+  query: string,
+  options?: YouTubeSearchOptions
 ): Promise<{ results: SearchResultItem[]; hasApiKey: boolean; error?: string }> => {
   const config = loadSearchConfig();
   const maxResults = config.maxResults || 25;
@@ -137,7 +187,7 @@ export const searchYouTubeVideos = async (
       attemptedIds.add(keyRecord.id);
 
       try {
-        const results = await searchYouTubeWithKey(query, keyRecord.key, maxResults);
+        const results = await searchYouTubeWithKey(query, keyRecord.key, maxResults, options);
         incrementUsage(keyRecord.id);
         return { results, hasApiKey: true };
       } catch (err: any) {
@@ -160,7 +210,7 @@ export const searchYouTubeVideos = async (
     if (envKey && !attemptedIds.has('env')) {
       attemptedIds.add('env');
       try {
-        const results = await searchYouTubeWithKey(query, envKey, maxResults);
+        const results = await searchYouTubeWithKey(query, envKey, maxResults, options);
         return { results, hasApiKey: true };
       } catch (err: any) {
         if (err instanceof YouTubeQuotaExceededError) {
