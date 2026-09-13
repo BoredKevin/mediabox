@@ -231,8 +231,8 @@ export const MediaBox: React.FC = () => {
         : 'aspect-video w-full bg-background'
         }`}
     >
-      {isFullscreen && (
-        <div className="absolute top-4 right-4 z-[110] bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-5xl font-normal tracking-wider text-foreground opacity-80 transition-opacity flex items-center gap-2 shadow-lg pointer-events-none select-none">
+      {isFullscreen && (!roomState?.currentlyPlaying || isLocked) && (
+        <div className="absolute top-4 left-5 sm:left-8 z-[110] bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 shadow-lg pointer-events-none select-none">
           <span>
             {clockTime.hours}
             <span className="text-primary opacity-80 animate-blink">:</span>
@@ -292,11 +292,19 @@ export const MediaBox: React.FC = () => {
         {/* Top Overlay: Video Title & Author Name (YouTube embed style) */}
         {roomState?.currentlyPlaying && !isLocked && (
           <div
-            className={`absolute inset-x-0 top-0 z-30 pt-4 sm:pt-6 pb-12 sm:pb-16 px-5 sm:px-8 ${isFullscreen ? 'pr-52 sm:pr-72' : ''
-              } bg-gradient-to-b from-black/90 via-black/55 to-transparent flex items-start justify-between gap-4 pointer-events-none transition-opacity duration-300 select-none ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
+            className={`absolute inset-x-0 top-0 z-30 pt-4 sm:pt-6 pb-12 sm:pb-16 px-5 sm:px-8 bg-gradient-to-b from-black/90 via-black/55 to-transparent flex items-start justify-between gap-4 pointer-events-none transition-opacity duration-300 select-none ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
               }`}
           >
             <div className="flex flex-col min-w-0 max-w-full">
+              {isFullscreen && (
+                <div className="mb-2 w-fit bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-2xl md:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 shadow-lg select-none">
+                  <span>
+                    {clockTime.hours}
+                    <span className="text-primary opacity-80 animate-blink">:</span>
+                    {clockTime.minutes}
+                  </span>
+                </div>
+              )}
               <a
                 href={roomState.currentlyPlaying}
                 target="_blank"
@@ -319,32 +327,40 @@ export const MediaBox: React.FC = () => {
           </div>
         )}
 
+        {/* Center Play/Pause Button */}
+        {roomState?.currentlyPlaying && !isLocked && (
+          <div
+            className={`absolute inset-0 z-30 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
+              }`}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTogglePlayPause();
+              }}
+              aria-label={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
+              className="h-16 w-16 sm:h-20 sm:w-20 text-foreground hover:text-primary bg-background/80 hover:bg-background/95 border border-border/80 backdrop-blur-md rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-all shadow-2xl active:scale-95"
+              title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
+            >
+              {isPlaying ? (
+                <Pause className="w-8 h-8 sm:w-10 sm:h-10 fill-current" />
+              ) : (
+                <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-current ml-1" />
+              )}
+            </Button>
+          </div>
+        )}
+
         {/* Overlay Player Controls for Playing State */}
         {roomState?.currentlyPlaying && !isLocked && (
           <div
             className={`absolute inset-x-0 bottom-0 z-30 p-4 sm:p-6 md:p-8 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex items-center justify-between pointer-events-none transition-opacity duration-300 ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
               }`}
           >
-            {/* Left Controls: Play/Pause and Tactical Volume Control */}
+            {/* Left Controls: Tactical Volume Control */}
             <div className="flex items-center gap-3 sm:gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleTogglePlayPause();
-                }}
-                aria-label={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-                className="h-11 w-11 sm:h-14 sm:w-14 text-foreground hover:text-primary hover:bg-secondary/60 rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-all shadow-md active:scale-95"
-                title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-              >
-                {isPlaying ? (
-                  <Pause className="w-5 h-5 sm:w-7 sm:h-7 fill-current" />
-                ) : (
-                  <Play className="w-5 h-5 sm:w-7 sm:h-7 fill-current ml-0.5 sm:ml-1" />
-                )}
-              </Button>
-
               {/* Volume HUD Control */}
               <div
                 className="flex items-center gap-3 sm:gap-4 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-[var(--radius)] bg-background/80 border border-border/60 backdrop-blur-md pointer-events-auto shadow-lg"
