@@ -241,7 +241,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     }
   }, [muted, volume]);
 
-  const handleStartPlayUserClick = () => {
+  const handleStartPlayUserClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setNeedsUserInteraction(false);
     if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
       try {

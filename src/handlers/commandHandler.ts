@@ -82,12 +82,15 @@ export const processMemberCommand = async (
           videoTitle = info.title || '';
         }
 
+        const isActivelyPlaying =
+          Boolean(roomState?.currentlyPlaying) && roomState?.playback?.status === 'playing';
+
         await addToQueue(
           roomCode,
           videoUrl,
           videoTitle,
           memberUid,
-          Boolean(roomState?.currentlyPlaying)
+          isActivelyPlaying
         );
       }
     } else if (type === 'removeFromQueue' && payload && payload.itemId) {

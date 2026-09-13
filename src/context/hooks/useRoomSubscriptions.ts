@@ -153,6 +153,7 @@ export const useRoomSubscriptions = ({
     const unsubState = onValue(stateRefNode, (snapshot) => {
       if (snapshot.exists()) {
         const stateVal = snapshot.val();
+        roomStateRef.current = stateVal;
         setRoomState(stateVal);
         if (stateVal.hostUid) {
           hostUidRef.current = stateVal.hostUid;
@@ -171,8 +172,11 @@ export const useRoomSubscriptions = ({
           id,
           ...item,
         }));
-        setQueue(items.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0)));
+        const sortedItems = items.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+        queueRefState.current = sortedItems;
+        setQueue(sortedItems);
       } else {
+        queueRefState.current = [];
         setQueue([]);
       }
     });

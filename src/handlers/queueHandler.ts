@@ -8,15 +8,13 @@ import { QueueItem } from '@/lib/roomUtils';
 export const playNextQueueItem = async (roomCode: string, item: QueueItem): Promise<void> => {
   if (!roomCode || !item) return;
 
-  await update(ref(database, `rooms/${roomCode}/state`), {
-    currentlyPlaying: item.url,
-    currentlyPlayingTitle: item.title || '',
+  await update(ref(database, `rooms/${roomCode}`), {
+    'state/currentlyPlaying': item.url,
+    'state/currentlyPlayingTitle': item.title || '',
+    'state/playback/status': 'playing',
+    'state/playback/updatedAt': Date.now(),
+    [`queue/${item.id}`]: null,
   });
-  await update(ref(database, `rooms/${roomCode}/state/playback`), {
-    status: 'playing',
-    updatedAt: Date.now(),
-  });
-  await remove(ref(database, `rooms/${roomCode}/queue/${item.id}`));
 };
 
 /**
@@ -65,13 +63,11 @@ export const addToQueue = async (
   if (!roomCode || !videoUrl) return;
 
   if (!isCurrentlyPlaying) {
-    await update(ref(database, `rooms/${roomCode}/state`), {
-      currentlyPlaying: videoUrl,
-      currentlyPlayingTitle: videoTitle,
-    });
-    await update(ref(database, `rooms/${roomCode}/state/playback`), {
-      status: 'playing',
-      updatedAt: Date.now(),
+    await update(ref(database, `rooms/${roomCode}`), {
+      'state/currentlyPlaying': videoUrl,
+      'state/currentlyPlayingTitle': videoTitle,
+      'state/playback/status': 'playing',
+      'state/playback/updatedAt': Date.now(),
     });
   } else {
     const queueKey = `${Date.now()}_${addedBy.substring(0, 4)}`;

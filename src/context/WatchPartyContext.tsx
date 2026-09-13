@@ -95,6 +95,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const processingCommandsRef = useRef<Set<string>>(new Set());
   const lastFullscreenToggleRef = useRef<number>(0);
   const volumeDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isTransitioningRef = useRef<boolean>(false);
 
   // Auto-close QR code popup after 30 seconds
   useEffect(() => {
@@ -173,42 +174,14 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Resolves the next song to play, prioritizing the member queue above autoplay recommendations
   const handlePlayNextInQueue = useCallback(async () => {
-    if (!roomCode) return;
+    if (!roomCode || isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
 
-    // 1. Check queue first
-    const currentQueue = queueRefState.current;
-    if (currentQueue && currentQueue.length > 0) {
-      const nextItem = currentQueue[0];
-      if (nextItem.title) {
-        const parsed = parseTrackAndArtist(nextItem.title, '');
-        if (parsed.artist) {
-          pushArtist(parsed.artist);
-        }
-      }
-      await playNextQueueItem(roomCode, nextItem);
-      return;
-    }
-
-    // 2. Queue empty: check if Autoplay is enabled
-    if (roomStateRef.current?.isAutoplay) {
-      let currentTitle = roomStateRef.current?.currentlyPlayingTitle || '';
-      let channelTitle = '';
-      const currentUrl = roomStateRef.current?.currentlyPlaying || '';
-
-      if (currentUrl) {
-        const info = await fetchVideoTitle(currentUrl);
-        if (info.title && !currentTitle) {
-          currentTitle = info.title;
-        }
-        if (info.channelTitle) {
-          channelTitle = info.channelTitle;
-        }
-      }
-
-      // Race-condition guard: Did a member queue a song while resolving title?
-      if (queueRefState.current && queueRefState.current.length > 0) {
-        console.log('[TV Host] Queue item arrived during title resolution. Prioritizing queue.');
-        const nextItem = queueRefState.current[0];
+    try {
+      // 1. Check queue first
+      const currentQueue = queueRefState.current;
+      if (currentQueue && currentQueue.length > 0) {
+        const nextItem = currentQueue[0];
         if (nextItem.title) {
           const parsed = parseTrackAndArtist(nextItem.title, '');
           if (parsed.artist) {
@@ -219,67 +192,25 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return;
       }
 
-      if (currentTitle) {
-        pushTrack(currentTitle, channelTitle);
-      }
+      // 2. Queue empty: check if Autoplay is enabled
+      if (roomStateRef.current?.isAutoplay) {
+        let currentTitle = roomStateRef.current?.currentlyPlayingTitle || '';
+        let channelTitle = '';
+        const currentUrl = roomStateRef.current?.currentlyPlaying || '';
 
-      if (currentUrl) {
-        pushUrl(currentUrl);
-      }
-
-      const preferMusicVideos = roomStateRef.current?.searchSettings?.preferMusicVideos ?? true;
-
-      console.log(
-        '[TV Host] Autoplay active. Searching for track similar to title:',
-        currentTitle,
-        'channel:',
-        channelTitle,
-        'preferMusicVideos:',
-        preferMusicVideos
-      );
-
-      const nextTrack = await getAutoplayNextYouTubeTrack(
-        currentTitle,
-        channelTitle,
-        historyRef.current,
-        currentUrl,
-        urlHistoryRef.current,
-        preferMusicVideos,
-        artistHistoryRef.current
-      );
-
-      // Race-condition guard: Queue ALWAYS wins over autoplay recommendations!
-      if (queueRefState.current && queueRefState.current.length > 0) {
-        console.log('[TV Host] Queue item arrived during autoplay search. Prioritizing queue over autoplay recommendation.');
-        const nextItem = queueRefState.current[0];
-        if (nextItem.title) {
-          const parsed = parseTrackAndArtist(nextItem.title, '');
-          if (parsed.artist) {
-            pushArtist(parsed.artist);
+        if (currentUrl) {
+          const info = await fetchVideoTitle(currentUrl);
+          if (info.title && !currentTitle) {
+            currentTitle = info.title;
+          }
+          if (info.channelTitle) {
+            channelTitle = info.channelTitle;
           }
         }
-        await playNextQueueItem(roomCode, nextItem);
-        return;
-      }
 
-      if (nextTrack) {
-        console.log('[TV Host] Autoplay next track resolved:', nextTrack.title, nextTrack.url, 'artist:', nextTrack.artist);
-        const resolvedArtist = nextTrack.artist || parseTrackAndArtist(nextTrack.title, '').artist;
-        if (resolvedArtist) {
-          pushArtist(resolvedArtist);
-        }
-        await update(ref(database, `rooms/${roomCode}/state`), {
-          currentlyPlaying: nextTrack.url,
-          currentlyPlayingTitle: nextTrack.title,
-        });
-        await update(ref(database, `rooms/${roomCode}/state/playback`), {
-          status: 'playing',
-          updatedAt: Date.now(),
-        });
-      } else {
-        // Double check queue before clearing and pausing
+        // Race-condition guard: Did a member queue a song while resolving title?
         if (queueRefState.current && queueRefState.current.length > 0) {
-          console.log('[TV Host] Queue item arrived before clear-and-pause. Playing queue.');
+          console.log('[TV Host] Queue item arrived during title resolution. Prioritizing queue.');
           const nextItem = queueRefState.current[0];
           if (nextItem.title) {
             const parsed = parseTrackAndArtist(nextItem.title, '');
@@ -291,27 +222,99 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           return;
         }
 
-        console.warn('[TV Host] Autoplay found no similar tracks or YouTube results.');
-        await update(ref(database, `rooms/${roomCode}/state`), {
-          currentlyPlaying: '',
-          currentlyPlayingTitle: '',
-        });
-        await update(ref(database, `rooms/${roomCode}/state/playback`), {
-          status: 'paused',
-          updatedAt: Date.now(),
+        if (currentTitle) {
+          pushTrack(currentTitle, channelTitle);
+        }
+
+        if (currentUrl) {
+          pushUrl(currentUrl);
+        }
+
+        const preferMusicVideos = roomStateRef.current?.searchSettings?.preferMusicVideos ?? true;
+
+        console.log(
+          '[TV Host] Autoplay active. Searching for track similar to title:',
+          currentTitle,
+          'channel:',
+          channelTitle,
+          'preferMusicVideos:',
+          preferMusicVideos
+        );
+
+        const nextTrack = await getAutoplayNextYouTubeTrack(
+          currentTitle,
+          channelTitle,
+          historyRef.current,
+          currentUrl,
+          urlHistoryRef.current,
+          preferMusicVideos,
+          artistHistoryRef.current
+        );
+
+        // Race-condition guard: Queue ALWAYS wins over autoplay recommendations!
+        if (queueRefState.current && queueRefState.current.length > 0) {
+          console.log('[TV Host] Queue item arrived during autoplay search. Prioritizing queue over autoplay recommendation.');
+          const nextItem = queueRefState.current[0];
+          if (nextItem.title) {
+            const parsed = parseTrackAndArtist(nextItem.title, '');
+            if (parsed.artist) {
+              pushArtist(parsed.artist);
+            }
+          }
+          await playNextQueueItem(roomCode, nextItem);
+          return;
+        }
+
+        if (nextTrack) {
+          console.log('[TV Host] Autoplay next track resolved:', nextTrack.title, nextTrack.url, 'artist:', nextTrack.artist);
+          const resolvedArtist = nextTrack.artist || parseTrackAndArtist(nextTrack.title, '').artist;
+          if (resolvedArtist) {
+            pushArtist(resolvedArtist);
+          }
+          await update(ref(database, `rooms/${roomCode}`), {
+            'state/currentlyPlaying': nextTrack.url,
+            'state/currentlyPlayingTitle': nextTrack.title,
+            'state/playback/status': 'playing',
+            'state/playback/updatedAt': Date.now(),
+          });
+        } else {
+          // Double check queue before clearing and pausing
+          if (queueRefState.current && queueRefState.current.length > 0) {
+            console.log('[TV Host] Queue item arrived before clear-and-pause. Playing queue.');
+            const nextItem = queueRefState.current[0];
+            if (nextItem.title) {
+              const parsed = parseTrackAndArtist(nextItem.title, '');
+              if (parsed.artist) {
+                pushArtist(parsed.artist);
+              }
+            }
+            await playNextQueueItem(roomCode, nextItem);
+            return;
+          }
+
+          console.warn('[TV Host] Autoplay found no similar tracks or YouTube results.');
+          await update(ref(database, `rooms/${roomCode}`), {
+            'state/currentlyPlaying': '',
+            'state/currentlyPlayingTitle': '',
+            'state/playback/status': 'paused',
+            'state/playback/updatedAt': Date.now(),
+          });
+        }
+      } else {
+        await update(ref(database, `rooms/${roomCode}`), {
+          'state/currentlyPlaying': '',
+          'state/currentlyPlayingTitle': '',
+          'state/playback/status': 'paused',
+          'state/playback/updatedAt': Date.now(),
         });
       }
-    } else {
-      await update(ref(database, `rooms/${roomCode}/state`), {
-        currentlyPlaying: '',
-        currentlyPlayingTitle: '',
-      });
-      await update(ref(database, `rooms/${roomCode}/state/playback`), {
-        status: 'paused',
-        updatedAt: Date.now(),
-      });
+    } finally {
+      setTimeout(() => {
+        isTransitioningRef.current = false;
+      }, 500);
     }
   }, [roomCode, pushArtist, pushTrack, pushUrl, historyRef, urlHistoryRef, artistHistoryRef]);
+
 
   // Dispatchers for remote member commands and search requests
   const onMemberCommand = useCallback(
@@ -385,6 +388,18 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     onSearchRequest,
   });
 
+  // Active queue watcher: if player is idle and queue has items, automatically start playing
+  useEffect(() => {
+    if (
+      roomCode &&
+      !roomState?.currentlyPlaying &&
+      queue.length > 0 &&
+      !isTransitioningRef.current
+    ) {
+      handlePlayNextInQueue();
+    }
+  }, [roomCode, roomState?.currentlyPlaying, queue.length, handlePlayNextInQueue]);
+
   const handleCreateRoom = async () => {
     setCreating(true);
     try {
@@ -449,12 +464,15 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       videoTitle = info.title || '';
     }
 
+    const isActivelyPlaying =
+      Boolean(roomState?.currentlyPlaying) && roomState?.playback?.status === 'playing';
+
     await addToQueue(
       roomCode,
       videoUrl,
       videoTitle,
       user?.uid || 'host',
-      Boolean(roomState?.currentlyPlaying)
+      isActivelyPlaying
     );
     return true;
   };
