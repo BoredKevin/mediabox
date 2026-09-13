@@ -215,6 +215,16 @@
     "preferMusicVideosTitle": "Prioritaskan Video Musik",
     "preferMusicVideosDesc": "Jika AKTIF, autoplay mencari hasil video musik. Jika NONAKTIF, memprioritaskan audio murni / channel topik dan mengecualikan judul berisi \"Music Video\".",
     "confirmDelete": "Hapus",
-    "cancel": "Batal"
+    "cancel": "Batal",
+    "ytProxyTitle": "Proxy CORS YouTube Music",
+    "ytProxyDesc": "Arahkan pencarian autoplay melalui Innertube (YouTube Music) lewat Cloudflare Worker CORS proxy untuk mencari lagu murni dan menyaring Shorts tanpa memakan kuota YouTube Data API. Disimpan lokal di TV host ini saja.",
+    "ytProxyStatusConnected": "PROXY TERKONFIGURASI",
+    "ytProxyStatusDisconnected": "BELUM DIKONFIGURASI (MEMAKAI DATA API)",
+    "ytProxyUrlLabel": "URL Worker Proxy",
+    "ytProxyUrlPlaceholder": "https://mediabox-ytproxy.<subdomain>.workers.dev",
+    "ytProxyTokenLabel": "Token Autentikasi Proxy (Bearer)",
+    "ytProxyTokenPlaceholder": "Masukkan token rahasia jika ada...",
+    "ytProxySaveBtn": "Simpan Pengaturan Proxy",
+    "ytProxySavedNotice": "Pengaturan proxy tersimpan."
   }
 }

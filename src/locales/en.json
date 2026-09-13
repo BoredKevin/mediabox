@@ -215,6 +215,16 @@
     "preferMusicVideosTitle": "Prefer Music Videos",
     "preferMusicVideosDesc": "When ON, autoplay targets music video results. When OFF, it prefers pure audio / topic-channel uploads and excludes titles containing \"Music Video\".",
     "confirmDelete": "Delete",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "ytProxyTitle": "YouTube Music CORS Proxy",
+    "ytProxyDesc": "Route autoplay searches through Innertube (YouTube Music) via a Cloudflare Worker CORS proxy to search only music tracks and automatically filter Shorts without consuming YouTube Data API quota. Stored locally on this TV host only.",
+    "ytProxyStatusConnected": "PROXY CONFIGURED",
+    "ytProxyStatusDisconnected": "NOT CONFIGURED (FALLING BACK TO DATA API)",
+    "ytProxyUrlLabel": "Worker Proxy URL",
+    "ytProxyUrlPlaceholder": "https://mediabox-ytproxy.<subdomain>.workers.dev",
+    "ytProxyTokenLabel": "Proxy Auth Token (Bearer)",
+    "ytProxyTokenPlaceholder": "Enter secret token if configured...",
+    "ytProxySaveBtn": "Save Proxy Settings",
+    "ytProxySavedNotice": "Proxy settings saved."
   }
 }
