@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { fetchVideoTitle } from '@/lib/youtube';
 import { parseTrackAndArtist } from '@/lib/trackParser';
+import { IdleScheduleTimeline } from '@/components/IdleScheduleTimeline';
 
 export const MediaBox: React.FC = () => {
   const { t } = useTranslation();
@@ -215,10 +216,12 @@ export const MediaBox: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFullscreen, roomCode]);
 
+  const hasActiveMedia = Boolean(roomState?.currentlyPlaying) && !isLocked;
+
   const handleVideoAreaClick = () => {
     if (isLocked) return;
     resetControlsTimeout();
-    if (roomState?.currentlyPlaying) {
+    if (hasActiveMedia) {
       handleTogglePlayPause();
     }
   };
@@ -231,7 +234,7 @@ export const MediaBox: React.FC = () => {
         : 'aspect-video w-full bg-background'
         }`}
     >
-      {isFullscreen && (!roomState?.currentlyPlaying || isLocked) && (
+      {isFullscreen && !hasActiveMedia && (
         <div className="absolute top-4 left-5 sm:left-8 z-[110] bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 shadow-lg pointer-events-none select-none">
           <span>
             {clockTime.hours}
@@ -244,53 +247,29 @@ export const MediaBox: React.FC = () => {
 
       {/* Main Video Player Area */}
       <div
-        className={`flex-1 w-full bg-black relative flex items-center justify-center overflow-hidden h-full group cursor-pointer ${isFullscreen && !isOverlayVisible ? 'cursor-none' : ''
+        className={`flex-1 w-full bg-black relative flex items-center justify-center overflow-hidden h-full group ${hasActiveMedia ? 'cursor-pointer' : ''} ${isFullscreen && !isOverlayVisible ? 'cursor-none' : ''
           }`}
         onClick={handleVideoAreaClick}
         onMouseMove={handleMouseMove}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className={`w-full h-full flex items-center justify-center transition-all duration-500 ${isLocked ? 'blur-md opacity-40 scale-[1.02] pointer-events-none select-none' : ''
-          }`}>
-          {roomState?.currentlyPlaying ? (
+        <div className="w-full h-full flex items-center justify-center">
+          {hasActiveMedia ? (
             <YouTubePlayer
-              url={roomState.currentlyPlaying}
+              url={roomState!.currentlyPlaying!}
               isPlaying={isPlaying && !isLocked}
               volume={displayVolume}
               muted={muted}
               onEnded={handlePlayNextInQueue}
             />
           ) : (
-            <div className="text-center p-6 flex flex-col items-center gap-3">
-              {!roomCode || isLocked ? (
-                <MonitorOff className="w-12 h-12 text-muted-foreground opacity-50" />
-              ) : (
-                <MonitorPause className="w-12 h-12 text-muted-foreground opacity-50" />
-              )}
-              <p className="text-muted-foreground text-sm font-mono max-w-sm">
-                {roomCode
-                  ? t('mediaBox.noVideoPlaying')
-                  : t('mediaBox.watchPartyIdle')}
-              </p>
-            </div>
+            <IdleScheduleTimeline isLocked={isLocked} />
           )}
         </div>
 
-        {/* Room Locked Screen Overlay */}
-        {isLocked && (
-          <div className="absolute inset-0 z-20 bg-background/80 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-center select-none pointer-events-none">
-            <div className="flex flex-col items-center gap-3">
-              <MonitorOff className="w-12 h-12 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground text-sm font-mono max-w-sm">
-                {t('mediaBox.roomLockedSubtitle')}
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Top Overlay: Video Title & Author Name (YouTube embed style) */}
-        {roomState?.currentlyPlaying && !isLocked && (
+        {hasActiveMedia && (
           <div
             className={`absolute inset-x-0 top-0 z-30 pt-4 sm:pt-6 pb-12 sm:pb-16 px-5 sm:px-8 bg-gradient-to-b from-black/90 via-black/55 to-transparent flex items-start justify-between gap-4 pointer-events-none transition-opacity duration-300 select-none ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
               }`}
@@ -306,14 +285,14 @@ export const MediaBox: React.FC = () => {
                 </div>
               )}
               <a
-                href={roomState.currentlyPlaying}
+                href={roomState?.currentlyPlaying || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 className="text-white text-base sm:text-2xl md:text-3xl font-bold truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] hover:underline tracking-tight leading-snug pointer-events-auto transition-colors"
-                title={currentVideoMeta.title || roomState.currentlyPlayingTitle || 'YouTube Video'}
+                title={currentVideoMeta.title || roomState?.currentlyPlayingTitle || 'YouTube Video'}
               >
-                {currentVideoMeta.title || roomState.currentlyPlayingTitle || 'YouTube Video'}
+                {currentVideoMeta.title || roomState?.currentlyPlayingTitle || 'YouTube Video'}
               </a>
               {currentVideoMeta.author && (
                 <span
@@ -425,7 +404,7 @@ export const MediaBox: React.FC = () => {
         )}
 
         {/* Overlay Fullscreen Button for Idle or Locked State */}
-        {(!roomState?.currentlyPlaying || isLocked) && (
+        {!hasActiveMedia && (
           <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-30 pointer-events-auto">
             <Button
               variant="ghost"
