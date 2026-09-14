@@ -1,120 +1,83 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Badge, Button } from '@boredkevin/ui';
-import { ScheduleData, ScheduleItem } from '@/types/schedule';
-import { timeToMinutes } from '@/lib/utils';
+import { ScheduleItem } from '@/types/schedule';
 import { useTranslation } from '@/context/LanguageContext';
 import { useWatchParty } from '@/context/WatchPartyContext';
+import { useSchedule } from '@/hooks/useSchedule';
 import { CountdownOverlay } from '@/components/CountdownOverlay';
-import { Sparkles, Timer } from 'lucide-react';
-
-const DAYS_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+import { Sparkles, Timer, Clock } from 'lucide-react';
 
 export const ScheduleSection: React.FC = () => {
   const { t } = useTranslation();
   const { roomState } = useWatchParty();
-  const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
-  const [now, setNow] = useState<Date>(new Date());
+  const {
+    current,
+    next,
+    upcomingItems,
+    progress,
+    secondsToNext,
+    nextEndDateMs,
+    endsAt,
+    now,
+  } = useSchedule();
+
   const [activeCountdown, setActiveCountdown] = useState<{
     item: ScheduleItem;
     targetTimeMs: number;
   } | null>(null);
 
+  // Playback state determination
+  const isMediaPlaying = Boolean(roomState?.currentlyPlaying) && !roomState?.isLocked;
+  const [carouselIndex, setCarouselIndex] = useState<number>(0);
+  const [carouselProgress, setCarouselProgress] = useState<number>(100);
+  const [animPhase, setAnimPhase] = useState<'in' | 'out'>('in');
+
+  // Reset carousel when playback state or upcoming items change
   useEffect(() => {
-    fetch('/schedule.json')
-      .then((res) => res.json())
-      .then((data: ScheduleData) => setScheduleData(data))
-      .catch((err) => console.error('Failed to load schedule.json:', err));
-  }, []);
+    setCarouselIndex(0);
+    setCarouselProgress(100);
+    setAnimPhase('in');
+  }, [isMediaPlaying, upcomingItems.length]);
 
+  // 15-second schedule carousel mechanism during playback (starts filled, then empties)
+  // Transitions with fade-out slide-up then fade-in slide-up
   useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    if (!isMediaPlaying || upcomingItems.length <= 1) {
+      setCarouselProgress(100);
+      setAnimPhase('in');
+      return;
+    }
 
-  const dayName = DAYS_ID[now.getDay()];
+    const intervalMs = 15000;
+    const tickMs = 100;
+    const exitDurationMs = 300;
+    let elapsed = 0;
 
-  const getScheduleDetails = (): {
-    current: ScheduleItem;
-    next: ScheduleItem;
-    progress: number;
-    secondsToNext: number;
-    nextEndDateMs: number;
-  } => {
-    const fallbackItem = { start: "00:00", sub: t('schedule.loading') };
-    if (!scheduleData) return { current: fallbackItem, next: fallbackItem, progress: 0, secondsToNext: 99999, nextEndDateMs: 0 };
+    const timer = setInterval(() => {
+      elapsed += tickMs;
+      setCarouselProgress(Math.max(0, (1 - elapsed / intervalMs) * 100));
 
-    const daySchedule = scheduleData[dayName] || scheduleData["Senin"] || [];
-    if (daySchedule.length === 0) return { current: fallbackItem, next: fallbackItem, progress: 0, secondsToNext: 99999, nextEndDateMs: 0 };
-
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    let currentItem = daySchedule[0];
-    let nextItem = daySchedule[1] || daySchedule[0];
-    let isNextTomorrow = false;
-    let found = false;
-
-    for (let i = 0; i < daySchedule.length; i++) {
-      const current = daySchedule[i];
-      const next = daySchedule[i + 1];
-
-      if (next) {
-        if (currentMinutes >= timeToMinutes(current.start) && currentMinutes < timeToMinutes(next.start)) {
-          currentItem = current;
-          nextItem = next;
-          isNextTomorrow = false;
-          found = true;
-          break;
-        }
-      } else {
-        if (currentMinutes >= timeToMinutes(current.start)) {
-          currentItem = current;
-          const tomorrowIdx = (DAYS_ID.indexOf(dayName) + 1) % 7;
-          const tomorrowName = DAYS_ID[tomorrowIdx];
-          const tomorrowSchedule = scheduleData[tomorrowName] || scheduleData["Senin"] || [];
-          nextItem = tomorrowSchedule[0] || current;
-          isNextTomorrow = true;
-          found = true;
-          break;
-        }
+      if (elapsed >= intervalMs - exitDurationMs && elapsed < intervalMs) {
+        setAnimPhase('out');
       }
-    }
 
-    if (!found) {
-      currentItem = daySchedule[0];
-      nextItem = daySchedule[1] || daySchedule[0];
-    }
+      if (elapsed >= intervalMs) {
+        elapsed = 0;
+        setCarouselProgress(100);
+        setCarouselIndex((prev) => (prev + 1) % upcomingItems.length);
+        setAnimPhase('in');
+      }
+    }, tickMs);
 
-    const startDate = new Date(now);
-    const [startH, startM] = currentItem.start.split(':').map(Number);
-    startDate.setHours(startH, startM, 0, 0);
+    return () => clearInterval(timer);
+  }, [isMediaPlaying, upcomingItems.length]);
 
-    const endDate = new Date(now);
-    const [nextH, nextM] = nextItem.start.split(':').map(Number);
-    endDate.setHours(nextH, nextM, 0, 0);
+  // Active item in next schedule card
+  const activeNextItem = isMediaPlaying && upcomingItems.length > 0
+    ? (upcomingItems[carouselIndex] || next)
+    : next;
 
-    if (isNextTomorrow || endDate.getTime() <= startDate.getTime()) {
-      endDate.setDate(endDate.getDate() + 1);
-    }
-
-    const totalDuration = endDate.getTime() - startDate.getTime();
-    const remainingTime = endDate.getTime() - now.getTime();
-    const elapsedTime = now.getTime() - startDate.getTime();
-    const secondsToNext = Math.ceil(remainingTime / 1000);
-
-    let progress = 0;
-    if (totalDuration > 0) {
-      const ratio = Math.max(0, Math.min(1, elapsedTime / totalDuration));
-      progress = ratio * 100;
-    }
-
-    return { current: currentItem, next: nextItem, progress, secondsToNext, nextEndDateMs: endDate.getTime() };
-  };
-
-  const { current, next, progress, secondsToNext, nextEndDateMs } = getScheduleDetails();
-
-  // Handle auto-triggering countdown state
+  // Auto-trigger countdown overlay when enabled
   useEffect(() => {
     const isCountdownEnabled = Boolean(roomState?.isCountdownEnabled);
 
@@ -128,7 +91,7 @@ export const ScheduleSection: React.FC = () => {
     }
   }, [next, secondsToNext, nextEndDateMs, roomState?.isCountdownEnabled, activeCountdown]);
 
-  // Handle countdown tick & auto-dismiss after 3s post zero
+  // Auto-dismiss countdown after 3s post zero
   useEffect(() => {
     if (!activeCountdown) return;
 
@@ -147,9 +110,9 @@ export const ScheduleSection: React.FC = () => {
       prev
         ? null
         : {
-            item: next,
-            targetTimeMs: Date.now() + 10000,
-          }
+          item: activeNextItem,
+          targetTimeMs: Date.now() + 10000,
+        }
     );
   };
 
@@ -170,8 +133,12 @@ export const ScheduleSection: React.FC = () => {
         className="relative p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center"
       >
         <div>
-          <div className="text-sm font-bold uppercase tracking-wider mb-1 text-muted-foreground">
-            {t('schedule.currentSchedule')}
+          {/* Header with right-aligned Time Status Metadata */}
+          <div className="text-sm uppercase tracking-wider mb-1 text-muted-foreground flex items-center justify-between gap-2">
+            <span>{t('schedule.currentSchedule')}</span>
+            <div className="font-mono text-[10px] sm:text-xs text-primary px-2 sm:px-2.5 py-0.5 sm:py-1 bg-primary/10 border border-primary/30 rounded-none flex items-center gap-1.5 shrink-0 tracking-wider">
+              <span>{t('schedule.endsAt', { time: endsAt })}</span>
+            </div>
           </div>
           <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight">
             {current.sub}
@@ -188,14 +155,29 @@ export const ScheduleSection: React.FC = () => {
 
       {/* Next Schedule Box */}
       <Card
-        className="relative p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center opacity-85 group"
+        className="relative p-4 sm:p-5 md:flex-1 md:min-h-0 flex flex-col justify-center opacity-85 group overflow-hidden"
       >
         <div className="pl-2">
           <div className="text-sm font-bold uppercase tracking-wider mb-1 flex items-center justify-between text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>{t('schedule.nextSchedule')}</span>
-              {next.countdown && (
-                <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0.5 gap-1 bg-primary/10 text-primary border-primary/40 rounded-none">
+              {/* Item counter/badge during playback carousel */}
+              {isMediaPlaying && upcomingItems.length > 1 && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] uppercase font-mono px-1.5 py-0.5 border-primary/40 bg-primary/10 text-primary rounded-none"
+                >
+                  {t('schedule.upNextBadge', {
+                    current: carouselIndex + 1,
+                    total: upcomingItems.length,
+                  })}
+                </Badge>
+              )}
+              {activeNextItem.countdown && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] uppercase font-mono px-1.5 py-0.5 gap-1 bg-primary/10 text-primary border-primary/40 rounded-none"
+                >
                   <Sparkles className="w-3 h-3" /> Special
                 </Badge>
               )}
@@ -216,12 +198,35 @@ export const ScheduleSection: React.FC = () => {
               </Button>
             )}
           </div>
-          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight">
-            {next.sub} <span className="text-foreground/80 font-normal">({next.start})</span>
+
+          <div
+            className={
+              isMediaPlaying
+                ? animPhase === 'out'
+                  ? 'animate-fade-out-slide-up'
+                  : 'animate-fade-in-slide-up'
+                : ''
+            }
+          >
+            <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight">
+              {activeNextItem.sub}{' '}
+              <span className="text-foreground/80 font-normal">({activeNextItem.start})</span>
+            </div>
           </div>
         </div>
+
+        {/* 15-Second Carousel Progress Bar: transparent (h-[2px], bg-primary/20) at bottom during Playback */}
+        {isMediaPlaying && upcomingItems.length > 1 && (
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/[0.04] overflow-hidden pointer-events-none">
+            <div
+              className="h-full bg-primary/20 transition-all duration-100 ease-linear"
+              style={{ width: `${carouselProgress}%` }}
+            />
+          </div>
+        )}
       </Card>
     </div>
   );
 };
 
+export default ScheduleSection;
