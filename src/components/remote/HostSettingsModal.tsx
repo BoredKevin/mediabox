@@ -112,7 +112,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
       setRateLimitWindowInput(searchSettings?.rateLimitWindowMs || 300000);
       setMaxResultsInput(searchSettings?.maxResults || 25);
       const pCfg = loadProxyConfig();
-      setProxyUrl(pCfg.proxyUrl);
+      setProxyUrl(pCfg.proxyUrl || searchSettings?.proxyUrl || '');
       setProxyToken(pCfg.proxyToken);
       setProxySaved(false);
     }
@@ -135,12 +135,20 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
     return () => clearInterval(interval);
   }, [proxyTokenRevealed]);
 
-  const handleSaveProxy = (e: React.FormEvent) => {
+  const handleSaveProxy = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveProxyConfig({ proxyUrl, proxyToken });
-    setProxySaved(true);
-    showToast(t('tvSettings.ytProxySavedNotice'), 'success');
-    setTimeout(() => setProxySaved(false), 3000);
+    try {
+      saveProxyConfig({ proxyUrl, proxyToken });
+      await sendCommand('setYtProxy', {
+        proxyUrl: proxyUrl.trim(),
+        proxyToken: proxyToken.trim(),
+      });
+      setProxySaved(true);
+      showToast(t('tvSettings.ytProxySavedNotice'), 'success');
+      setTimeout(() => setProxySaved(false), 3000);
+    } catch {
+      showToast('Failed to save proxy settings', 'error');
+    }
   };
 
   // Subscribe to RTDB searchRateLimits when modal is open on Rate Limits tab
@@ -671,10 +679,10 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
                         {t('tvSettings.ytProxyTitle')}
                       </span>
                       <Badge
-                        variant={isProxyConfigured({ proxyUrl, proxyToken }) ? 'default' : 'outline'}
+                        variant={isProxyConfigured({ proxyUrl, proxyToken }) || searchSettings?.isProxyConfigured ? 'default' : 'outline'}
                         className="text-[9px] px-1.5 py-0 h-4"
                       >
-                        {isProxyConfigured({ proxyUrl, proxyToken })
+                        {isProxyConfigured({ proxyUrl, proxyToken }) || searchSettings?.isProxyConfigured
                           ? t('tvSettings.ytProxyStatusConnected')
                           : t('tvSettings.ytProxyStatusDisconnected')}
                       </Badge>

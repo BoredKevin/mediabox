@@ -303,6 +303,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         kickMember: t('toasts.kickSent'),
         toggleFullscreen: t('toasts.toggleFullscreenSent'),
         clearQueue: t('toasts.clearQueueSent'),
+        setYtProxy: t('tvSettings.ytProxySavedNotice'),
         toggleRoomLock: roomState?.isLocked
           ? t('toasts.roomUnlocked')
           : t('toasts.roomLocked'),

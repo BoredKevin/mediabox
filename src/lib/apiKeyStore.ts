@@ -1,4 +1,5 @@
 import { ApiKeyRecord, SearchSettings } from './roomUtils';
+import { loadProxyConfig, isProxyConfigured } from './proxyConfig';
 
 const STORAGE_KEY = 'mediabox_apikeys';
 const RR_INDEX_KEY = 'mediabox_rr_pointer';
@@ -59,6 +60,7 @@ export const getEffectiveSearchSettings = (): SearchSettings => {
   const keys = loadKeys();
   const enabledCount = keys.filter((k) => k.enabled && k.key.trim().length > 0).length;
   const config = loadSearchConfig();
+  const proxyCfg = loadProxyConfig();
   return {
     hasApiKeys: enabledCount > 0,
     keyCount: keys.length,
@@ -68,6 +70,8 @@ export const getEffectiveSearchSettings = (): SearchSettings => {
     rateLimitWindowMs: config.rateLimitWindowMs,
     allowHostKeyManagement: config.allowHostKeyManagement,
     preferMusicVideos: config.preferMusicVideos ?? true,
+    isProxyConfigured: isProxyConfigured(proxyCfg),
+    proxyUrl: proxyCfg.proxyUrl || undefined,
     keys: keys.map((k) => ({
       id: k.id,
       label: k.label,

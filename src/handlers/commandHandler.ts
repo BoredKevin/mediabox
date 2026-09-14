@@ -11,6 +11,7 @@ import {
   purgeMemberQueueItems,
 } from './queueHandler';
 import { addKey, deleteKey, updateKey, saveSearchConfig } from '@/lib/apiKeyStore';
+import { saveProxyConfig } from '@/lib/proxyConfig';
 
 export interface CommandHandlerContext {
   roomCode: string;
@@ -219,10 +220,26 @@ export const processMemberCommand = async (
           saveSearchConfig({ preferMusicVideos });
         } else if (action === 'clearRateLimits') {
           await ctx.onClearAllRateLimits();
+        } else if (action === 'setYtProxy') {
+          saveProxyConfig({
+            proxyUrl: typeof payload.proxyUrl === 'string' ? payload.proxyUrl : '',
+            proxyToken: typeof payload.proxyToken === 'string' ? payload.proxyToken : '',
+          });
         }
         await ctx.onUpdateSearchSettings({});
       } else {
         console.warn('[TV Host] Unauthorized manageApiKeys command from member:', memberUid);
+      }
+    } else if ((type === 'setYtProxy' || type === 'setProxy') && payload) {
+      const allowHost = roomState?.searchSettings?.allowHostKeyManagement ?? true;
+      if (permissions.isAdmin || permissions.isTvOwner || (permissions.isHost && allowHost)) {
+        saveProxyConfig({
+          proxyUrl: typeof payload.proxyUrl === 'string' ? payload.proxyUrl : '',
+          proxyToken: typeof payload.proxyToken === 'string' ? payload.proxyToken : '',
+        });
+        await ctx.onUpdateSearchSettings({});
+      } else {
+        console.warn('[TV Host] Unauthorized setYtProxy command from member:', memberUid);
       }
     }
   } catch (err) {

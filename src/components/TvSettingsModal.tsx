@@ -131,10 +131,11 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
     return () => clearInterval(interval);
   }, [proxyTokenRevealed]);
 
-  const handleSaveProxy = (e: React.FormEvent) => {
+  const handleSaveProxy = async (e: React.FormEvent) => {
     e.preventDefault();
     saveProxyConfig({ proxyUrl, proxyToken });
     setProxySaved(true);
+    await handleUpdateSearchSettings({});
     setTimeout(() => setProxySaved(false), 3000);
   };
 

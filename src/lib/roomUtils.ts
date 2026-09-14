@@ -26,6 +26,8 @@ export interface SearchSettings {
   allowHostKeyManagement: boolean;
   keys?: TruncatedApiKeyRecord[];
   preferMusicVideos?: boolean;
+  isProxyConfigured?: boolean;
+  proxyUrl?: string;
 }
 
 export interface RoomState {
@@ -66,7 +68,8 @@ export interface MemberCommand {
     | 'toggleCountdown'
     | 'togglePreferMusicVideos'
     | 'searchYouTube'
-    | 'manageApiKeys';
+    | 'manageApiKeys'
+    | 'setYtProxy';
   createdAt: number;
   payload?: {
     url?: string;
@@ -78,8 +81,11 @@ export interface MemberCommand {
     targetUid?: string;
     purgeQueue?: boolean;
     query?: string;
+    // For setYtProxy:
+    proxyUrl?: string;
+    proxyToken?: string;
     // For manageApiKeys:
-    action?: 'add' | 'delete' | 'update' | 'setStrategy' | 'setMaxResults' | 'setRateLimit' | 'setAllowHost' | 'setPreferMusicVideos' | 'clearRateLimits';
+    action?: 'add' | 'delete' | 'update' | 'setStrategy' | 'setMaxResults' | 'setRateLimit' | 'setAllowHost' | 'setPreferMusicVideos' | 'clearRateLimits' | 'setYtProxy';
     keyId?: string;
     key?: string;
     label?: string;
