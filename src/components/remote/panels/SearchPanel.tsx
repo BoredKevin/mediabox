@@ -200,9 +200,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     }
 
     // Case 2: Keyword Search Query
-    if (!searchSettings?.hasApiKeys) {
+    if (!searchSettings?.isProxyConfigured) {
       setSearchError(
-        'Keyword search requires an active YouTube API key on the TV. You can paste any direct YouTube link above to queue videos with zero setup.'
+        'Keyword search requires the MediaBox YouTube API proxy to be configured on the TV. You can paste any direct YouTube link above to queue videos with zero setup.'
       );
       return;
     }
@@ -223,9 +223,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     const timeoutId = setTimeout(() => {
       off(searchResRef);
       setIsSearching(false);
-      setSearchError('TV not responding (timeout after 10s). Please check TV connection.');
+      setSearchError('TV not responding (timeout after 25s). Please check TV connection.');
       activeReqRef.current = null;
-    }, 10000);
+    }, 25000);
 
     activeReqRef.current = { reqId, timeoutId, nodeRef: searchResRef };
 
@@ -436,8 +436,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         </div>
       )}
 
-      {/* No Key Contextual Banner (Displayed Below Search Bar) */}
-      {!searchSettings?.hasApiKeys && (
+      {/* No Key / Proxy Contextual Banner (Displayed Below Search Bar) */}
+      {!searchSettings?.isProxyConfigured && (
         <div className="p-3 bg-muted/20 border border-amber-800/60 text-xs flex flex-col gap-2 rounded-[var(--radius)]">
           <div className="flex items-center justify-between gap-2">
             <span className="font-bold flex items-center gap-1.5 text-amber-400">

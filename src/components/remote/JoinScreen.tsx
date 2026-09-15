@@ -43,7 +43,7 @@ export const JoinScreen: React.FC<JoinScreenProps> = ({
 
     const checkKeyStatus = async () => {
       try {
-        const snap = await get(ref(database, `rooms/${cleanCode}/state/searchSettings/hasApiKeys`));
+        const snap = await get(ref(database, `rooms/${cleanCode}/state/searchSettings/isProxyConfigured`));
         if (isMounted) {
           setRoomHasKeys(snap.exists() && snap.val() === true);
         }

@@ -13,9 +13,6 @@ import {
 } from '@/lib/roomUtils';
 import { fetchVideoTitle } from '@/lib/youtube';
 import {
-  addKey,
-  deleteKey,
-  updateKey,
   saveSearchConfig,
   getEffectiveSearchSettings,
 } from '@/lib/apiKeyStore';
@@ -58,7 +55,6 @@ interface WatchPartyContextType {
   handleAdjustVolume: (volume: number) => Promise<void>;
   copyRemoteLink: () => void;
   handleUpdateSearchSettings: (patch: Partial<SearchSettings>) => Promise<void>;
-  handleManageLocalKeys: (action: 'add' | 'delete' | 'update', data: any) => Promise<void>;
   handleClearAllRateLimits: () => Promise<void>;
 }
 
@@ -163,16 +159,6 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     await syncSearchSettingsToFirebase();
   }, [syncSearchSettingsToFirebase]);
 
-  const handleManageLocalKeys = useCallback(async (action: 'add' | 'delete' | 'update', data: any) => {
-    if (action === 'add' && data?.key) {
-      addKey(data.key, data.label || '');
-    } else if (action === 'delete' && data?.id) {
-      deleteKey(data.id);
-    } else if (action === 'update' && data?.id) {
-      updateKey(data.id, data.patch);
-    }
-    await syncSearchSettingsToFirebase();
-  }, [syncSearchSettingsToFirebase]);
 
   const handleClearAllRateLimits = useCallback(async () => {
     if (roomCode) {
@@ -595,7 +581,6 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         copyRemoteLink,
         searchSettings,
         handleUpdateSearchSettings,
-        handleManageLocalKeys,
         handleClearAllRateLimits,
       }}
     >

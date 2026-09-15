@@ -22,20 +22,12 @@ import {
   Key,
   Gauge,
   Sliders,
-  Plus,
-  Trash2,
   Eye,
   EyeOff,
   Check,
-  AlertCircle,
   Clock,
-  ShieldAlert,
   RotateCcw,
-  Sparkles,
-  X,
 } from 'lucide-react';
-import { loadKeys, deleteKey, getMaskedKey } from '@/lib/apiKeyStore';
-import { ApiKeyRecord } from '@/lib/roomUtils';
 import { loadProxyConfig, saveProxyConfig, isProxyConfigured } from '@/lib/proxyConfig';
 
 interface TvSettingsModalProps {
@@ -56,25 +48,13 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
     roomState,
     searchSettings,
     handleUpdateSearchSettings,
-    handleManageLocalKeys,
     handleClearAllRateLimits,
     handleToggleCountdown,
   } = useWatchParty();
 
-  const [activeTab, setActiveTab] = useState<string>('api-keys');
-  const [keysList, setKeysList] = useState<ApiKeyRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('api');
 
-  // Add Key Form state
-  const [newKeyLabel, setNewKeyLabel] = useState('');
-  const [newKeyValue, setNewKeyValue] = useState('');
-  const [addKeyError, setAddKeyError] = useState<string | null>(null);
-
-  // Temporary key reveal state (5 seconds)
-  const [revealedKeyId, setRevealedKeyId] = useState<string | null>(null);
-  const [revealCountdown, setRevealCountdown] = useState<number>(0);
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
-
-  // YouTube Music CORS Proxy configuration
+  // MediaBox YouTube API proxy configuration
   const [proxyUrl, setProxyUrl] = useState('');
   const [proxyToken, setProxyToken] = useState('');
   const [proxyTokenRevealed, setProxyTokenRevealed] = useState(false);
@@ -96,14 +76,8 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
   // Active Rate Limits data from RTDB
   const [activeRateLimits, setActiveRateLimits] = useState<RateLimitEntry[]>([]);
 
-  // Refresh keys from localStorage whenever modal opens or keys are modified
-  const refreshKeys = () => {
-    setKeysList(loadKeys());
-  };
-
   useEffect(() => {
     if (open) {
-      refreshKeys();
       setRateLimitCountInput(searchSettings.rateLimitCount || 10);
       setRateLimitWindowInput(searchSettings.rateLimitWindowMs || 300000);
       setMaxResultsInput(searchSettings.maxResults || 25);
@@ -139,25 +113,6 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
     setTimeout(() => setProxySaved(false), 3000);
   };
 
-  // Handle 5-second countdown for key reveal
-  useEffect(() => {
-    if (!revealedKeyId) return;
-
-    setRevealCountdown(5);
-    const interval = setInterval(() => {
-      setRevealCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setRevealedKeyId(null);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [revealedKeyId]);
-
   // Subscribe to RTDB searchRateLimits when modal is open and on Rate Limits tab
   useEffect(() => {
     if (!open || !roomCode || activeTab !== 'rate-limits') return;
@@ -182,55 +137,6 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
     return () => off(rateLimitsRef);
   }, [open, roomCode, activeTab]);
 
-  const handleAddKeySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newKeyValue.trim()) {
-      setAddKeyError('API Key string cannot be empty.');
-      return;
-    }
-
-    try {
-      await handleManageLocalKeys('add', {
-        key: newKeyValue.trim(),
-        label: newKeyLabel.trim(),
-      });
-      setNewKeyLabel('');
-      setNewKeyValue('');
-      setAddKeyError(null);
-      refreshKeys();
-    } catch (err: any) {
-      setAddKeyError(err.message || 'Failed to add API key.');
-    }
-  };
-
-  const handleToggleKeyEnabled = async (keyRecord: ApiKeyRecord) => {
-    await handleManageLocalKeys('update', {
-      id: keyRecord.id,
-      patch: { enabled: !keyRecord.enabled },
-    });
-    refreshKeys();
-  };
-
-  const handleDeleteKey = async (keyId: string) => {
-    try {
-      deleteKey(keyId);
-      refreshKeys();
-      setConfirmingDeleteId(null);
-      await handleManageLocalKeys('delete', { id: keyId });
-    } catch (err) {
-      console.warn('Error deleting API key:', err);
-      refreshKeys();
-    }
-  };
-
-  const handleToggleReveal = (keyId: string) => {
-    if (revealedKeyId === keyId) {
-      setRevealedKeyId(null);
-    } else {
-      setRevealedKeyId(keyId);
-    }
-  };
-
   const handleSaveRateLimits = async (e: React.FormEvent) => {
     e.preventDefault();
     await handleUpdateSearchSettings({
@@ -242,17 +148,9 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
     setTimeout(() => setRateLimitSaved(false), 2000);
   };
 
-  const handleStrategyChange = async (strategy: 'roundRobin' | 'leastUsed') => {
-    await handleUpdateSearchSettings({ strategy });
-  };
-
-  const handleAllowHostChange = async (checked: boolean) => {
-    await handleUpdateSearchSettings({ allowHostKeyManagement: checked });
-  };
-
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-2xl w-full h-[620px] max-h-[85vh] bg-card/95 border-border shadow-2xl backdrop-blur-xl flex flex-col p-6 overflow-hidden">
+      <DialogContent className="sm:max-w-2xl w-full h-[540px] max-h-[85vh] bg-card/95 border-border shadow-2xl backdrop-blur-xl flex flex-col p-6 overflow-hidden">
         <DialogHeader className="border-b border-border pb-3 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-foreground font-display tracking-wider uppercase text-base">
             <Sliders className="w-5 h-5 text-primary" />
@@ -267,16 +165,17 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
           <TabsList className="grid grid-cols-3 w-full border-b border-border bg-muted/40 p-1 mb-4 rounded-none flex-shrink-0">
             <TabsTrigger
-              value="api-keys"
+              value="api"
               className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider py-2"
             >
               <Key className="w-3.5 h-3.5" />
               <span>{t('tvSettings.tabApiKeys')}</span>
-              {keysList.length > 0 && (
-                <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px] bg-primary/10 text-primary border-primary/40 font-mono">
-                  {keysList.length}
-                </Badge>
-              )}
+              <Badge
+                variant={isProxyConfigured({ proxyUrl, proxyToken }) ? 'default' : 'outline'}
+                className="ml-1 px-1.5 py-0 text-[9px] font-mono"
+              >
+                {isProxyConfigured({ proxyUrl, proxyToken }) ? 'ACTIVE' : 'OFF'}
+              </Badge>
             </TabsTrigger>
             <TabsTrigger
               value="rate-limits"
@@ -294,192 +193,13 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB 1: API KEYS */}
-          <TabsContent value="api-keys" className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-4 focus-visible:outline-none">
-            {/* Header / Description */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  {t('tvSettings.apiKeysTitle')}
-                </h4>
-                <p className="text-[11px] text-muted-foreground">
-                  {t('tvSettings.apiKeysDesc')}
-                </p>
-              </div>
-            </div>
-
-            {/* Existing Keys List */}
-            <div className="space-y-2">
-              {keysList.length === 0 ? (
-                <div className="p-4 bg-muted/20 border border-dashed border-border text-center">
-                  <Key className="w-6 h-6 text-muted-foreground mx-auto mb-1 opacity-50" />
-                  <p className="text-xs text-muted-foreground">{t('tvSettings.noKeys')}</p>
-                </div>
-              ) : (
-                keysList.map((keyItem) => {
-                  const isRevealed = revealedKeyId === keyItem.id;
-                  return (
-                    <div
-                      key={keyItem.id}
-                      className={`p-3 border transition-all flex flex-col gap-2 ${keyItem.enabled
-                          ? 'bg-muted/30 border-border'
-                          : 'bg-muted/10 border-border/50 opacity-60'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-bold text-xs text-foreground truncate">
-                            {keyItem.label}
-                          </span>
-                          <Badge
-                            variant={keyItem.enabled ? 'outline' : 'secondary'}
-                            className="px-1.5 py-0 text-[9px] font-mono"
-                          >
-                            {keyItem.enabled ? 'ENABLED' : 'DISABLED'}
-                          </Badge>
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            Today: {keyItem.usageToday || 0} reqs
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {/* Enable/Disable Switch */}
-                          <Switch
-                            checked={keyItem.enabled}
-                            onCheckedChange={() => handleToggleKeyEnabled(keyItem)}
-                            aria-label={`Toggle ${keyItem.label}`}
-                          />
-                          {/* Delete Key Button with inline confirmation */}
-                          {confirmingDeleteId === keyItem.id ? (
-                            <div className="flex items-center gap-1 animate-in fade-in duration-150">
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleDeleteKey(keyItem.id)}
-                                className="h-7 px-2 text-[10px] font-bold uppercase rounded-none flex items-center gap-1"
-                                title="Confirm Delete"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                <span>{t('tvSettings.confirmDelete') || 'Delete'}</span>
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setConfirmingDeleteId(null)}
-                                className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground rounded-none"
-                                title="Cancel"
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setConfirmingDeleteId(keyItem.id)}
-                              className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors rounded-none"
-                              title="Delete API key"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Key Display Row with 5s Reveal */}
-                      <div className="flex items-center justify-between gap-2 bg-background/80 p-1.5 border border-border/70 font-mono text-xs">
-                        <span className="truncate text-primary select-all">
-                          {isRevealed ? keyItem.key : getMaskedKey(keyItem.key)}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleReveal(keyItem.id)}
-                          className="h-6 px-2 text-[10px] uppercase font-bold flex items-center gap-1 text-muted-foreground hover:text-foreground"
-                          title={isRevealed ? 'Hide API key' : 'Temporarily reveal key for 5 seconds'}
-                        >
-                          {isRevealed ? (
-                            <>
-                              <EyeOff className="w-3 h-3 text-amber-400" />
-                              <span className="text-amber-400 font-mono">{revealCountdown}s</span>
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="w-3 h-3" />
-                              <span>Reveal</span>
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Add Key Form */}
-            <form
-              onSubmit={handleAddKeySubmit}
-              className="p-3 bg-muted/20 border border-border flex flex-col gap-2.5"
-            >
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1">
-                <Plus className="w-3.5 h-3.5 text-primary" />
-                <span>{t('tvSettings.addKeyBtn')}</span>
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
-                    {t('tvSettings.keyLabel')}
-                  </label>
-                  <Input
-                    type="text"
-                    value={newKeyLabel}
-                    onChange={(e) => setNewKeyLabel(e.target.value)}
-                    placeholder={t('tvSettings.keyLabelPlaceholder')}
-                    className="text-xs h-8"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
-                    {t('tvSettings.keyValue')}
-                  </label>
-                  <Input
-                    type="password"
-                    value={newKeyValue}
-                    onChange={(e) => setNewKeyValue(e.target.value)}
-                    placeholder={t('tvSettings.keyValuePlaceholder')}
-                    className="text-xs font-mono h-8"
-                  />
-                </div>
-              </div>
-
-              {addKeyError && (
-                <p className="text-[11px] text-destructive font-mono bg-destructive/10 p-1 border border-destructive/30">
-                  {addKeyError}
-                </p>
-              )}
-
-              <Button
-                type="submit"
-                variant="cyber"
-                chamfer="top-right"
-                className="py-1.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-8 mt-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{t('tvSettings.addKeyBtn')}</span>
-              </Button>
-            </form>
-
-            {/* YouTube Music CORS Proxy Settings */}
-            <div className="p-3 bg-muted/20 border border-border space-y-3">
-              <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
+          {/* TAB 1: MEDIABOX YOUTUBE API */}
+          <TabsContent value="api" className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-4 focus-visible:outline-none">
+            <div className="p-4 bg-muted/20 border border-border space-y-4">
+              <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    <span className="text-sm font-bold text-foreground uppercase tracking-wider">
                       {t('tvSettings.ytProxyTitle')}
                     </span>
                     <Badge
@@ -491,13 +211,13 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                         : t('tvSettings.ytProxyStatusDisconnected')}
                     </Badge>
                   </div>
-                  <span className="text-[10px] text-muted-foreground block mt-0.5">
+                  <span className="text-xs text-muted-foreground block mt-1 leading-relaxed">
                     {t('tvSettings.ytProxyDesc')}
                   </span>
                 </div>
               </div>
 
-              <form onSubmit={handleSaveProxy} className="space-y-2">
+              <form onSubmit={handleSaveProxy} className="space-y-3">
                 <div>
                   <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
                     {t('tvSettings.ytProxyUrlLabel')}
@@ -507,7 +227,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                     value={proxyUrl}
                     onChange={(e) => setProxyUrl(e.target.value)}
                     placeholder={t('tvSettings.ytProxyUrlPlaceholder')}
-                    className="text-xs font-mono h-8"
+                    className="text-xs font-mono h-9"
                   />
                 </div>
 
@@ -521,7 +241,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                       value={proxyToken}
                       onChange={(e) => setProxyToken(e.target.value)}
                       placeholder={t('tvSettings.ytProxyTokenPlaceholder')}
-                      className="text-xs font-mono h-8 flex-1"
+                      className="text-xs font-mono h-9 flex-1"
                     />
                     {proxyToken && (
                       <Button
@@ -529,7 +249,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                         variant="ghost"
                         size="sm"
                         onClick={() => setProxyTokenRevealed(!proxyTokenRevealed)}
-                        className="h-8 px-2 text-muted-foreground hover:text-foreground text-[10px]"
+                        className="h-9 px-2.5 text-muted-foreground hover:text-foreground text-[10px]"
                         title={proxyTokenRevealed ? 'Hide' : 'Reveal for 5s'}
                       >
                         {proxyTokenRevealed ? (
@@ -545,9 +265,9 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center justify-between pt-2">
                   {proxySaved ? (
-                    <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+                    <span className="text-xs text-emerald-400 font-mono flex items-center gap-1">
                       <Check className="w-3.5 h-3.5" />
                       {t('tvSettings.ytProxySavedNotice')}
                     </span>
@@ -558,63 +278,12 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                     variant="cyber"
                     chamfer="top-right"
                     size="sm"
-                    className="py-1 px-3 text-xs font-bold uppercase tracking-wider h-7"
+                    className="py-1 px-4 text-xs font-bold uppercase tracking-wider h-8"
                   >
                     {t('tvSettings.ytProxySaveBtn')}
                   </Button>
                 </div>
               </form>
-            </div>
-
-            {/* Strategy & Host Management Settings */}
-            <div className="p-3 bg-muted/20 border border-border space-y-3">
-              <div className="flex items-center justify-between border-b border-border pb-2">
-                <div>
-                  <span className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                    {t('tvSettings.strategyTitle')}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Balances quota usage across all active keys.
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 bg-muted/60 p-0.5 border border-border">
-                  <Button
-                    type="button"
-                    variant={searchSettings.strategy === 'roundRobin' ? 'cyber' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleStrategyChange('roundRobin')}
-                    className="px-2.5 py-1 text-[10px] font-bold uppercase h-6"
-                  >
-                    {t('tvSettings.roundRobin')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={searchSettings.strategy === 'leastUsed' ? 'cyber' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleStrategyChange('leastUsed')}
-                    className="px-2.5 py-1 text-[10px] font-bold uppercase h-6"
-                  >
-                    {t('tvSettings.leastUsed')}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Allow Host Key Management Toggle */}
-              <div className="flex items-center justify-between pt-1">
-                <div>
-                  <span className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                    {t('tvSettings.allowHostManagement')}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {t('tvSettings.allowHostDesc')}
-                  </span>
-                </div>
-                <Switch
-                  checked={searchSettings.allowHostKeyManagement}
-                  onCheckedChange={handleAllowHostChange}
-                  aria-label="Allow Host to Manage Keys"
-                />
-              </div>
             </div>
           </TabsContent>
 

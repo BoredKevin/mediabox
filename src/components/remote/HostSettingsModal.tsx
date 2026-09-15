@@ -12,7 +12,6 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-  Switch,
   Button,
   Input,
   Badge,
@@ -29,8 +28,6 @@ import {
   Check,
   Key,
   Gauge,
-  Plus,
-  X,
   RotateCcw,
   Clock,
   Video,
@@ -38,7 +35,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
-import { RoomState, TruncatedApiKeyRecord } from '@/lib/roomUtils';
+import { RoomState } from '@/lib/roomUtils';
 import { loadProxyConfig, saveProxyConfig, isProxyConfigured } from '@/lib/proxyConfig';
 
 interface HostSettingsModalProps {
@@ -76,12 +73,6 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<string>('room');
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Add Key Form state
-  const [newKeyLabel, setNewKeyLabel] = useState('');
-  const [newKeyValue, setNewKeyValue] = useState('');
-  const [addKeyError, setAddKeyError] = useState<string | null>(null);
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
-
   // Rate Limit configuration form state
   const searchSettings = roomState?.searchSettings;
   const [rateLimitCountInput, setRateLimitCountInput] = useState<number>(
@@ -95,7 +86,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
   );
   const [rateLimitSaved, setRateLimitSaved] = useState(false);
 
-  // YouTube Music CORS Proxy configuration (admin/host only)
+  // MediaBox YouTube API Proxy configuration (admin/host only)
   const [proxyUrl, setProxyUrl] = useState('');
   const [proxyToken, setProxyToken] = useState('');
   const [proxyTokenRevealed, setProxyTokenRevealed] = useState(false);
@@ -187,91 +178,6 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
     }
   };
 
-  const handleAddKeySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newKeyValue.trim()) {
-      setAddKeyError('API Key string cannot be empty.');
-      return;
-    }
-
-    try {
-      await sendCommand('manageApiKeys', {
-        action: 'add',
-        key: newKeyValue.trim(),
-        label: newKeyLabel.trim() || 'Remote Key',
-      });
-      setNewKeyLabel('');
-      setNewKeyValue('');
-      setAddKeyError(null);
-      showToast('Added API key!', 'success');
-    } catch {
-      showToast('Failed to send key to TV', 'error');
-    }
-  };
-
-  const handleToggleKeyEnabled = async (keyItem: TruncatedApiKeyRecord) => {
-    try {
-      await sendCommand('manageApiKeys', {
-        action: 'update',
-        keyId: keyItem.id,
-        enabled: !keyItem.enabled,
-      });
-      showToast(
-        `${keyItem.label} ${!keyItem.enabled ? 'enabled' : 'disabled'}`,
-        'info'
-      );
-    } catch {
-      showToast('Failed to update key', 'error');
-    }
-  };
-
-  const handleDeleteKey = async (keyId: string) => {
-    try {
-      await sendCommand('manageApiKeys', {
-        action: 'delete',
-        keyId,
-      });
-      setConfirmingDeleteId(null);
-      showToast('API key deleted', 'success');
-    } catch {
-      showToast('Failed to delete key', 'error');
-    }
-  };
-
-  const handleStrategyChange = async (strategy: 'roundRobin' | 'leastUsed') => {
-    try {
-      await sendCommand('manageApiKeys', {
-        action: 'setStrategy',
-        strategy,
-      });
-      showToast(
-        `Load balancing set to ${
-          strategy === 'roundRobin'
-            ? t('tvSettings.roundRobin')
-            : t('tvSettings.leastUsed')
-        }`,
-        'info'
-      );
-    } catch {
-      showToast('Failed to update strategy', 'error');
-    }
-  };
-
-  const handleAllowHostChange = async (checked: boolean) => {
-    try {
-      await sendCommand('manageApiKeys', {
-        action: 'setAllowHost',
-        allowHostKeyManagement: checked,
-      });
-      showToast(
-        `Host key management ${checked ? 'enabled' : 'disabled'}`,
-        'info'
-      );
-    } catch {
-      showToast('Failed to update permission', 'error');
-    }
-  };
-
   const handleSaveRateLimits = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -301,11 +207,11 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
     }
   };
 
-  const keysList: TruncatedApiKeyRecord[] = searchSettings?.keys || [];
+  const isConfigured = isProxyConfigured({ proxyUrl, proxyToken }) || Boolean(searchSettings?.isProxyConfigured);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl w-full h-[620px] max-h-[90vh] flex flex-col bg-card border-border overflow-hidden p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
+      <DialogContent className="max-w-xl w-full h-[540px] max-h-[90vh] flex flex-col bg-card border-border overflow-hidden p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
         <DialogHeader className="border-b border-border pb-3 flex-shrink-0">
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-primary" />
@@ -314,7 +220,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
-            Manage room privileges, playback settings, YouTube API keys, and rate limits.
+            Manage room privileges, playback settings, MediaBox YouTube API, and rate limits.
           </DialogDescription>
         </DialogHeader>
 
@@ -333,19 +239,17 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
               <span>{t('tvSettings.tabRoom') || 'Room'}</span>
             </TabsTrigger>
             <TabsTrigger
-              value="api-keys"
+              value="api"
               className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider py-2"
             >
               <Key className="w-3.5 h-3.5" />
               <span>{t('tvSettings.tabApiKeys')}</span>
-              {keysList.length > 0 && (
-                <Badge
-                  variant="outline"
-                  className="ml-1 px-1.5 py-0 text-[10px] bg-primary/10 text-primary border-primary/40 font-mono"
-                >
-                  {keysList.length}
-                </Badge>
-              )}
+              <Badge
+                variant={isConfigured ? 'default' : 'outline'}
+                className="ml-1 px-1.5 py-0 text-[9px] font-mono"
+              >
+                {isConfigured ? 'ACTIVE' : 'OFF'}
+              </Badge>
             </TabsTrigger>
             <TabsTrigger
               value="rate-limits"
@@ -356,7 +260,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB 1: ROOM CONTROLS & QR CODE (Existing Remote Settings) */}
+          {/* TAB 1: ROOM CONTROLS & QR CODE */}
           <TabsContent
             value="room"
             className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-4 focus-visible:outline-none"
@@ -497,329 +401,100 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
             </div>
           </TabsContent>
 
-          {/* TAB 2: YOUTUBE DATA API KEYS CRUD */}
+          {/* TAB 2: MEDIABOX YOUTUBE API PROXY */}
           <TabsContent
-            value="api-keys"
+            value="api"
             className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-4 focus-visible:outline-none"
           >
-            {/* Header */}
-            <div>
-              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                {t('tvSettings.apiKeysTitle')}
-              </h4>
-              <p className="text-[11px] text-muted-foreground">
-                {t('tvSettings.apiKeysDesc')}
-              </p>
-            </div>
-
-            {/* Keys List */}
-            <div className="space-y-2">
-              {keysList.length === 0 ? (
-                <div className="p-4 bg-muted/20 border border-dashed border-border text-center">
-                  <Key className="w-6 h-6 text-muted-foreground mx-auto mb-1 opacity-50" />
-                  <p className="text-xs text-muted-foreground">
-                    {t('tvSettings.noKeys')}
-                  </p>
-                </div>
-              ) : (
-                keysList.map((keyItem) => (
-                  <div
-                    key={keyItem.id}
-                    className={`p-3 border transition-all flex flex-col gap-2 ${
-                      keyItem.enabled
-                        ? 'bg-muted/30 border-border'
-                        : 'bg-muted/10 border-border/50 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-bold text-xs text-foreground truncate">
-                          {keyItem.label}
-                        </span>
-                        <Badge
-                          variant={keyItem.enabled ? 'outline' : 'secondary'}
-                          className="px-1.5 py-0 text-[9px] font-mono"
-                        >
-                          {keyItem.enabled ? 'ENABLED' : 'DISABLED'}
-                        </Badge>
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          Today: {keyItem.usageToday || 0} reqs
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Enable/Disable Switch */}
-                        <Switch
-                          checked={keyItem.enabled}
-                          onCheckedChange={() => handleToggleKeyEnabled(keyItem)}
-                          aria-label={`Toggle ${keyItem.label}`}
-                        />
-
-                        {/* Delete Key with inline confirmation */}
-                        {confirmingDeleteId === keyItem.id ? (
-                          <div className="flex items-center gap-1 animate-in fade-in duration-150">
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteKey(keyItem.id)}
-                              className="h-7 px-2 text-[10px] font-bold uppercase rounded-none flex items-center gap-1"
-                              title="Confirm Delete"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              <span>{t('tvSettings.confirmDelete') || 'Delete'}</span>
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setConfirmingDeleteId(null)}
-                              className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground rounded-none"
-                              title="Cancel"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setConfirmingDeleteId(keyItem.id)}
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors rounded-none"
-                            title="Delete API key"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Key Display Row - Truncated only, strictly no reveal button */}
-                    <div className="flex items-center justify-between gap-2 bg-background/80 p-2 border border-border/70 font-mono text-xs">
-                      <span className="truncate text-primary select-all">
-                        {keyItem.key}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Add Key Form */}
-            <form
-              onSubmit={handleAddKeySubmit}
-              className="p-3 bg-muted/20 border border-border flex flex-col gap-2.5"
-            >
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1">
-                <Plus className="w-3.5 h-3.5 text-primary" />
-                <span>{t('tvSettings.addKeyBtn')}</span>
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="p-4 bg-muted/20 border border-border space-y-4">
+              <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
                 <div>
-                  <label
-                    htmlFor="remote-key-label"
-                    className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1"
-                  >
-                    {t('tvSettings.keyLabel')}
-                  </label>
-                  <Input
-                    id="remote-key-label"
-                    type="text"
-                    value={newKeyLabel}
-                    onChange={(e) => setNewKeyLabel(e.target.value)}
-                    placeholder={t('tvSettings.keyLabelPlaceholder')}
-                    className="text-xs h-8"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="remote-key-val"
-                    className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1"
-                  >
-                    {t('tvSettings.keyValue')}
-                  </label>
-                  <Input
-                    id="remote-key-val"
-                    type="password"
-                    value={newKeyValue}
-                    onChange={(e) => setNewKeyValue(e.target.value)}
-                    placeholder={t('tvSettings.keyValuePlaceholder')}
-                    className="text-xs font-mono h-8"
-                  />
-                </div>
-              </div>
-
-              {addKeyError && (
-                <p className="text-[11px] text-destructive font-mono bg-destructive/10 p-1 border border-destructive/30">
-                  {addKeyError}
-                </p>
-              )}
-
-              <Button
-                type="submit"
-                variant="cyber"
-                chamfer="top-right"
-                disabled={!newKeyValue.trim()}
-                className="py-1.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-8 mt-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{t('tvSettings.addKeyBtn')}</span>
-              </Button>
-            </form>
-
-            {/* YouTube Music CORS Proxy Settings (Host Only) */}
-            {isAdmin && (
-              <div className="p-3 bg-muted/20 border border-border space-y-3">
-                <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                        {t('tvSettings.ytProxyTitle')}
-                      </span>
-                      <Badge
-                        variant={isProxyConfigured({ proxyUrl, proxyToken }) || searchSettings?.isProxyConfigured ? 'default' : 'outline'}
-                        className="text-[9px] px-1.5 py-0 h-4"
-                      >
-                        {isProxyConfigured({ proxyUrl, proxyToken }) || searchSettings?.isProxyConfigured
-                          ? t('tvSettings.ytProxyStatusConnected')
-                          : t('tvSettings.ytProxyStatusDisconnected')}
-                      </Badge>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground block mt-0.5">
-                      {t('tvSettings.ytProxyDesc')}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-foreground uppercase tracking-wider">
+                      {t('tvSettings.ytProxyTitle')}
                     </span>
-                  </div>
-                </div>
-
-                <form onSubmit={handleSaveProxy} className="space-y-2">
-                  <div>
-                    <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
-                      {t('tvSettings.ytProxyUrlLabel')}
-                    </label>
-                    <Input
-                      type="url"
-                      value={proxyUrl}
-                      onChange={(e) => setProxyUrl(e.target.value)}
-                      placeholder={t('tvSettings.ytProxyUrlPlaceholder')}
-                      className="text-xs font-mono h-8"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
-                      {t('tvSettings.ytProxyTokenLabel')}
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type={proxyTokenRevealed ? 'text' : 'password'}
-                        value={proxyToken}
-                        onChange={(e) => setProxyToken(e.target.value)}
-                        placeholder={t('tvSettings.ytProxyTokenPlaceholder')}
-                        className="text-xs font-mono h-8 flex-1"
-                      />
-                      {proxyToken && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setProxyTokenRevealed(!proxyTokenRevealed)}
-                          className="h-8 px-2 text-muted-foreground hover:text-foreground text-[10px]"
-                          title={proxyTokenRevealed ? 'Hide' : 'Reveal for 5s'}
-                        >
-                          {proxyTokenRevealed ? (
-                            <span className="flex items-center gap-1 font-mono text-[10px] text-primary">
-                              <EyeOff className="w-3.5 h-3.5" />
-                              {proxyRevealCountdown}s
-                            </span>
-                          ) : (
-                            <Eye className="w-3.5 h-3.5" />
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    {proxySaved ? (
-                      <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5" />
-                        {t('tvSettings.ytProxySavedNotice')}
-                      </span>
-                    ) : <span />}
-
-                    <Button
-                      type="submit"
-                      variant="cyber"
-                      chamfer="top-right"
-                      size="sm"
-                      className="py-1 px-3 text-xs font-bold uppercase tracking-wider h-7"
+                    <Badge
+                      variant={isConfigured ? 'default' : 'outline'}
+                      className="text-[9px] px-1.5 py-0 h-4"
                     >
-                      {t('tvSettings.ytProxySaveBtn')}
-                    </Button>
+                      {isConfigured
+                        ? t('tvSettings.ytProxyStatusConnected')
+                        : t('tvSettings.ytProxyStatusDisconnected')}
+                    </Badge>
                   </div>
-                </form>
+                  <span className="text-xs text-muted-foreground block mt-1 leading-relaxed">
+                    {t('tvSettings.ytProxyDesc')}
+                  </span>
+                </div>
               </div>
-            )}
 
-            {/* Strategy & Host Management Settings */}
-            <div className="p-3 bg-muted/20 border border-border space-y-3">
-              <div className="flex items-center justify-between border-b border-border pb-2">
+              <form onSubmit={handleSaveProxy} className="space-y-3">
                 <div>
-                  <span className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                    {t('tvSettings.strategyTitle')}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Balances quota usage across all active keys.
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 bg-muted/60 p-0.5 border border-border">
-                  <Button
-                    type="button"
-                    variant={
-                      searchSettings?.strategy === 'roundRobin'
-                        ? 'cyber'
-                        : 'ghost'
-                    }
-                    size="sm"
-                    onClick={() => handleStrategyChange('roundRobin')}
-                    className="px-2.5 py-1 text-[10px] font-bold uppercase h-6"
-                  >
-                    {t('tvSettings.roundRobin')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={
-                      searchSettings?.strategy === 'leastUsed' ? 'cyber' : 'ghost'
-                    }
-                    size="sm"
-                    onClick={() => handleStrategyChange('leastUsed')}
-                    className="px-2.5 py-1 text-[10px] font-bold uppercase h-6"
-                  >
-                    {t('tvSettings.leastUsed')}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Allow Host Key Management Toggle (shown to Admin) */}
-              {isAdmin && (
-                <div className="flex items-center justify-between pt-1">
-                  <div>
-                    <span className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                      {t('tvSettings.allowHostManagement')}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {t('tvSettings.allowHostDesc')}
-                    </span>
-                  </div>
-                  <Switch
-                    checked={Boolean(searchSettings?.allowHostKeyManagement)}
-                    onCheckedChange={handleAllowHostChange}
-                    aria-label="Allow Host to Manage Keys"
+                  <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
+                    {t('tvSettings.ytProxyUrlLabel')}
+                  </label>
+                  <Input
+                    type="url"
+                    value={proxyUrl}
+                    onChange={(e) => setProxyUrl(e.target.value)}
+                    placeholder={t('tvSettings.ytProxyUrlPlaceholder')}
+                    className="text-xs font-mono h-9"
                   />
                 </div>
-              )}
+
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
+                    {t('tvSettings.ytProxyTokenLabel')}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type={proxyTokenRevealed ? 'text' : 'password'}
+                      value={proxyToken}
+                      onChange={(e) => setProxyToken(e.target.value)}
+                      placeholder={t('tvSettings.ytProxyTokenPlaceholder')}
+                      className="text-xs font-mono h-9 flex-1"
+                    />
+                    {proxyToken && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setProxyTokenRevealed(!proxyTokenRevealed)}
+                        className="h-9 px-2.5 text-muted-foreground hover:text-foreground text-[10px]"
+                        title={proxyTokenRevealed ? 'Hide' : 'Reveal for 5s'}
+                      >
+                        {proxyTokenRevealed ? (
+                          <span className="flex items-center gap-1 font-mono text-[10px] text-primary">
+                            <EyeOff className="w-3.5 h-3.5" />
+                            {proxyRevealCountdown}s
+                          </span>
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  {proxySaved ? (
+                    <span className="text-xs text-emerald-400 font-mono flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" />
+                      {t('tvSettings.ytProxySavedNotice')}
+                    </span>
+                  ) : <span />}
+
+                  <Button
+                    type="submit"
+                    variant="cyber"
+                    chamfer="top-right"
+                    size="sm"
+                    className="py-1 px-4 text-xs font-bold uppercase tracking-wider h-8"
+                  >
+                    {t('tvSettings.ytProxySaveBtn')}
+                  </Button>
+                </div>
+              </form>
             </div>
           </TabsContent>
 

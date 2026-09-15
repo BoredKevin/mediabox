@@ -68,7 +68,7 @@ export const RemoteView: React.FC = () => {
         );
         const roomSettings = settingsSnap.exists() ? settingsSnap.val() : null;
 
-        if (roomSettings?.hasApiKeys && (!u || u.isAnonymous)) {
+        if (roomSettings?.isProxyConfigured && (!u || u.isAnonymous)) {
           setLoading(false);
           return;
         }
