@@ -71,7 +71,7 @@ export const getEffectiveSearchSettings = (): SearchSettings => {
     allowHostKeyManagement: config.allowHostKeyManagement,
     preferMusicVideos: config.preferMusicVideos ?? true,
     isProxyConfigured: isProxyConfigured(proxyCfg),
-    proxyUrl: proxyCfg.proxyUrl || undefined,
+    ...(proxyCfg.proxyUrl ? { proxyUrl: proxyCfg.proxyUrl } : {}),
     keys: keys.map((k) => ({
       id: k.id,
       label: k.label,

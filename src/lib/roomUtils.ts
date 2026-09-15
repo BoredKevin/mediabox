@@ -155,6 +155,25 @@ export const generateRoomCode = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+export const removeUndefinedFields = <T>(val: T): T => {
+  if (val === null || val === undefined) {
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val.map(removeUndefinedFields) as unknown as T;
+  }
+  if (typeof val === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(val)) {
+      if (value !== undefined) {
+        cleaned[key] = removeUndefinedFields(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return val;
+};
+
 export const createRoomAtomic = async (
   tvUid: string,
   initialSearchSettings?: SearchSettings
@@ -172,7 +191,7 @@ export const createRoomAtomic = async (
         // Room code already exists; abort transaction so it returns committed: false
         return;
       }
-      return {
+      return removeUndefinedFields({
         tv: {
           uid: tvUid,
           createdAt: Date.now(),
@@ -191,7 +210,7 @@ export const createRoomAtomic = async (
         },
         queue: {},
         members: {},
-      };
+      });
     });
 
     if (result.committed) {

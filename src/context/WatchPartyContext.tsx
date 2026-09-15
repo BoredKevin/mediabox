@@ -9,6 +9,7 @@ import {
   QueueItem,
   parseYouTubeVideoId,
   SearchSettings,
+  removeUndefinedFields,
 } from '@/lib/roomUtils';
 import { fetchVideoTitle } from '@/lib/youtube';
 import {
@@ -146,7 +147,14 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setSearchSettings(effective);
     searchSettingsRef.current = effective;
     if (roomCode) {
-      await update(ref(database, `rooms/${roomCode}/state/searchSettings`), effective);
+      const updatePayload: Record<string, any> = { ...effective };
+      if (!effective.proxyUrl) {
+        updatePayload.proxyUrl = null;
+      }
+      await update(
+        ref(database, `rooms/${roomCode}/state/searchSettings`),
+        removeUndefinedFields(updatePayload)
+      );
     }
   }, [roomCode]);
 
