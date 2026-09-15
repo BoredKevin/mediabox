@@ -45,13 +45,16 @@ export default {
     // Target host resolution
     // youtubei.js passes target host in `__host` query param or header.
     // Default to music.youtube.com for YouTube Music (WEB_REMIX).
-    let targetHost =
-      url.searchParams.get('__host') ||
-      request.headers.get('__host') ||
-      'music.youtube.com';
+    // Target host resolution
+    // youtubei.js passes target host in `__host` query param or header.
+    // Default to music.youtube.com for YouTube Music (WEB_REMIX).
+    const requestedHost = url.searchParams.get('__host') || request.headers.get('__host');
+    const clientName = request.headers.get('x-youtube-client-name');
+    let targetHost = requestedHost || 'music.youtube.com';
 
     // Route Innertube YouTube Music endpoints to music.youtube.com for maximum reliability
-    if (targetHost === 'www.youtube.com' && url.pathname.includes('/youtubei/')) {
+    // But preserve www.youtube.com if requested or if client is standard YouTube Web (1)
+    if (!requestedHost && clientName !== '1' && targetHost === 'www.youtube.com' && url.pathname.includes('/youtubei/')) {
       targetHost = 'music.youtube.com';
     }
 
