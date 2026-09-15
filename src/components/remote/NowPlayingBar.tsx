@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import {
   Button,
   Slider,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider,
 } from '@boredkevin/ui';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
 import {
   Play,
   Pause,
@@ -141,39 +142,45 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 )}
               </Button>
 
-              {/* Volume Tooltip Button */}
-              <TooltipProvider delayDuration={0}>
-                <Tooltip open={volumeTooltipOpen} onOpenChange={setVolumeTooltipOpen}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={volumeTooltipOpen ? 'cyber' : 'outline'}
-                      chamfer="top-right"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setVolumeTooltipOpen((prev) => !prev);
-                      }}
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                      }}
-                      disabled={isLocked}
-                      className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
-                      title="Volume"
-                    >
-                      {displayVolume === 0 ? (
-                        <VolumeX className="w-4 h-4 text-muted-foreground" />
-                      ) : displayVolume <= 50 ? (
-                        <Volume1 className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Volume2 className="w-4 h-4 text-primary" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    sideOffset={12}
-                    align="start"
-                    className="p-3 bg-card/95 border border-border backdrop-blur-md shadow-2xl flex items-center gap-3 w-56 sm:w-64 z-50 pointer-events-auto"
-                    onPointerDown={(e) => e.stopPropagation()}
+              {/* Volume Popover Button */}
+              <Popover open={volumeTooltipOpen} onOpenChange={setVolumeTooltipOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={volumeTooltipOpen ? 'cyber' : 'outline'}
+                    chamfer="top-right"
+                    disabled={isLocked}
+                    className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
+                    title="Volume"
+                    aria-label="Volume"
+                  >
+                    {displayVolume === 0 ? (
+                      <VolumeX className="w-4 h-4 text-muted-foreground" />
+                    ) : displayVolume <= 50 ? (
+                      <Volume1 className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Volume2 className="w-4 h-4 text-primary" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="top"
+                  sideOffset={12}
+                  align="start"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  className="p-3 bg-card/95 border border-border backdrop-blur-md shadow-2xl flex items-center gap-3 w-56 sm:w-64 z-50 pointer-events-auto"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isLocked) return;
+                      const next = displayVolume === 0 ? 80 : 0;
+                      handleVolumeValueChange([next]);
+                      handleVolumeValueCommit([next]);
+                    }}
+                    disabled={isLocked}
+                    className="p-1 -m-1 text-primary hover:opacity-80 transition-opacity disabled:opacity-50 flex items-center justify-center cursor-pointer"
+                    title={displayVolume === 0 ? 'Unmute' : 'Mute'}
+                    aria-label={displayVolume === 0 ? 'Unmute' : 'Mute'}
                   >
                     {displayVolume === 0 ? (
                       <VolumeX className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -182,22 +189,23 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                     ) : (
                       <Volume2 className="w-4 h-4 text-primary flex-shrink-0" />
                     )}
-                    <Slider
-                      value={[displayVolume]}
-                      min={0}
-                      max={100}
-                      step={1}
-                      onValueChange={handleVolumeValueChange}
-                      onValueCommit={handleVolumeValueCommit}
-                      disabled={isLocked}
-                      className="flex-1 cursor-pointer py-2"
-                    />
-                    <span className="text-xs font-mono font-bold text-muted-foreground w-8 text-right flex-shrink-0">
-                      {displayVolume}%
-                    </span>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                  </button>
+                  <Slider
+                    value={[displayVolume]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={handleVolumeValueChange}
+                    onValueCommit={handleVolumeValueCommit}
+                    disabled={isLocked}
+                    className="flex-1 cursor-pointer py-2 touch-none select-none"
+                    aria-label="Volume slider"
+                  />
+                  <span className="text-xs font-mono font-bold text-muted-foreground w-8 text-right flex-shrink-0 select-none">
+                    {displayVolume}%
+                  </span>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Mobile Right: Skip & Play/Pause */}
@@ -291,11 +299,25 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
 
               {/* TV Volume Slider (Capped width, not filled across) */}
               <div className="flex items-center gap-2.5 w-48 pl-3 border-l border-border/50">
-                {displayVolume === 0 ? (
-                  <VolumeX className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-primary flex-shrink-0" />
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isLocked) return;
+                    const next = displayVolume === 0 ? 80 : 0;
+                    handleVolumeValueChange([next]);
+                    handleVolumeValueCommit([next]);
+                  }}
+                  disabled={isLocked}
+                  className="p-1 -m-1 text-primary hover:opacity-80 transition-opacity disabled:opacity-50 flex items-center justify-center cursor-pointer"
+                  title={displayVolume === 0 ? 'Unmute' : 'Mute'}
+                  aria-label={displayVolume === 0 ? 'Unmute' : 'Mute'}
+                >
+                  {displayVolume === 0 ? (
+                    <VolumeX className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  ) : (
+                    <Volume2 className="w-4 h-4 text-primary flex-shrink-0" />
+                  )}
+                </button>
                 <Slider
                   value={[displayVolume]}
                   min={0}
@@ -304,9 +326,10 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                   onValueChange={handleVolumeValueChange}
                   onValueCommit={handleVolumeValueCommit}
                   disabled={isLocked}
-                  className="w-full cursor-pointer py-1.5"
+                  className="w-full cursor-pointer py-1.5 touch-none select-none"
+                  aria-label="Volume slider"
                 />
-                <span className="text-xs font-mono font-bold text-muted-foreground w-8 text-right flex-shrink-0">
+                <span className="text-xs font-mono font-bold text-muted-foreground w-8 text-right flex-shrink-0 select-none">
                   {displayVolume}%
                 </span>
               </div>
