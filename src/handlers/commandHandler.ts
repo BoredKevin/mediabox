@@ -10,7 +10,7 @@ import {
   reorderQueue,
   purgeMemberQueueItems,
 } from './queueHandler';
-import { addKey, deleteKey, updateKey, saveSearchConfig } from '@/lib/apiKeyStore';
+import { saveSearchConfig } from '@/lib/apiKeyStore';
 import { saveProxyConfig } from '@/lib/proxyConfig';
 
 export interface CommandHandlerContext {
@@ -181,41 +181,21 @@ export const processMemberCommand = async (
         createdAt: Date.now(),
       });
     } else if (type === 'manageApiKeys' && payload) {
-      const allowHost = roomState?.searchSettings?.allowHostKeyManagement ?? true;
-      if (permissions.isAdmin || permissions.isTvOwner || (permissions.isHost && allowHost)) {
+      if (permissions.isAdmin || permissions.isTvOwner || permissions.isHost) {
         const {
           action,
-          keyId,
-          key,
-          label,
-          enabled,
-          strategy,
           maxResults,
           rateLimitCount,
           rateLimitWindowMs,
-          allowHostKeyManagement,
           preferMusicVideos,
         } = payload;
-        if (action === 'add' && key) {
-          addKey(key, label || '');
-        } else if (action === 'delete' && keyId) {
-          deleteKey(keyId);
-        } else if (action === 'update' && keyId) {
-          updateKey(keyId, {
-            ...(label !== undefined ? { label } : {}),
-            ...(enabled !== undefined ? { enabled } : {}),
-          });
-        } else if (action === 'setStrategy' && strategy) {
-          saveSearchConfig({ strategy });
-        } else if (action === 'setMaxResults' && typeof maxResults === 'number') {
+        if (action === 'setMaxResults' && typeof maxResults === 'number') {
           saveSearchConfig({ maxResults });
         } else if (action === 'setRateLimit') {
           saveSearchConfig({
             ...(typeof rateLimitCount === 'number' ? { rateLimitCount } : {}),
             ...(typeof rateLimitWindowMs === 'number' ? { rateLimitWindowMs } : {}),
           });
-        } else if (action === 'setAllowHost' && typeof allowHostKeyManagement === 'boolean') {
-          saveSearchConfig({ allowHostKeyManagement });
         } else if (action === 'setPreferMusicVideos' && typeof preferMusicVideos === 'boolean') {
           saveSearchConfig({ preferMusicVideos });
         } else if (action === 'clearRateLimits') {
@@ -231,8 +211,7 @@ export const processMemberCommand = async (
         console.warn('[TV Host] Unauthorized manageApiKeys command from member:', memberUid);
       }
     } else if ((type === 'setYtProxy' || type === 'setProxy') && payload) {
-      const allowHost = roomState?.searchSettings?.allowHostKeyManagement ?? true;
-      if (permissions.isAdmin || permissions.isTvOwner || (permissions.isHost && allowHost)) {
+      if (permissions.isAdmin || permissions.isTvOwner || permissions.isHost) {
         saveProxyConfig({
           proxyUrl: typeof payload.proxyUrl === 'string' ? payload.proxyUrl : '',
           proxyToken: typeof payload.proxyToken === 'string' ? payload.proxyToken : '',

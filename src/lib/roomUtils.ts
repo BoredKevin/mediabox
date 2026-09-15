@@ -8,23 +8,10 @@ export interface PlaybackState {
   updatedAt: number;
 }
 
-export interface TruncatedApiKeyRecord {
-  id: string;
-  key: string; // Truncated/masked only, e.g. "AIza****...CPvI"
-  label: string;
-  enabled: boolean;
-  usageToday?: number;
-}
-
 export interface SearchSettings {
-  hasApiKeys: boolean;
-  keyCount: number;
-  strategy: 'roundRobin' | 'leastUsed';
   maxResults: number;
   rateLimitCount: number;
   rateLimitWindowMs: number;
-  allowHostKeyManagement: boolean;
-  keys?: TruncatedApiKeyRecord[];
   preferMusicVideos?: boolean;
   isProxyConfigured?: boolean;
   proxyUrl?: string;
@@ -84,17 +71,11 @@ export interface MemberCommand {
     // For setYtProxy:
     proxyUrl?: string;
     proxyToken?: string;
-    // For manageApiKeys:
-    action?: 'add' | 'delete' | 'update' | 'setStrategy' | 'setMaxResults' | 'setRateLimit' | 'setAllowHost' | 'setPreferMusicVideos' | 'clearRateLimits' | 'setYtProxy';
-    keyId?: string;
-    key?: string;
-    label?: string;
-    enabled?: boolean;
-    strategy?: 'roundRobin' | 'leastUsed';
+    // For manageApiKeys (settings only, no key CRUD):
+    action?: 'setMaxResults' | 'setRateLimit' | 'setPreferMusicVideos' | 'clearRateLimits' | 'setYtProxy';
     maxResults?: number;
     rateLimitCount?: number;
     rateLimitWindowMs?: number;
-    allowHostKeyManagement?: boolean;
     preferMusicVideos?: boolean;
   };
 }
@@ -118,16 +99,6 @@ export interface SearchResult {
   results: SearchResultItem[];
   error: string | null;
   respondedAt: number;
-}
-
-export interface ApiKeyRecord {
-  id: string;
-  key: string;
-  label: string;
-  enabled: boolean;
-  usageToday: number;
-  lastResetAt: number;
-  roundRobinIndex: number;
 }
 
 export interface MemberRecord {

@@ -1,4 +1,4 @@
-import { searchYouTubeVideos, SearchResultItem } from '@/lib/youtube';
+import { SearchResultItem } from '@/lib/roomUtils';
 import { parseYouTubeVideoId } from '@/lib/roomUtils';
 import { parseTrackAndArtist, normalizeStr, cleanArtistName } from '@/lib/trackParser';
 import { fetchSimilarTracksFromLastFm } from '@/lib/lastfmApi';
@@ -6,27 +6,23 @@ import { searchYTMusic } from '@/lib/ytmusicSearch';
 import { isProxyConfigured } from '@/lib/proxyConfig';
 
 /**
- * Searches for tracks during autoplay: prefers YouTube Music via CORS proxy if configured,
- * seamlessly falling back to YouTube Data API if proxy is unconfigured or returns no results.
+ * Searches for tracks during autoplay: queries YouTube Music via the Innertube CORS proxy.
  */
 async function searchForAutoplay(query: string): Promise<{ results: SearchResultItem[]; error?: string; hasApiKey: boolean }> {
-  if (isProxyConfigured()) {
-    try {
-      const ytMusicQuery = query.replace(/\s+topic$/i, '');
-      console.log('[Autoplay] Attempting YTMusic search for:', ytMusicQuery);
-      const results = await searchYTMusic(ytMusicQuery);
-      if (results && results.length > 0) {
-        console.log(`[Autoplay] Using ${results.length} YTMusic results for: "${ytMusicQuery}"`);
-        return { results, hasApiKey: true };
-      }
-      console.log('[Autoplay] YTMusic returned 0 results, falling back to YouTube Data API...');
-    } catch (err: any) {
-      console.warn('[Autoplay] YTMusic search failed, falling back to YouTube Data API:', err?.message || err);
-    }
+  if (!isProxyConfigured()) {
+    console.warn('[Autoplay] MediaBox YouTube API proxy is not configured.');
+    return { results: [], hasApiKey: false, error: 'MediaBox YouTube API is not configured' };
   }
 
-  // Restrict YouTube Data API fallback to Music category (videoCategoryId: '10')
-  return searchYouTubeVideos(query, { videoCategoryId: '10' });
+  try {
+    const ytMusicQuery = query.replace(/\s+topic$/i, '');
+    console.log('[Autoplay] Searching YTMusic for:', ytMusicQuery);
+    const results = await searchYTMusic(ytMusicQuery);
+    return { results: results || [], hasApiKey: true };
+  } catch (err: any) {
+    console.warn('[Autoplay] YTMusic search failed:', err?.message || err);
+    return { results: [], hasApiKey: true, error: err?.message || 'YTMusic search failed' };
+  }
 }
 
 /**
@@ -204,7 +200,7 @@ export const getAutoplayNextYouTubeTrack = async (
         console.warn(`[Autoplay] YouTube search error for "${searchQuery}":`, searchRes.error);
       }
       if (!searchRes.hasApiKey) {
-        console.warn('[Autoplay] No active YouTube API key available. Aborting recommendation searches.');
+        console.warn('[Autoplay] MediaBox YouTube API proxy not configured. Aborting recommendation searches.');
         break;
       }
 
@@ -293,7 +289,7 @@ export const getAutoplayNextYouTubeTrack = async (
         console.warn(`[Autoplay] Fallback search error for "${searchQuery}":`, searchRes.error);
       }
       if (!searchRes.hasApiKey) {
-        console.warn('[Autoplay] No active YouTube API key available for fallback.');
+        console.warn('[Autoplay] MediaBox YouTube API proxy not configured. Aborting fallback searches.');
         break;
       }
 

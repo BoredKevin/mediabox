@@ -24,8 +24,14 @@ function makeFetch(proxyUrl: string, proxyToken: string) {
     }
 
     const parsed = new URL(originalUrlString);
-    // Always target music.youtube.com for YouTube Music (WEB_REMIX) requests
-    const targetHost = 'music.youtube.com';
+
+    let clientName = '';
+    if (init?.headers) {
+      const h = new Headers(init.headers);
+      clientName = h.get('x-youtube-client-name') || '';
+    }
+    const isMusic = clientName === '67' || parsed.host.includes('music.youtube.com');
+    const targetHost = isMusic ? 'music.youtube.com' : (parsed.host || 'www.youtube.com');
 
     // Construct proxied URL: baseProxy + pathname + search
     let baseProxy = proxyUrl.trim().replace(/\/+$/, '');
@@ -100,7 +106,7 @@ async function getInnertube(proxyUrl: string, proxyToken: string): Promise<Inner
 export async function searchYTMusic(query: string): Promise<SearchResultItem[]> {
   const config = loadProxyConfig();
   if (!isProxyConfigured(config)) {
-    throw new Error('YTMusic proxy is not configured');
+    throw new Error('MediaBox YouTube API proxy is not configured');
   }
 
   const yt = await getInnertube(config.proxyUrl, config.proxyToken);
@@ -166,10 +172,83 @@ export async function searchYTMusic(query: string): Promise<SearchResultItem[]> 
       channelTitle,
       thumbnail,
       url: `https://www.youtube.com/watch?v=${id}`,
-      durationSeconds: typeof durationSeconds === 'number' ? durationSeconds : undefined,
+      ...(typeof durationSeconds === 'number' ? { durationSeconds } : {}),
     });
   }
 
   console.log(`[YTMusic] Found ${searchResults.length} valid tracks (filtered 60s-720s)`);
+  return searchResults;
+}
+
+/**
+ * Search standard YouTube videos via Innertube + CORS proxy.
+ * Used when preferMusicVideos is false for broader YouTube video search.
+ * Results are filtered to exclude Shorts (< 60s) and long mixes (> 12m).
+ */
+export async function searchYouTube(query: string): Promise<SearchResultItem[]> {
+  const config = loadProxyConfig();
+  if (!isProxyConfigured(config)) {
+    throw new Error('MediaBox YouTube API proxy is not configured');
+  }
+
+  const yt = await getInnertube(config.proxyUrl, config.proxyToken);
+
+  console.log(`[YouTube] Searching for: "${query}" via proxy`);
+  let result: any;
+  try {
+    result = await yt.search(query, { type: 'video' });
+  } catch (err) {
+    // Invalidate cached instance on error so subsequent attempts start fresh
+    _yt = null;
+    throw err;
+  }
+
+  const rawItems: any[] = [];
+  if (result.videos && Array.isArray(result.videos) && result.videos.length > 0) {
+    rawItems.push(...result.videos);
+  } else if (result.results && Array.isArray(result.results)) {
+    rawItems.push(...result.results);
+  }
+
+  const searchResults: SearchResultItem[] = [];
+
+  for (const item of rawItems) {
+    const id = item.id || item.video_id || item.endpoint?.payload?.videoId;
+    if (!id || typeof id !== 'string') continue;
+
+    // Filter out Shorts (< 60s) and long videos (> 12m / 720s)
+    const durationSeconds = item.duration?.seconds;
+    if (typeof durationSeconds === 'number' && (durationSeconds < 60 || durationSeconds > 720)) {
+      continue;
+    }
+
+    const title = typeof item.title === 'string' ? item.title : item.title?.text || item.title?.toString() || '';
+    if (!title) continue;
+
+    let channelTitle = '';
+    if (item.author?.name) {
+      channelTitle = item.author.name;
+    } else if (typeof item.author?.toString === 'function') {
+      channelTitle = item.author.toString();
+    }
+
+    let thumbnail = '';
+    if (item.best_thumbnail?.url) {
+      thumbnail = item.best_thumbnail.url;
+    } else if (Array.isArray(item.thumbnails) && item.thumbnails.length > 0) {
+      thumbnail = item.thumbnails[item.thumbnails.length - 1]?.url || item.thumbnails[0]?.url || '';
+    }
+
+    searchResults.push({
+      id,
+      title,
+      channelTitle,
+      thumbnail,
+      url: `https://www.youtube.com/watch?v=${id}`,
+      ...(typeof durationSeconds === 'number' ? { durationSeconds } : {}),
+    });
+  }
+
+  console.log(`[YouTube] Found ${searchResults.length} valid videos (filtered 60s-720s)`);
   return searchResults;
 }

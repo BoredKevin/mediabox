@@ -1,14 +1,8 @@
 import { ref, get, set, update, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
-import { SearchSettings } from '@/lib/roomUtils';
-import { searchYouTubeWithKey, YouTubeQuotaExceededError, SearchResultItem } from '@/lib/youtube';
-import {
-  loadKeys,
-  pickKey,
-  incrementUsage,
-  markKeyExhausted,
-  resetDailyUsageIfNeeded,
-} from '@/lib/apiKeyStore';
+import { SearchSettings, SearchResultItem, removeUndefinedFields } from '@/lib/roomUtils';
+import { searchYTMusic, searchYouTube } from '@/lib/ytmusicSearch';
+import { loadProxyConfig, isProxyConfigured } from '@/lib/proxyConfig';
 
 export interface SearchRequestData {
   requestedBy: string;
@@ -18,7 +12,7 @@ export interface SearchRequestData {
 
 /**
  * Handles YouTube search requests mediated through the TV room host.
- * Checks per-user rate limits, balances across local API keys, handles quota failures,
+ * Checks per-user rate limits, routes query to Innertube proxy (searchYTMusic or searchYouTube),
  * and writes responses back to Firebase RTDB.
  */
 export const processSearchRequest = async (
@@ -69,66 +63,51 @@ export const processSearchRequest = async (
       await update(rateLimitRefNode, { count: currentRate.count });
     }
 
-    // 2. Perform search with key fallback
-    resetDailyUsageIfNeeded();
-
-    let results: SearchResultItem[] | null = null;
-    let errorMessage: string | null = null;
-    const attemptedIds = new Set<string>();
-
-    while (results === null) {
-      const activeKeys = loadKeys().filter(
-        (k) => k.enabled && k.key.trim().length > 0 && !attemptedIds.has(k.id)
-      );
-      if (activeKeys.length === 0) {
-        errorMessage =
-          attemptedIds.size > 0
-            ? 'All configured YouTube API keys on the TV have exceeded their daily quota.'
-            : 'No active YouTube API key configured on TV.';
-        break;
-      }
-
-      const strategy = searchConfig.strategy || 'roundRobin';
-      const candidate = pickKey(strategy);
-      const keyRecord = candidate && !attemptedIds.has(candidate.id) ? candidate : activeKeys[0];
-
-      attemptedIds.add(keyRecord.id);
-
-      try {
-        results = await searchYouTubeWithKey(
-          req.query,
-          keyRecord.key,
-          searchConfig.maxResults || 25
-        );
-        incrementUsage(keyRecord.id);
-      } catch (err: any) {
-        if (err instanceof YouTubeQuotaExceededError) {
-          console.warn(
-            `[TV Host] Quota exceeded for key ${keyRecord.id}, marking exhausted and trying next key.`
-          );
-          markKeyExhausted(keyRecord.id);
-          if (onSyncSettings) {
-            await onSyncSettings();
-          }
-        } else {
-          console.error('[TV Host] Error executing YouTube search:', err);
-          errorMessage = err.message || 'YouTube search failed.';
-          break;
-        }
-      }
+    // 2. Check proxy configuration
+    const proxyCfg = loadProxyConfig();
+    if (!isProxyConfigured(proxyCfg)) {
+      await set(ref(database, `rooms/${roomCode}/searchResults/${reqId}`), {
+        results: [],
+        error: 'MediaBox YouTube API is not configured on the TV.',
+        respondedAt: Date.now(),
+      });
+      await remove(ref(database, `rooms/${roomCode}/searchRequests/${reqId}`));
+      return;
     }
 
-    // 3. Write result for client
-    await set(ref(database, `rooms/${roomCode}/searchResults/${reqId}`), {
-      results: results || [],
-      error: errorMessage,
-      respondedAt: Date.now(),
-    });
+    // 3. Perform search via Innertube proxy
+    let results: SearchResultItem[] | null = null;
+    let errorMessage: string | null = null;
 
-    // 4. Delete request
+    try {
+      const preferMusic = searchConfig.preferMusicVideos ?? true;
+      results = preferMusic
+        ? await searchYTMusic(req.query)
+        : await searchYouTube(req.query);
+
+      const maxResults = searchConfig.maxResults || 25;
+      if (results && results.length > maxResults) {
+        results = results.slice(0, maxResults);
+      }
+    } catch (err: any) {
+      console.error('[TV Host] Error executing YouTube search via proxy:', err);
+      errorMessage = err.message || 'YouTube search failed.';
+    }
+
+    // 4. Write result for client
+    await set(
+      ref(database, `rooms/${roomCode}/searchResults/${reqId}`),
+      removeUndefinedFields({
+        results: results || [],
+        error: errorMessage,
+        respondedAt: Date.now(),
+      })
+    );
+
+    // 5. Delete request
     await remove(ref(database, `rooms/${roomCode}/searchRequests/${reqId}`));
 
-    // 5. Clean up stale search results (> 60s)
+    // 6. Clean up stale search results (> 60s)
     try {
       const resultsSnap = await get(ref(database, `rooms/${roomCode}/searchResults`));
       if (resultsSnap.exists()) {
