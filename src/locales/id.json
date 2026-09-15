@@ -178,6 +178,8 @@
     "upNextBadge": "Berikutnya {current}/{total}",
     "upcomingAgenda": "Jadwal Berikutnya",
     "pageIndicator": "Hal {current} dari {total}",
+    "previousPage": "Halaman sebelumnya",
+    "nextPage": "Halaman berikutnya",
     "noMoreToday": "Semua jadwal hari ini selesai",
     "tomorrow": "Besok",
     "weekend": "Akhir Pekan",

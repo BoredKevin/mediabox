@@ -178,6 +178,8 @@
     "upNextBadge": "Up Next {current}/{total}",
     "upcomingAgenda": "Upcoming Schedule",
     "pageIndicator": "Page {current} of {total}",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
     "noMoreToday": "No more classes today",
     "tomorrow": "Tomorrow",
     "weekend": "Weekend",

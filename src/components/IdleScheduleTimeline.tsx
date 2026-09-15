@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Badge } from '@boredkevin/ui';
+import { Badge, Button } from '@boredkevin/ui';
 import { useSchedule } from '@/hooks/useSchedule';
 import { useTranslation } from '@/context/LanguageContext';
-import { CalendarDays, Sparkles, Clock } from 'lucide-react';
+import { CalendarDays, Sparkles, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface IdleScheduleTimelineProps {
   isLocked?: boolean;
@@ -57,16 +57,26 @@ export const IdleScheduleTimeline: React.FC<IdleScheduleTimelineProps> = () => {
     }, tickMs);
 
     return () => clearInterval(interval);
-  }, [totalPages]);
+  }, [totalPages, currentPage]);
 
   const handlePageChange = (idx: number) => {
-    if (idx === currentPage) return;
+    if (idx === currentPage || animPhase === 'out') return;
     setAnimPhase('out');
     setTimeout(() => {
       setCurrentPage(idx);
       setAnimPhase('in');
       setCycleProgress(100);
     }, 250);
+  };
+
+  const handlePrevPage = () => {
+    if (animPhase === 'out') return;
+    handlePageChange((currentPage - 1 + totalPages) % totalPages);
+  };
+
+  const handleNextPage = () => {
+    if (animPhase === 'out') return;
+    handlePageChange((currentPage + 1) % totalPages);
   };
 
   const startIndex = currentPage * itemsPerPage;
@@ -159,22 +169,56 @@ export const IdleScheduleTimeline: React.FC<IdleScheduleTimelineProps> = () => {
         )}
       </div>
 
-      {/* Footer Navigation Dots (if multiple pages) */}
+      {/* Footer Navigation (if multiple pages) */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1.5 z-10 pt-1">
-          {Array.from({ length: totalPages }).map((_, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePageChange(idx);
-              }}
-              aria-label={`Go to page ${idx + 1}`}
-              className={`h-1.5 transition-all duration-300 rounded-full cursor-pointer ${idx === currentPage ? 'w-6 bg-primary' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60'
-                }`}
-            />
-          ))}
+        <div className="flex items-center justify-center gap-2 sm:gap-3 z-10 pt-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            chamfer="none"
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePrevPage();
+            }}
+            aria-label={t('schedule.previousPage')}
+            title={t('schedule.previousPage')}
+            className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded-full cursor-pointer transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePageChange(idx);
+                }}
+                aria-label={`Go to page ${idx + 1}`}
+                className={`h-1.5 transition-all duration-300 rounded-full cursor-pointer ${idx === currentPage ? 'w-6 bg-primary' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60'
+                  }`}
+              />
+            ))}
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            chamfer="none"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleNextPage();
+            }}
+            aria-label={t('schedule.nextPage')}
+            title={t('schedule.nextPage')}
+            className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded-full cursor-pointer transition-colors"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       )}
     </div>
