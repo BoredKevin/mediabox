@@ -13,12 +13,15 @@
         },
         "state": {
           "searchSettings": {
-            ".validate": "newData.val() === null || newData.hasChildren(['strategy', 'maxResults'])",
+            ".validate": "newData.val() === null || newData.hasChildren(['maxResults'])",
             "preferMusicVideos": {
               ".validate": "newData.val() === null || newData.isBoolean()"
             },
-            "strategy": {
-              ".validate": "newData.val() === null || newData.val() === 'roundRobin' || newData.val() === 'leastUsed'"
+            "isProxyConfigured": {
+              ".validate": "newData.val() === null || newData.isBoolean()"
+            },
+            "proxyUrl": {
+              ".validate": "newData.val() === null || (newData.isString() && newData.val().length <= 500)"
             },
             "maxResults": {
               ".validate": "newData.val() === null || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 50)"
@@ -28,6 +31,9 @@
             },
             "rateLimitWindowMs": {
               ".validate": "newData.val() === null || (newData.isNumber() && newData.val() >= 10000)"
+            },
+            "strategy": {
+              ".validate": "newData.val() === null || newData.val() === 'roundRobin' || newData.val() === 'leastUsed'"
             },
             "allowHostKeyManagement": {
               ".validate": "newData.val() === null || newData.isBoolean()"
@@ -40,16 +46,19 @@
           }
         },
         "searchRequests": {
+          ".read": "auth != null",
+          ".write": "auth != null",
           "$reqId": {
-            ".read": "root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid",
-            ".write": "auth != null && (!data.exists() ? (newData.child('requestedBy').val() === auth.uid) : (root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid || (data.child('requestedBy').val() === auth.uid && !newData.exists())))",
-            ".validate": "!newData.exists() || (newData.hasChildren(['requestedBy', 'query', 'createdAt']) && newData.child('requestedBy').val() === auth.uid && newData.child('query').isString() && newData.child('query').val().length <= 200 && newData.child('createdAt').isNumber())"
+            ".read": "auth != null",
+            ".write": "auth != null"
           }
         },
         "searchResults": {
+          ".read": "auth != null",
+          ".write": "auth != null",
           "$reqId": {
-            ".read": "auth != null && ($reqId.beginsWith(auth.uid + '_') || root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid)",
-            ".write": "root.child('rooms/' + $roomId + '/tv/uid').val() === auth.uid || (auth != null && $reqId.beginsWith(auth.uid + '_') && !newData.exists())"
+            ".read": "auth != null",
+            ".write": "auth != null"
           }
         },
         "searchRateLimits": {
