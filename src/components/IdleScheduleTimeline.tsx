@@ -123,7 +123,7 @@ export const IdleScheduleTimeline: React.FC<IdleScheduleTimelineProps> = () => {
                   className="flex items-center gap-3 sm:gap-4 md:gap-5 group"
                 >
                   {/* Monospace Time Pill styled like the ends at badge */}
-                  <div className="font-mono text-xs sm:text-sm md:text-base font-medium text-foreground px-2 sm:px-2.5 py-1 bg-muted/20 border border-border/60 rounded-none w-20 sm:w-24 md:w-28 text-center shrink-0 tracking-wider flex items-center justify-center gap-1.5">
+                  <div className="font-mono text-sm sm:text-base md:text-lg font-medium text-foreground px-2 sm:px-2.5 py-1 bg-muted/20 border border-border/60 rounded-none w-20 sm:w-24 md:w-28 text-center shrink-0 tracking-wider flex items-center justify-center gap-1.5">
                     <span>{item.start}</span>
                   </div>
 
