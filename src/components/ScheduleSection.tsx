@@ -48,7 +48,7 @@ export const ScheduleSection: React.FC = () => {
       return;
     }
 
-    const intervalMs = 15000;
+    const intervalMs = 5000;
     const tickMs = 100;
     const exitDurationMs = 300;
     let elapsed = 0;
