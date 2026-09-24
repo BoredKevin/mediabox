@@ -37,15 +37,10 @@
     },
     {
       "start": "15:10",
-      "sub": "Istirahat",
-      "countdown": true
-    },
-    {
-      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
-      "start": "16:45",
+      "start": "16:10",
       "sub": "Pulang",
       "countdown": true
     }
@@ -91,15 +86,10 @@
     },
     {
       "start": "15:10",
-      "sub": "Istirahat",
-      "countdown": true
-    },
-    {
-      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
-      "start": "16:45",
+      "start": "16:10",
       "sub": "Pulang",
       "countdown": true
     }
@@ -141,15 +131,10 @@
     },
     {
       "start": "15:10",
-      "sub": "Istirahat",
-      "countdown": true
-    },
-    {
-      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
-      "start": "16:45",
+      "start": "16:10",
       "sub": "Pulang",
       "countdown": true
     }
@@ -195,15 +180,10 @@
     },
     {
       "start": "15:10",
-      "sub": "Istirahat",
-      "countdown": true
-    },
-    {
-      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
-      "start": "16:45",
+      "start": "16:10",
       "sub": "Pulang",
       "countdown": true
     }
@@ -249,15 +229,10 @@
     },
     {
       "start": "15:10",
-      "sub": "Istirahat",
-      "countdown": true
-    },
-    {
-      "start": "15:45",
       "sub": "Bimbel TKA"
     },
     {
-      "start": "16:45",
+      "start": "16:10",
       "sub": "Pulang",
       "countdown": true
     }
