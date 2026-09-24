@@ -37,7 +37,7 @@ const DashboardContent: React.FC = () => {
       {/* Dynamic Aurora Canvas Background */}
       <AtmosphericAuroraBackground />
 
-      <div className="relative z-10 flex min-h-screen md:h-screen flex-col items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8 pb-10 sm:pb-10 md:pb-10">
+      <div className="relative z-10 flex min-h-screen md:h-screen flex-col items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8 pb-24 sm:pb-20 md:pb-10">
         <div className="w-full max-w-[1800px] flex-1 flex flex-col justify-between gap-3 sm:gap-4 md:gap-5 md:min-h-0">
           <Header theme={isDark ? 'dark' : 'light'} toggleTheme={toggleThemeMode} />
 
@@ -47,7 +47,7 @@ const DashboardContent: React.FC = () => {
             <ClockSection />
 
             {/* Bottom Grid: Schedule (Left 50%) + Media (Right 50%) */}
-            <main className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 md:grid-cols-2 items-stretch md:min-h-0">
+            <main className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 md:grid-cols-2 items-stretch md:min-h-0 mb-6 sm:mb-4 md:mb-0">
               <ScheduleSection />
               <MediaBox />
             </main>

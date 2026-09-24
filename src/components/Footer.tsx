@@ -12,8 +12,8 @@ export const Footer: React.FC = () => {
 
   return (
     <>
-      <footer className="fixed bottom-4 left-0 right-0 text-center text-xs sm:text-sm z-50 pointer-events-auto">
-        <div className="inline-flex items-center justify-center gap-1.5 flex-wrap px-3 py-1 rounded-full bg-background/50 backdrop-blur-md border border-border/50 text-muted-foreground shadow-sm">
+      <footer className="fixed bottom-4 left-0 right-0 text-center text-xs sm:text-sm z-50 pointer-events-none">
+        <div className="inline-flex items-center justify-center gap-1.5 flex-wrap px-3 py-1 rounded-full bg-background/50 backdrop-blur-md border border-border/50 text-muted-foreground shadow-sm pointer-events-auto">
           <span>&copy; {currentYear}</span>
           <span>Powered by</span>
           <Button

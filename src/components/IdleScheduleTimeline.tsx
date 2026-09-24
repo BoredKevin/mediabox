@@ -171,7 +171,7 @@ export const IdleScheduleTimeline: React.FC<IdleScheduleTimelineProps> = () => {
 
       {/* Footer Navigation (if multiple pages) */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 sm:gap-3 z-10 pt-1">
+        <div className="flex items-center justify-center gap-2 sm:gap-3 z-10 pt-1 pb-1 sm:pb-0">
           <Button
             type="button"
             variant="ghost"

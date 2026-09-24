@@ -231,7 +231,7 @@ export const MediaBox: React.FC = () => {
       cornerLines={false}
       className={`p-0 overflow-hidden flex flex-col relative transition-all duration-300 ${isFullscreen
         ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black rounded-none'
-        : 'aspect-video w-full bg-background'
+        : 'aspect-video min-h-[220px] sm:min-h-0 w-full bg-background'
         }`}
     >
       {isFullscreen && !hasActiveMedia && (
