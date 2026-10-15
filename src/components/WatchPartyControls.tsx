@@ -7,8 +7,6 @@ import {
   QrCode,
   Users,
   Play,
-  Pause,
-  SkipForward,
   Loader2,
   ExternalLink,
   Smartphone,
@@ -32,14 +30,11 @@ export const WatchPartyControls: React.FC = () => {
     remoteUrl,
     handleCreateRoom,
     handleEndRoom,
-    handleTogglePlayPause,
-    handlePlayNextInQueue,
     handleToggleRoomLock,
     handleToggleAutoplay,
     roomState,
   } = useWatchParty();
 
-  const isPlaying = roomState?.playback?.status === 'playing';
   const isLocked = Boolean(roomState?.isLocked);
 
   // If no active room, render initial "Create Room" prompt
@@ -93,14 +88,13 @@ export const WatchPartyControls: React.FC = () => {
     <div className="flex flex-col justify-center h-full w-full gap-2 overflow-hidden">
       {/* Active Room Controls Bar - All items fill full container height in a single inline row */}
       <div className="flex items-stretch justify-between gap-1 sm:gap-1.5 md:gap-2 min-h-[44px] sm:min-h-[50px] w-full flex-nowrap">
-        {/* Left Section: Room Code Badge, QR Code, Play/Pause, Skip, Lock, Sparkles, Search */}
+        {/* Left Section: Room Code Badge, QR Code, Lock, Sparkles, Search */}
         <div className="flex items-stretch gap-1 sm:gap-1.5 flex-1 min-w-0">
           {/* Room Code Badge */}
-          <div className="px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 bg-card border border-border font-mono text-primary font-bold tracking-wider flex items-center gap-1 shadow-sm justify-center select-none flex-shrink-0">
-            <div className="flex flex-col justify-center leading-tight">
-              <span className="text-[8px] sm:text-[9px] uppercase text-muted-foreground font-sans tracking-widest font-semibold hidden min-[480px]:block">{t('watchParty.roomBadge')}</span>
-              <span className="text-xs sm:text-sm md:text-base lg:text-lg tracking-wider font-black text-primary">{roomCode}</span>
-            </div>
+          <div className="px-2.5 sm:px-3.5 md:px-4 py-1 sm:py-1.5 bg-card border border-border font-mono flex items-center justify-center shadow-sm select-none flex-shrink-0">
+            <span className="text-lg sm:text-xl md:text-2xl font-black tracking-widest text-primary leading-none">
+              {roomCode}
+            </span>
           </div>
 
           {/* QR Code Toggle Button */}
@@ -112,34 +106,6 @@ export const WatchPartyControls: React.FC = () => {
             title={t('watchParty.qrCodeBtn')}
           >
             <QrCode className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-primary" />
-          </Button>
-
-          {/* Play/Pause Button */}
-          <Button
-            variant="cyber"
-            chamfer="dual"
-            onClick={handleTogglePlayPause}
-            disabled={isLocked}
-            className="flex-1 min-w-[32px] sm:min-w-[36px] max-w-[48px] px-1 sm:px-2 py-1 sm:py-1.5 flex items-center justify-center h-auto"
-            title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-          >
-            {isPlaying ? (
-              <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-            ) : (
-              <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-            )}
-          </Button>
-
-          {/* Skip Next Button */}
-          <Button
-            variant="outline"
-            chamfer="dual"
-            onClick={handlePlayNextInQueue}
-            disabled={isLocked}
-            className="flex-1 min-w-[32px] sm:min-w-[36px] max-w-[48px] px-1 sm:px-2 py-1 sm:py-1.5 flex items-center justify-center h-auto"
-            title={t('watchParty.skipNextBtn')}
-          >
-            <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
 
           {/* Lock Room Toggle Button */}
@@ -175,10 +141,13 @@ export const WatchPartyControls: React.FC = () => {
             variant="outline"
             chamfer="top-right"
             onClick={() => setShowSearchModal(true)}
-            className="flex-1 min-w-[32px] sm:min-w-[36px] max-w-[48px] px-1 sm:px-2 py-1 sm:py-1.5 flex items-center justify-center h-auto"
+            className="px-2.5 sm:px-3 md:px-4 py-1 sm:py-1.5 flex items-center justify-center gap-1.5 sm:gap-2 h-auto flex-shrink-0"
             title={t('watchParty.searchBtn')}
           >
             <Search className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
+            <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground">
+              {t('watchParty.searchLabel')}
+            </span>
           </Button>
         </div>
 
