@@ -75,11 +75,9 @@ export function useTvPlaybackSync({
   useEffect(() => {
     if (currentlyPlaying && currentlyPlaying !== prevVideoRef.current) {
       prevVideoRef.current = currentlyPlaying;
-      if (roomCode) {
-        syncPlaybackState(isPlaying ? 'playing' : 'paused', 0);
-      }
+      lastUpdatedRef.current = { positionMs: 0, updatedAt: getServerTime() };
     }
-  }, [currentlyPlaying, roomCode]);
+  }, [currentlyPlaying]);
 
   // Scheduled periodic resyncs & continuous drift detection while playing
   useEffect(() => {
@@ -118,7 +116,7 @@ export function useTvPlaybackSync({
           lastUpdatedRef.current = { positionMs: currentMs, updatedAt: now };
 
           update(ref(database, `rooms/${roomCode}/state/playback`), {
-            status: isBuffering ? 'paused' : 'playing',
+            status: 'playing',
             positionMs: currentMs,
             updatedAt: now,
           }).catch((err) => console.warn('[PlaybackSync] Resync error:', err));

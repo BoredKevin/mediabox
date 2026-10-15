@@ -249,6 +249,7 @@ export async function transitionToNextPlayback(ctx: PlaybackTransitionContext): 
         'state/currentlyPlaying': nextTrack.url,
         'state/currentlyPlayingTitle': nextTrack.title,
         'state/playback/status': 'playing',
+        'state/playback/positionMs': 0,
         'state/playback/updatedAt': Date.now(),
       });
     } else {

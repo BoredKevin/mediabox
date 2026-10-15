@@ -12,6 +12,7 @@ export const playNextQueueItem = async (roomCode: string, item: QueueItem): Prom
     'state/currentlyPlaying': item.url,
     'state/currentlyPlayingTitle': item.title || '',
     'state/playback/status': 'playing',
+    'state/playback/positionMs': 0,
     'state/playback/updatedAt': Date.now(),
     [`queue/${item.id}`]: null,
   });
@@ -67,6 +68,7 @@ export const addToQueue = async (
       'state/currentlyPlaying': videoUrl,
       'state/currentlyPlayingTitle': videoTitle,
       'state/playback/status': 'playing',
+      'state/playback/positionMs': 0,
       'state/playback/updatedAt': Date.now(),
     });
   } else {

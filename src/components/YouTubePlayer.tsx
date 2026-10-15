@@ -71,8 +71,10 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
       try {
         if (onPlayerInstance) onPlayerInstance(playerRef.current);
-        if (isPlaying) {
+        const shouldPlay = isPlayingRef.current ?? isPlaying;
+        if (shouldPlay) {
           playerRef.current.loadVideoById(videoId);
+          playerRef.current.playVideo();
         } else {
           playerRef.current.cueVideoById(videoId);
         }
