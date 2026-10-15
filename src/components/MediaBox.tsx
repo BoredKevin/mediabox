@@ -6,8 +6,14 @@ import { Card } from '@/components/ui/card';
 
 import { useClockTime } from '@/hooks/useClockTime';
 import { useCurrentMediaMeta } from '@/hooks/useCurrentMediaMeta';
+import { useLyrics } from '@/hooks/useLyrics';
+import { FullscreenLyricsView } from './lyrics/FullscreenLyricsView';
+import { MediaBoxLyricsView } from './lyrics/MediaBoxLyricsView';
 import { MediaBoxOverlayControls } from './mediabox/MediaBoxOverlayControls';
 import { MediaBoxQrModal } from './mediabox/MediaBoxQrModal';
+import { getSavedLyricsOffset, getSavedLyricsWordSync } from '@/lib/lyricsOffsetStore';
+import { useTvNavigation } from '@/hooks/useTvNavigation';
+import { useTvPlaybackSync } from '@/hooks/useTvPlaybackSync';
 
 export const MediaBox: React.FC = React.memo(() => {
   const {
@@ -24,6 +30,7 @@ export const MediaBox: React.FC = React.memo(() => {
     handleTogglePlayPause,
     handleToggleFullscreen,
     handleAdjustVolume,
+    registerPlayerInstance,
   } = useWatchParty();
 
   const clockTime = useClockTime();
@@ -32,10 +39,37 @@ export const MediaBox: React.FC = React.memo(() => {
     roomState?.currentlyPlayingTitle
   );
 
-  const [localFullscreen, setLocalFullscreen] = useState<boolean>(false);
+  const [playerInstance, setPlayerInstance] = useState<any>(null);
+
+  const handlePlayerInstance = useCallback(
+    (instance: any) => {
+      setPlayerInstance(instance);
+      if (registerPlayerInstance) {
+        registerPlayerInstance(instance);
+      }
+    },
+    [registerPlayerInstance]
+  );
+
   const isPlaying = roomState?.playback?.status === 'playing';
-  const isFullscreen = roomCode ? Boolean(roomState?.isFullscreen) : localFullscreen;
   const isLocked = Boolean(roomState?.isLocked);
+
+  // Synchronize playback position and wall-clock timestamp to RTDB for remote clients
+  useTvPlaybackSync({
+    roomCode,
+    playerInstance,
+    isPlaying: isPlaying && !isLocked,
+    currentlyPlaying: roomState?.currentlyPlaying,
+  });
+
+  const lyricsData = useLyrics(
+    roomState?.currentlyPlaying,
+    roomState?.currentlyPlayingTitle,
+    playerInstance
+  );
+
+  const [localFullscreen, setLocalFullscreen] = useState<boolean>(false);
+  const isFullscreen = roomCode ? Boolean(roomState?.isFullscreen) : localFullscreen;
 
   // Slider drag states for smooth volume control
   const [localVolume, setLocalVolume] = useState<number | null>(null);
@@ -113,21 +147,26 @@ export const MediaBox: React.FC = React.memo(() => {
     }
   };
 
-  // Exit fullscreen on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullscreen) {
-        toggleFullscreen();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, roomCode]);
-
   const hasActiveMedia = Boolean(roomState?.currentlyPlaying) && !isLocked;
 
-  const handleVideoAreaClick = () => {
+  // Smart TV Remote & Hardware Key Navigation
+  useTvNavigation({
+    isFullscreen,
+    onToggleFullscreen: toggleFullscreen,
+    onTogglePlayPause: hasActiveMedia ? handleTogglePlayPause : undefined,
+    onNextTrack: handlePlayNextInQueue,
+    onPreviousTrack: canGoPrevious ? handlePlayPreviousTrack : undefined,
+    isModalOpen: showQrModal,
+    onCloseModal: () => setShowQrModal(false),
+  });
+
+  const handleVideoAreaClick = (e: React.MouseEvent) => {
     if (isLocked) return;
+    // Don't toggle play/pause if user clicked on a lyric line or word
+    const target = e.target as HTMLElement | null;
+    if (target?.closest?.('.blyrics--line') || target?.closest?.('.blyrics--word')) {
+      return;
+    }
     resetControlsTimeout();
     if (hasActiveMedia) {
       handleTogglePlayPause();
@@ -137,42 +176,97 @@ export const MediaBox: React.FC = React.memo(() => {
   return (
     <Card
       cornerLines={false}
-      className={`p-0 overflow-hidden flex flex-col relative transition-all duration-300 ${
-        isFullscreen
-          ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black rounded-none'
-          : 'aspect-video min-h-[220px] sm:min-h-0 w-full bg-card'
-      }`}
+      className={`p-0 overflow-hidden flex flex-col relative transition-all duration-300 ${isFullscreen
+        ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black rounded-none'
+        : 'aspect-video min-h-[220px] sm:min-h-0 w-full bg-card'
+        }`}
     >
-      {/* Fullscreen Idle Clock */}
-      {isFullscreen && !hasActiveMedia && (
-        <div className="absolute top-4 left-5 sm:left-8 z-[110] bg-background/90 border border-border px-3.5 py-1.5 font-display text-base sm:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 pointer-events-none select-none rounded-md">
-          <span>
-            {clockTime.hours}
-            <span className="text-muted-foreground opacity-70 animate-blink">:</span>
-            {clockTime.minutes}
-          </span>
+      {/* Fullscreen Persistent Clock & Room Code HUD (Single semi-transparent box) */}
+      {isFullscreen && !lyricsData.shouldShowLyrics && (
+        <div className="absolute top-4 left-5 sm:top-6 sm:left-8 z-[110] pointer-events-none select-none">
+          <div className="bg-black/90 border border-white/20 px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2.5 sm:gap-3 rounded-md">
+            {/* Clock on the left */}
+            <span className="font-display text-base sm:text-xl md:text-2xl font-semibold tracking-wider text-white/90 flex items-center">
+              {clockTime.hours}
+              <span className="text-white/40 animate-blink mx-0.5">:</span>
+              {clockTime.minutes}
+            </span>
+
+            {/* Small divider and room code to the right */}
+            {roomCode && (
+              <>
+                <div className="h-4.5 sm:h-6.5 w-[1px] bg-white/20 flex-shrink-0" />
+                <div className="flex items-center gap-1.5 font-mono">
+                  <span className="text-sm sm:text-lg md:text-xl font-bold tracking-widest text-primary leading-none">
+                    {roomCode}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Main Video Player Area */}
+      {/* Main Video / Lyrics Player Area */}
       <div
-        className={`flex-1 w-full ${hasActiveMedia ? 'bg-black' : 'bg-card'} relative flex items-center justify-center overflow-hidden h-full group ${
-          hasActiveMedia ? 'cursor-pointer' : ''
-        } ${isFullscreen && !isOverlayVisible ? 'cursor-none' : ''}`}
+        className={`flex-1 w-full ${hasActiveMedia ? 'bg-black' : 'bg-card'} relative flex items-center justify-center overflow-hidden h-full group ${hasActiveMedia ? 'cursor-pointer' : ''
+          } ${isFullscreen && !isOverlayVisible ? 'cursor-none' : ''}`}
         onClick={handleVideoAreaClick}
         onMouseMove={handleMouseMove}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="w-full h-full flex items-center justify-center">
+        <div className="w-full h-full flex items-center justify-center relative">
           {hasActiveMedia ? (
-            <YouTubePlayer
-              url={roomState!.currentlyPlaying!}
-              isPlaying={isPlaying && !isLocked}
-              volume={displayVolume}
-              muted={muted}
-              onEnded={handlePlayNextInQueue}
-            />
+            <>
+              {/* YouTube player instance keeps audio playing continuously */}
+              <YouTubePlayer
+                url={roomState!.currentlyPlaying!}
+                isPlaying={isPlaying && !isLocked}
+                volume={displayVolume}
+                muted={muted}
+                onEnded={handlePlayNextInQueue}
+                onPlayerInstance={handlePlayerInstance}
+                hidden={lyricsData.shouldShowLyrics}
+              />
+
+              {/* Syllable-synced Lyrics Views */}
+              {lyricsData.shouldShowLyrics && (
+                isFullscreen ? (
+                  <FullscreenLyricsView
+                    lyrics={lyricsData.lyrics}
+                    isLoading={lyricsData.isLoading}
+                    albumArt={lyricsData.albumArt}
+                    trackTitle={lyricsData.trackTitle}
+                    artistName={lyricsData.artistName}
+                    dominantGradient={lyricsData.dominantColor.gradient}
+                    sourceLabel={lyricsData.sourceLabel}
+                    getCurrentTime={lyricsData.getCurrentTime}
+                    isPlaying={isPlaying && !isLocked}
+                    onSeek={lyricsData.seekTo}
+                    clockTime={clockTime}
+                    roomCode={roomCode}
+                    lyricsOffsetMs={roomState?.lyricsOffsetMs ?? getSavedLyricsOffset()}
+                    isWordSync={roomState?.lyricsWordSync ?? getSavedLyricsWordSync()}
+                  />
+                ) : (
+                  <MediaBoxLyricsView
+                    lyrics={lyricsData.lyrics}
+                    isLoading={lyricsData.isLoading}
+                    albumArt={lyricsData.albumArt}
+                    trackTitle={lyricsData.trackTitle}
+                    artistName={lyricsData.artistName}
+                    dominantGradient={lyricsData.dominantColor.gradient}
+                    sourceLabel={lyricsData.sourceLabel}
+                    getCurrentTime={lyricsData.getCurrentTime}
+                    isPlaying={isPlaying && !isLocked}
+                    onSeek={lyricsData.seekTo}
+                    lyricsOffsetMs={roomState?.lyricsOffsetMs ?? getSavedLyricsOffset()}
+                    isWordSync={roomState?.lyricsWordSync ?? getSavedLyricsWordSync()}
+                  />
+                )
+              )}
+            </>
           ) : (
             <IdleScheduleTimeline isLocked={isLocked} />
           )}

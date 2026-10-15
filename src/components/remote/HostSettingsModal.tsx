@@ -13,7 +13,7 @@ import {
   TabsContent,
 } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ShieldAlert, Clock, Key, Gauge } from 'lucide-react';
+import { ShieldAlert, CogIcon, Key, Gauge } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState } from '@/lib/roomUtils';
 import { isProxyConfigured, loadProxyConfig } from '@/lib/proxyConfig';
@@ -80,7 +80,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
               value="room"
               className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider py-2"
             >
-              <Clock className="w-3.5 h-3.5" />
+              <CogIcon className="w-3.5 h-3.5" />
               <span>{t('tvSettings.tabRoom') || 'Room'}</span>
             </TabsTrigger>
             <TabsTrigger

@@ -34,6 +34,8 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
     handleUpdateSearchSettings,
     handleClearAllRateLimits,
     handleToggleCountdown,
+    handleSetLyricsOffset,
+    handleSetLyricsWordSync,
   } = useWatchParty();
 
   const [activeTab, setActiveTab] = useState<string>('api');
@@ -106,6 +108,8 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
                 searchSettings={searchSettings}
                 onToggleCountdown={handleToggleCountdown}
                 onUpdateSearchSettings={handleUpdateSearchSettings}
+                onSetLyricsOffset={handleSetLyricsOffset}
+                onSetLyricsWordSync={handleSetLyricsWordSync}
               />
             </TabsContent>
           </div>

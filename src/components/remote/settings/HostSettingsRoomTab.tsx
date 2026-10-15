@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import {
   QrCode,
   Copy,
   Check,
   Timer,
   Sparkles,
-  Video,
+  MusicIcon,
+  Mic2,
+  RotateCcw,
   Lock,
   Unlock,
   Trash2,
+  Type,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState } from '@/lib/roomUtils';
+import { saveLyricsOffset } from '@/lib/lyricsOffsetStore';
 
 interface HostSettingsRoomTabProps {
   roomCode: string;
@@ -146,7 +151,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
         {/* Prefer Music Videos Toggle */}
         <div className="flex items-center justify-between p-3 bg-muted/20 border border-border">
           <div className="flex items-center gap-2.5">
-            <Video className="w-4 h-4 text-primary" />
+            <MusicIcon className="w-4 h-4 text-primary" />
             <div>
               <p className="text-xs font-semibold text-foreground">
                 {t('tvSettings.preferMusicVideosTitle')}
@@ -164,6 +169,141 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
           >
             {roomState?.searchSettings?.preferMusicVideos ? t('remote.autoplayOn') : t('remote.autoplayOff')}
           </Button>
+        </div>
+
+        {/* Word-by-Word Lyrics Sync Toggle */}
+        <div className="flex items-center justify-between p-3 bg-muted/20 border border-border">
+          <div className="flex items-center gap-2.5">
+            <Type className="w-4 h-4 text-primary" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-foreground">
+                  {t('tvSettings.lyricsWordSyncTitle') || 'Word-by-Word Sync'}
+                </p>
+                <span className="text-[9px] px-1 py-0.5 bg-primary/20 text-primary border border-primary/30 font-mono rounded">
+                  {t('tvSettings.lyricsWordSyncBadge') || 'Optimized'}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {t('tvSettings.lyricsWordSyncDesc') || 'Highlights full words instead of syllables.'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant={(roomState?.lyricsWordSync ?? true) ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              const current = roomState?.lyricsWordSync ?? true;
+              sendCommand('setLyricsWordSync', { enabled: !current });
+            }}
+            className="text-xs font-mono uppercase h-7 cursor-pointer"
+          >
+            {(roomState?.lyricsWordSync ?? true) ? t('remote.autoplayOn') : t('remote.autoplayOff')}
+          </Button>
+        </div>
+
+        {/* Lyrics Timing Calibration */}
+        <div className="p-3 bg-muted/20 border border-border space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Mic2 className="w-4 h-4 text-primary" />
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  {t('tvSettings.lyricsOffsetTitle') || 'Lyrics Sync Offset'}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {t('tvSettings.lyricsOffsetDesc') || 'Micro-adjust syllable timing on TV.'}
+                </p>
+              </div>
+            </div>
+            <div className="text-right font-mono">
+              <span className="text-xs font-bold text-primary">
+                {(roomState?.lyricsOffsetMs ?? 0) > 0 ? `+${roomState?.lyricsOffsetMs}ms` : `${roomState?.lyricsOffsetMs ?? 0}ms`}
+              </span>
+            </div>
+          </div>
+
+          {/* Steppers */}
+          <div className="grid grid-cols-5 gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const current = roomState?.lyricsOffsetMs ?? 0;
+                const next = Math.max(-5000, current - 500);
+                saveLyricsOffset(next);
+                sendCommand('setLyricsOffset', { offsetMs: next });
+              }}
+              className="text-[11px] font-mono h-7 px-1 cursor-pointer"
+            >
+              -0.5s
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const current = roomState?.lyricsOffsetMs ?? 0;
+                const next = Math.max(-5000, current - 100);
+                saveLyricsOffset(next);
+                sendCommand('setLyricsOffset', { offsetMs: next });
+              }}
+              className="text-[11px] font-mono h-7 px-1 cursor-pointer"
+            >
+              -0.1s
+            </Button>
+            <Button
+              variant={(roomState?.lyricsOffsetMs ?? 0) === 0 ? 'secondary' : 'default'}
+              size="sm"
+              onClick={() => {
+                saveLyricsOffset(0);
+                sendCommand('setLyricsOffset', { offsetMs: 0 });
+              }}
+              className="text-[11px] font-mono h-7 px-1 flex items-center justify-center gap-0.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>0s</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const current = roomState?.lyricsOffsetMs ?? 0;
+                const next = Math.min(5000, current + 100);
+                saveLyricsOffset(next);
+                sendCommand('setLyricsOffset', { offsetMs: next });
+              }}
+              className="text-[11px] font-mono h-7 px-1 cursor-pointer"
+            >
+              +0.1s
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const current = roomState?.lyricsOffsetMs ?? 0;
+                const next = Math.min(5000, current + 500);
+                saveLyricsOffset(next);
+                sendCommand('setLyricsOffset', { offsetMs: next });
+              }}
+              className="text-[11px] font-mono h-7 px-1 cursor-pointer"
+            >
+              +0.5s
+            </Button>
+          </div>
+
+          <div className="pt-1">
+            <Slider
+              value={[roomState?.lyricsOffsetMs ?? 0]}
+              min={-5000}
+              max={5000}
+              step={50}
+              onValueChange={(val) => {
+                saveLyricsOffset(val[0]);
+                sendCommand('setLyricsOffset', { offsetMs: val[0] });
+              }}
+              className="w-full cursor-pointer py-1"
+            />
+          </div>
         </div>
       </div>
 
