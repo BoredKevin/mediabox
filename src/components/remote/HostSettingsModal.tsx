@@ -1,7 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import { ref, onValue, off } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,31 +9,16 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-  Button,
-  Input,
   Badge,
 } from '@boredkevin/ui';
-import {
-  ShieldAlert,
-  Trash2,
-  Lock,
-  Unlock,
-  Timer,
-  Sparkles,
-  QrCode,
-  Copy,
-  Check,
-  Key,
-  Gauge,
-  RotateCcw,
-  Clock,
-  Video,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { ShieldAlert, Clock, Key, Gauge } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState } from '@/lib/roomUtils';
-import { loadProxyConfig, saveProxyConfig, isProxyConfigured } from '@/lib/proxyConfig';
+import { isProxyConfigured, loadProxyConfig } from '@/lib/proxyConfig';
+
+import { HostSettingsRoomTab } from './settings/HostSettingsRoomTab';
+import { HostSettingsApiTab } from './settings/HostSettingsApiTab';
+import { HostSettingsRateLimitsTab } from './settings/HostSettingsRateLimitsTab';
 
 interface HostSettingsModalProps {
   open: boolean;
@@ -49,12 +31,6 @@ interface HostSettingsModalProps {
   handleClearQueueAdmin: () => void;
   handleToggleRoomLockAdmin: () => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
-}
-
-interface RateLimitEntry {
-  uid: string;
-  count: number;
-  windowStart: number;
 }
 
 export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
@@ -71,143 +47,10 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>('room');
-  const [copiedLink, setCopiedLink] = useState(false);
 
-  // Rate Limit configuration form state
-  const searchSettings = roomState?.searchSettings;
-  const [rateLimitCountInput, setRateLimitCountInput] = useState<number>(
-    searchSettings?.rateLimitCount || 10
-  );
-  const [rateLimitWindowInput, setRateLimitWindowInput] = useState<number>(
-    searchSettings?.rateLimitWindowMs || 300000
-  );
-  const [maxResultsInput, setMaxResultsInput] = useState<number>(
-    searchSettings?.maxResults || 25
-  );
-  const [rateLimitSaved, setRateLimitSaved] = useState(false);
-
-  // MediaBox YouTube API Proxy configuration (admin/host only)
-  const [proxyUrl, setProxyUrl] = useState('');
-  const [proxyToken, setProxyToken] = useState('');
-  const [proxyTokenRevealed, setProxyTokenRevealed] = useState(false);
-  const [proxyRevealCountdown, setProxyRevealCountdown] = useState(0);
-  const [proxySaved, setProxySaved] = useState(false);
-
-  // Active Rate Limits data from RTDB
-  const [activeRateLimits, setActiveRateLimits] = useState<RateLimitEntry[]>([]);
-
-  // Sync rate limit inputs and proxy settings when modal opens
-  useEffect(() => {
-    if (open) {
-      setRateLimitCountInput(searchSettings?.rateLimitCount || 10);
-      setRateLimitWindowInput(searchSettings?.rateLimitWindowMs || 300000);
-      setMaxResultsInput(searchSettings?.maxResults || 25);
-      const pCfg = loadProxyConfig();
-      setProxyUrl(pCfg.proxyUrl || searchSettings?.proxyUrl || '');
-      setProxyToken(pCfg.proxyToken);
-      setProxySaved(false);
-    }
-  }, [open, searchSettings]);
-
-  // Handle 5-second countdown for proxy token reveal
-  useEffect(() => {
-    if (!proxyTokenRevealed) return;
-    setProxyRevealCountdown(5);
-    const interval = setInterval(() => {
-      setProxyRevealCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setProxyTokenRevealed(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [proxyTokenRevealed]);
-
-  const handleSaveProxy = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      saveProxyConfig({ proxyUrl, proxyToken });
-      await sendCommand('setYtProxy', {
-        proxyUrl: proxyUrl.trim(),
-        proxyToken: proxyToken.trim(),
-      });
-      setProxySaved(true);
-      showToast(t('tvSettings.ytProxySavedNotice'), 'success');
-      setTimeout(() => setProxySaved(false), 3000);
-    } catch {
-      showToast('Failed to save proxy settings', 'error');
-    }
-  };
-
-  // Subscribe to RTDB searchRateLimits when modal is open on Rate Limits tab
-  useEffect(() => {
-    if (!open || !roomCode || activeTab !== 'rate-limits') return;
-
-    const rateLimitsRef = ref(database, `rooms/${roomCode}/searchRateLimits`);
-    const unsub = onValue(rateLimitsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        const entries: RateLimitEntry[] = Object.entries(val).map(
-          ([uid, item]: [string, any]) => ({
-            uid,
-            count: item?.count || 0,
-            windowStart: item?.windowStart || Date.now(),
-          })
-        );
-        setActiveRateLimits(entries);
-      } else {
-        setActiveRateLimits([]);
-      }
-    });
-
-    return () => off(rateLimitsRef);
-  }, [open, roomCode, activeTab]);
-
-  const handleCopyLink = async () => {
-    try {
-      const joinUrl = `${window.location.origin}/#/join?room=${roomCode}`;
-      await navigator.clipboard.writeText(joinUrl);
-      setCopiedLink(true);
-      showToast(t('remote.linkCopied'), 'success');
-      setTimeout(() => setCopiedLink(false), 2000);
-    } catch {
-      showToast('Failed to copy link', 'error');
-    }
-  };
-
-  const handleSaveRateLimits = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await sendCommand('manageApiKeys', {
-        action: 'setRateLimit',
-        rateLimitCount: Number(rateLimitCountInput) || 10,
-        rateLimitWindowMs: Number(rateLimitWindowInput) || 300000,
-      });
-      await sendCommand('manageApiKeys', {
-        action: 'setMaxResults',
-        maxResults: Math.max(1, Math.min(50, Number(maxResultsInput) || 25)),
-      });
-      setRateLimitSaved(true);
-      showToast(t('tvSettings.saveLimitBtn') + ' successful', 'success');
-      setTimeout(() => setRateLimitSaved(false), 2000);
-    } catch {
-      showToast('Failed to save rate limits', 'error');
-    }
-  };
-
-  const handleClearRateLimits = async () => {
-    try {
-      await sendCommand('manageApiKeys', { action: 'clearRateLimits' });
-      showToast(t('tvSettings.clearRateLimits'), 'success');
-    } catch {
-      showToast('Failed to clear rate limits', 'error');
-    }
-  };
-
-  const isConfigured = isProxyConfigured({ proxyUrl, proxyToken }) || Boolean(searchSettings?.isProxyConfigured);
+  const pCfg = loadProxyConfig();
+  const isConfigured =
+    isProxyConfigured(pCfg) || Boolean(roomState?.searchSettings?.isProxyConfigured);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -248,7 +91,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
                 variant={isConfigured ? 'default' : 'outline'}
                 className="ml-1 px-1.5 py-0 text-[9px] font-mono"
               >
-                {isConfigured ? 'ACTIVE' : 'OFF'}
+                {isConfigured ? 'Active' : 'Missing'}
               </Badge>
             </TabsTrigger>
             <TabsTrigger
@@ -260,399 +103,36 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB 1: ROOM CONTROLS & QR CODE */}
-          <TabsContent
-            value="room"
-            className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-4 focus-visible:outline-none"
-          >
-            {/* Section 1: Room Privileges */}
-            <div className="flex flex-col gap-2.5">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                Room Controls
-              </span>
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            <TabsContent value="room" className="mt-0">
+              <HostSettingsRoomTab
+                roomCode={roomCode}
+                roomState={roomState}
+                queueLength={queueLength}
+                sendCommand={sendCommand}
+                handleClearQueueAdmin={handleClearQueueAdmin}
+                handleToggleRoomLockAdmin={handleToggleRoomLockAdmin}
+                showToast={showToast}
+              />
+            </TabsContent>
 
-              <div className="grid grid-cols-2 gap-2">
-                {/* Lock/Unlock */}
-                <Button
-                  variant={roomState?.isLocked ? 'destructive' : 'outline'}
-                  chamfer="top-right"
-                  onClick={handleToggleRoomLockAdmin}
-                  className="py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-auto"
-                >
-                  {roomState?.isLocked ? (
-                    <>
-                      <Lock className="w-3.5 h-3.5 text-amber-400" />
-                      <span>{t('remote.unlockRoomBtn')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span>{t('remote.lockRoomBtn')}</span>
-                    </>
-                  )}
-                </Button>
+            <TabsContent value="api" className="mt-0">
+              <HostSettingsApiTab
+                roomState={roomState}
+                sendCommand={sendCommand}
+                showToast={showToast}
+              />
+            </TabsContent>
 
-                {/* Clear Queue */}
-                <Button
-                  variant="destructive"
-                  chamfer="top-right"
-                  onClick={handleClearQueueAdmin}
-                  disabled={queueLength === 0}
-                  className="py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-auto"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>
-                    {t('remote.clearQueueBtn')} ({queueLength})
-                  </span>
-                </Button>
-
-                {/* Countdown Mode Toggle */}
-                <Button
-                  variant={roomState?.isCountdownEnabled ? 'cyber' : 'outline'}
-                  chamfer="top-right"
-                  onClick={() => sendCommand('toggleCountdown')}
-                  className="py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-auto"
-                >
-                  <Timer className="w-3.5 h-3.5" />
-                  <span>
-                    {roomState?.isCountdownEnabled
-                      ? t('remote.countdownOn')
-                      : t('remote.countdownOff')}
-                  </span>
-                </Button>
-
-                {/* Autoplay Toggle */}
-                <Button
-                  variant={roomState?.isAutoplay ? 'cyber' : 'outline'}
-                  chamfer="top-right"
-                  onClick={() => sendCommand('toggleAutoplay')}
-                  className="py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-auto"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>
-                    {roomState?.isAutoplay
-                      ? t('remote.autoplayOn')
-                      : t('remote.autoplayOff')}
-                  </span>
-                </Button>
-
-                {/* Prefer Music Videos Toggle */}
-                <Button
-                  variant={roomState?.searchSettings?.preferMusicVideos ?? true ? 'cyber' : 'outline'}
-                  chamfer="top-right"
-                  onClick={() => sendCommand('togglePreferMusicVideos')}
-                  className="py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 h-auto col-span-2"
-                >
-                  <Video className="w-3.5 h-3.5" />
-                  <span>
-                    {t('tvSettings.preferMusicVideosTitle')}:{' '}
-                    {roomState?.searchSettings?.preferMusicVideos ?? true
-                      ? 'ON'
-                      : 'OFF'}
-                  </span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Section 2: QR Code & Join Link */}
-            <div className="flex flex-col gap-2.5 pt-3 border-t border-border">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <QrCode className="w-3.5 h-3.5 text-primary" />
-                {t('remote.joinQrCode')}
-              </span>
-
-              <div className="flex flex-col items-center gap-3 p-3 bg-muted/20 border border-border">
-                <div className="p-2 bg-white border-2 border-primary shadow-[0_0_15px_rgba(0,200,212,0.15)]">
-                  <QRCodeSVG
-                    value={`${window.location.origin}/#/join?room=${roomCode}`}
-                    size={130}
-                    level="M"
-                  />
-                </div>
-
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                    {t('watchParty.roomBadge')}
-                  </span>
-                  <span className="font-mono text-xl font-bold tracking-[0.2em] text-primary">
-                    {roomCode}
-                  </span>
-                </div>
-
-                <Button
-                  variant="outline"
-                  chamfer="dual"
-                  onClick={handleCopyLink}
-                  className="px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center gap-2 w-full justify-center h-auto"
-                >
-                  {copiedLink ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-400">{t('remote.linkCopied')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-primary" />
-                      <span>{t('remote.copyJoinLink')}</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* TAB 2: MEDIABOX YOUTUBE API PROXY */}
-          <TabsContent
-            value="api"
-            className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-4 focus-visible:outline-none"
-          >
-            <div className="p-4 bg-muted/20 border border-border space-y-4">
-              <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-foreground uppercase tracking-wider">
-                      {t('tvSettings.ytProxyTitle')}
-                    </span>
-                    <Badge
-                      variant={isConfigured ? 'default' : 'outline'}
-                      className="text-[9px] px-1.5 py-0 h-4"
-                    >
-                      {isConfigured
-                        ? t('tvSettings.ytProxyStatusConnected')
-                        : t('tvSettings.ytProxyStatusDisconnected')}
-                    </Badge>
-                  </div>
-                  <span className="text-xs text-muted-foreground block mt-1 leading-relaxed">
-                    {t('tvSettings.ytProxyDesc')}
-                  </span>
-                </div>
-              </div>
-
-              <form onSubmit={handleSaveProxy} className="space-y-3">
-                <div>
-                  <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
-                    {t('tvSettings.ytProxyUrlLabel')}
-                  </label>
-                  <Input
-                    type="url"
-                    value={proxyUrl}
-                    onChange={(e) => setProxyUrl(e.target.value)}
-                    placeholder={t('tvSettings.ytProxyUrlPlaceholder')}
-                    className="text-xs font-mono h-9"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1">
-                    {t('tvSettings.ytProxyTokenLabel')}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type={proxyTokenRevealed ? 'text' : 'password'}
-                      value={proxyToken}
-                      onChange={(e) => setProxyToken(e.target.value)}
-                      placeholder={t('tvSettings.ytProxyTokenPlaceholder')}
-                      className="text-xs font-mono h-9 flex-1"
-                    />
-                    {proxyToken && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setProxyTokenRevealed(!proxyTokenRevealed)}
-                        className="h-9 px-2.5 text-muted-foreground hover:text-foreground text-[10px]"
-                        title={proxyTokenRevealed ? 'Hide' : 'Reveal for 5s'}
-                      >
-                        {proxyTokenRevealed ? (
-                          <span className="flex items-center gap-1 font-mono text-[10px] text-primary">
-                            <EyeOff className="w-3.5 h-3.5" />
-                            {proxyRevealCountdown}s
-                          </span>
-                        ) : (
-                          <Eye className="w-3.5 h-3.5" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  {proxySaved ? (
-                    <span className="text-xs text-emerald-400 font-mono flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" />
-                      {t('tvSettings.ytProxySavedNotice')}
-                    </span>
-                  ) : <span />}
-
-                  <Button
-                    type="submit"
-                    variant="cyber"
-                    chamfer="top-right"
-                    size="sm"
-                    className="py-1 px-4 text-xs font-bold uppercase tracking-wider h-8"
-                  >
-                    {t('tvSettings.ytProxySaveBtn')}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </TabsContent>
-
-          {/* TAB 3: RATE LIMITS */}
-          <TabsContent
-            value="rate-limits"
-            className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-4 focus-visible:outline-none"
-          >
-            <form
-              onSubmit={handleSaveRateLimits}
-              className="p-4 bg-muted/20 border border-border space-y-3"
-            >
-              <div>
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  {t('tvSettings.rateLimitTitle')}
-                </h4>
-                <p className="text-[11px] text-muted-foreground">
-                  {t('tvSettings.rateLimitDesc')}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                <div>
-                  <label
-                    htmlFor="remote-rate-limit-count"
-                    className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1"
-                  >
-                    Searches allowed
-                  </label>
-                  <Input
-                    id="remote-rate-limit-count"
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={rateLimitCountInput}
-                    onChange={(e) =>
-                      setRateLimitCountInput(parseInt(e.target.value, 10) || 10)
-                    }
-                    className="text-xs h-8"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="remote-rate-limit-window"
-                    className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1"
-                  >
-                    Time Window
-                  </label>
-                  <select
-                    id="remote-rate-limit-window"
-                    value={rateLimitWindowInput}
-                    onChange={(e) =>
-                      setRateLimitWindowInput(parseInt(e.target.value, 10))
-                    }
-                    className="w-full h-8 text-xs bg-background border border-border px-2 text-foreground font-sans focus:outline-none focus:border-primary"
-                  >
-                    <option value={60000}>1 Minute</option>
-                    <option value={300000}>5 Minutes (Default)</option>
-                    <option value={600000}>10 Minutes</option>
-                    <option value={3600000}>1 Hour</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="remote-rate-limit-maxresults"
-                    className="text-[10px] text-muted-foreground uppercase font-semibold block mb-1"
-                  >
-                    {t('tvSettings.maxResults')} (1 - 50)
-                  </label>
-                  <Input
-                    id="remote-rate-limit-maxresults"
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={maxResultsInput}
-                    onChange={(e) =>
-                      setMaxResultsInput(parseInt(e.target.value, 10) || 5)
-                    }
-                    className="text-xs h-8"
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                variant="cyber"
-                chamfer="top-right"
-                className="py-1.5 px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 h-8 mt-2"
-              >
-                {rateLimitSaved ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Saved!</span>
-                  </>
-                ) : (
-                  <span>{t('tvSettings.saveLimitBtn')}</span>
-                )}
-              </Button>
-            </form>
-
-            {/* Active Rate Limits Table */}
-            <div className="p-3 bg-muted/20 border border-border space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  {t('tvSettings.activeRateLimits')}
-                </span>
-                {activeRateLimits.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleClearRateLimits}
-                    className="h-6 px-2 text-[10px] uppercase font-bold text-destructive hover:text-destructive hover:border-destructive flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>{t('tvSettings.clearRateLimits')}</span>
-                  </Button>
-                )}
-              </div>
-
-              {activeRateLimits.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground italic py-2">
-                  {t('tvSettings.noRateLimits')}
-                </p>
-              ) : (
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {activeRateLimits.map((entry) => {
-                    const elapsed = Date.now() - (entry.windowStart || 0);
-                    const remainingMs = Math.max(
-                      0,
-                      (searchSettings?.rateLimitWindowMs || 300000) - elapsed
-                    );
-                    const remainingSec = Math.ceil(remainingMs / 1000);
-
-                    return (
-                      <div
-                        key={entry.uid}
-                        className="flex items-center justify-between p-1.5 bg-background/60 border border-border text-xs font-mono"
-                      >
-                        <span className="text-muted-foreground text-[11px] truncate max-w-[180px]">
-                          UID: {entry.uid}
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-foreground font-bold">
-                            {entry.count} / {searchSettings?.rateLimitCount || 10}
-                          </span>
-                          <span className="text-[10px] text-primary">
-                            resets in {remainingSec}s
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </TabsContent>
+            <TabsContent value="rate-limits" className="mt-0">
+              <HostSettingsRateLimitsTab
+                roomCode={roomCode}
+                roomState={roomState}
+                sendCommand={sendCommand}
+                showToast={showToast}
+              />
+            </TabsContent>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>
