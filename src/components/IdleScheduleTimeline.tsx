@@ -79,7 +79,7 @@ export const IdleScheduleTimeline: React.FC<IdleScheduleTimelineProps> = () => {
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-border/40 overflow-hidden z-20 pointer-events-none">
           <div
             key={currentPage}
-            className="h-full bg-foreground/40 animate-agenda-progress"
+            className="h-full w-full bg-foreground/40 animate-agenda-progress"
           />
         </div>
       )}

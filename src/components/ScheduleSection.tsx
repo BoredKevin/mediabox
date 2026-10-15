@@ -213,7 +213,7 @@ export const ScheduleSection: React.FC = React.memo(() => {
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/[0.04] overflow-hidden pointer-events-none">
             <div
               key={carouselIndex}
-              className="h-full bg-primary/20 animate-schedule-progress"
+              className="h-full w-full bg-primary/20 animate-schedule-progress"
             />
           </div>
         )}

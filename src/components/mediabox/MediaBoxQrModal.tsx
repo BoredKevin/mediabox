@@ -34,15 +34,15 @@ export const MediaBoxQrModal: React.FC<MediaBoxQrModalProps> = ({
   if (!show) return null;
 
   return (
-    <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-30 flex items-center justify-center p-4 animate-in fade-in-0 duration-200">
+    <div className="absolute inset-0 bg-black/90 z-30 flex items-center justify-center p-4 animate-in fade-in-0 duration-200">
       <Card
         cornerLines
-        className="p-6 max-w-sm w-full flex flex-col items-center gap-4 relative shadow-2xl overflow-hidden bg-card border-border"
+        className="p-6 max-w-sm w-full flex flex-col items-center gap-4 relative overflow-hidden bg-card border-border"
       >
         {/* 30s Animated Timer Progress Line */}
         <div
-          className="absolute top-0 left-0 h-1 bg-primary/50 transition-all duration-1000 ease-linear"
-          style={{ width: `${(secondsLeft / 30) * 100}%` }}
+          className="absolute top-0 left-0 w-full h-1 bg-primary/50 transition-transform duration-1000 ease-linear origin-left will-change-transform"
+          style={{ transform: `scaleX(${secondsLeft / 30})` }}
         />
 
         <Button

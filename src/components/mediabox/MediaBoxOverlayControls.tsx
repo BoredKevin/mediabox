@@ -20,7 +20,7 @@ interface MediaBoxOverlayControlsProps {
   isLocked: boolean;
   isFullscreen: boolean;
   isOverlayVisible: boolean;
-  clockTime: { hours: string; minutes: string; seconds: string };
+  clockTime?: { hours: string; minutes: string; seconds: string };
   currentVideoMeta: { title: string; author: string };
   currentlyPlayingUrl?: string | null;
   currentlyPlayingTitle?: string | null;
@@ -87,20 +87,13 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
     <>
       {/* Top Overlay: Video Title & Author Name */}
       <div
-        className={`absolute inset-x-0 top-0 z-30 pt-4 sm:pt-6 pb-12 sm:pb-16 px-5 sm:px-8 bg-gradient-to-b from-black/90 via-black/55 to-transparent flex items-start justify-between gap-4 pointer-events-none transition-opacity duration-300 select-none ${
+        className={`absolute inset-x-0 top-0 z-30 ${
+          isFullscreen ? 'pt-16 sm:pt-20 md:pt-24' : 'pt-4 sm:pt-6'
+        } pb-12 sm:pb-16 px-5 sm:px-8 bg-gradient-to-b from-black/90 via-black/55 to-transparent flex items-start justify-between gap-4 pointer-events-none transition-opacity duration-300 select-none ${
           isOverlayVisible ? 'opacity-100' : 'opacity-0'
         }`}
       >
         <div className="flex flex-col min-w-0 max-w-full">
-          {isFullscreen && (
-            <div className="mb-2 w-fit bg-background/90 border border-border px-3.5 py-1.5 font-display text-base sm:text-2xl md:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 shadow-lg select-none rounded-md">
-              <span>
-                {clockTime.hours}
-                <span className="text-muted-foreground opacity-70 animate-blink">:</span>
-                {clockTime.minutes}
-              </span>
-            </div>
-          )}
           <a
             href={currentlyPlayingUrl || '#'}
             target="_blank"
@@ -138,7 +131,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
           }}
           disabled={isLocked || !canGoPrevious}
           aria-label={t('watchParty.previousBtn')}
-          className="h-11 w-11 sm:h-14 sm:w-14 text-foreground bg-background/70 hover:bg-background/90 border border-border/70 backdrop-blur-md rounded-full flex items-center justify-center pointer-events-auto transition-all shadow-xl active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+          className="h-11 w-11 sm:h-14 sm:w-14 text-foreground bg-neutral-900/95 hover:bg-neutral-800 border border-border rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
           title={t('watchParty.previousBtn')}
         >
           <SkipBack className="w-5 h-5 sm:w-7 sm:h-7 fill-current" />
@@ -154,7 +147,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
           }}
           disabled={isLocked}
           aria-label={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-          className="h-16 w-16 sm:h-20 sm:w-20 text-foreground bg-background/85 hover:bg-background border border-border/80 backdrop-blur-md rounded-full flex items-center justify-center pointer-events-auto transition-all shadow-2xl active:scale-95 cursor-pointer"
+          className="h-16 w-16 sm:h-20 sm:w-20 text-foreground bg-neutral-900/95 hover:bg-neutral-800 border border-border rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-95 cursor-pointer"
           title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
         >
           {isPlaying ? (
@@ -174,7 +167,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
           }}
           disabled={isLocked}
           aria-label={t('watchParty.skipNextBtn')}
-          className="h-11 w-11 sm:h-14 sm:w-14 text-foreground bg-background/70 hover:bg-background/90 border border-border/70 backdrop-blur-md rounded-full flex items-center justify-center pointer-events-auto transition-all shadow-xl active:scale-95 cursor-pointer"
+          className="h-11 w-11 sm:h-14 sm:w-14 text-foreground bg-neutral-900/95 hover:bg-neutral-800 border border-border rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-95 cursor-pointer"
           title={t('watchParty.skipNextBtn')}
         >
           <SkipForward className="w-5 h-5 sm:w-7 sm:h-7 fill-current" />
@@ -190,7 +183,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
         {/* Left: Volume HUD Control */}
         <div className="flex items-center gap-3 sm:gap-4">
           <div
-            className="flex items-center gap-3 sm:gap-4 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-md bg-background/80 border border-border/60 backdrop-blur-md pointer-events-auto shadow-lg"
+            className="flex items-center gap-3 sm:gap-4 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-md bg-neutral-950/95 border border-border/80 pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <Button
