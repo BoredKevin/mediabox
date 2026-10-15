@@ -1,24 +1,24 @@
-import React, { useState, useEffect, useRef, useTransition } from 'react';
-import { ref, set, onValue, off, remove } from 'firebase/database';
+import React, { useState, useEffect, useRef } from 'react';
+import { ref, onValue, off } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
 import { database } from '@/lib/firebase';
 import { useTranslation } from '@/context/LanguageContext';
-import { Card, Button, Badge } from '@boredkevin/ui';
+import { Card, Button } from '@boredkevin/ui';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 import {
   Search,
   Plus,
-  Check,
   Loader2,
   AlertCircle,
   Key,
-  ExternalLink,
-  Film,
   X,
 } from 'lucide-react';
 import { RoomState, SearchResultItem } from '@/lib/roomUtils';
 import { fetchVideoTitle, parseYouTubeVideoId, VideoInfo } from '@/lib/youtube';
+
+import { useYouTubeSearch } from './search/useYouTubeSearch';
+import { LinkPreviewCard } from './search/LinkPreviewCard';
+import { SearchResultsGrid } from './search/SearchResultsGrid';
 
 interface SearchPanelProps {
   roomCode: string;
@@ -45,13 +45,22 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const searchSettings = roomState?.searchSettings;
   const isLocked = Boolean(roomState?.isLocked) && !isHostOrAdmin;
 
-  // Single unified input value
   const [inputValue, setInputValue] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
   const [isSubmittingLink, setIsSubmittingLink] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [addedVideoIds, setAddedVideoIds] = useState<Set<string>>(new Set());
+
+  // Search query lifecycle
+  const {
+    isSearching,
+    searchError,
+    searchResults,
+    performSearch,
+    setSearchError,
+  } = useYouTubeSearch({
+    roomCode,
+    user,
+    isProxyConfigured: Boolean(searchSettings?.isProxyConfigured),
+  });
 
   // Keep addedVideoIds synchronized with current room queue
   useEffect(() => {
@@ -77,9 +86,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         return next;
       });
     });
-    return () => {
-      off(queueRefNode);
-    };
+    return () => off(queueRefNode);
   }, [roomCode]);
 
   // Detected link preview state
@@ -90,16 +97,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     isLoading: boolean;
   } | null>(null);
 
-  // Active search request listener ref
-  const activeReqRef = useRef<{ reqId: string; timeoutId: any; nodeRef: any } | null>(null);
   const titleFetchAbortRef = useRef<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // WebOS Voice Recognition & Virtual Keyboard IME fix:
-  // WebOS virtual keyboard uses a non-standard IME/voice dictation method that
-  // inserts the full string directly into the DOM and suppresses React's SyntheticEvent onChange.
-  // Attaching native DOM listeners directly to the underlying <input> element via ref
-  // ensures raw DOM input events are captured and state is synced immediately.
+  // WebOS Voice Recognition & Virtual Keyboard IME fix
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -108,7 +109,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       const target = e.target as HTMLInputElement;
       if (target) {
         setInputValue(target.value);
-        setSearchError(null);
+        if (searchError) setSearchError(null);
       }
     };
 
@@ -125,17 +126,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       el.removeEventListener('textInput', handleNativeInput as any);
       el.removeEventListener('blur', handleNativeInput);
     };
-  }, []);
-
-  // Clean up any pending search listeners on unmount
-  useEffect(() => {
-    return () => {
-      if (activeReqRef.current) {
-        clearTimeout(activeReqRef.current.timeoutId);
-        off(activeReqRef.current.nodeRef);
-      }
-    };
-  }, []);
+  }, [searchError, setSearchError]);
 
   // Detect link vs query on input change
   const detectedYtId = parseYouTubeVideoId(inputValue.trim());
@@ -200,67 +191,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     }
 
     // Case 2: Keyword Search Query
-    if (!searchSettings?.isProxyConfigured) {
-      setSearchError(
-        'Keyword search requires the MediaBox YouTube API proxy to be configured on the TV. You can paste any direct YouTube link above to queue videos with zero setup.'
-      );
-      return;
-    }
-
-    setIsSearching(true);
-    setSearchError(null);
-    setSearchResults([]);
-
-    if (activeReqRef.current) {
-      clearTimeout(activeReqRef.current.timeoutId);
-      off(activeReqRef.current.nodeRef);
-    }
-
-    const reqId = `${user.uid}_${Date.now()}`;
-    const searchReqRef = ref(database, `rooms/${roomCode}/searchRequests/${reqId}`);
-    const searchResRef = ref(database, `rooms/${roomCode}/searchResults/${reqId}`);
-
-    const timeoutId = setTimeout(() => {
-      off(searchResRef);
-      setIsSearching(false);
-      setSearchError('TV not responding (timeout after 25s). Please check TV connection.');
-      activeReqRef.current = null;
-    }, 25000);
-
-    activeReqRef.current = { reqId, timeoutId, nodeRef: searchResRef };
-
-    onValue(searchResRef, (snapshot) => {
-      if (!snapshot.exists()) return;
-
-      const data = snapshot.val();
-      clearTimeout(timeoutId);
-      off(searchResRef);
-      setIsSearching(false);
-      activeReqRef.current = null;
-
-      if (data.error) {
-        setSearchError(data.error);
-        setSearchResults([]);
-      } else if (Array.isArray(data.results)) {
-        setSearchResults(data.results);
-      }
-
-      remove(searchResRef).catch(() => { });
-    });
-
-    try {
-      await set(searchReqRef, {
-        requestedBy: user.uid,
-        query: cleanInput,
-        createdAt: Date.now(),
-      });
-    } catch (err: any) {
-      clearTimeout(timeoutId);
-      off(searchResRef);
-      setIsSearching(false);
-      setSearchError(err.message || 'Failed to submit search request to TV.');
-      activeReqRef.current = null;
-    }
+    performSearch(cleanInput);
   };
 
   const handleAddSearchResult = (result: SearchResultItem) => {
@@ -271,9 +202,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     const isAlreadyAdded =
       addedVideoIds.has(result.id) ||
       (result.url ? addedVideoIds.has(result.url) : false);
-    if (isAlreadyAdded) {
-      return;
-    }
+    if (isAlreadyAdded) return;
+
     setAddedVideoIds((prev) => {
       const next = new Set(prev);
       if (result.id) next.add(result.id);
@@ -304,7 +234,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   const content = (
     <div className="flex flex-col gap-4">
-      {/* YouTube-Style Search / Paste URL Form */}
+      {/* Search / Paste URL Form */}
       <form onSubmit={handleFormSubmit} className="flex flex-col sm:flex-row items-stretch gap-2">
         <div className="relative flex-1 min-w-0">
           {isDetectedUrl ? (
@@ -350,12 +280,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           type="submit"
           variant="cyber"
           chamfer="dual"
-          disabled={
-            isLocked ||
-            isSearching ||
-            isSubmittingLink ||
-            !inputValue.trim()
-          }
+          disabled={isLocked || isSearching || isSubmittingLink || !inputValue.trim()}
           className="h-11 px-6 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 flex-shrink-0 cursor-pointer"
         >
           {isSubmittingLink || isSearching ? (
@@ -377,66 +302,17 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         </Button>
       </form>
 
-      {/* Detected Link Preview (Single Item Preview Card) */}
+      {/* Detected Link Preview */}
       {previewInfo && (
-        <div className="p-3 sm:p-4 bg-card/80 border border-primary/40 flex flex-col gap-3 animate-in fade-in-0 rounded-[var(--radius)]">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-              <Film className="w-3.5 h-3.5" />
-              Detected YouTube Video
-            </span>
-            <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
-              Ready to Queue
-            </Badge>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative aspect-video w-full sm:w-48 bg-black overflow-hidden rounded-[calc(var(--radius)-2px)] border border-border flex-shrink-0">
-              <img
-                src={
-                  previewInfo.info?.thumbnailUrl ||
-                  `https://img.youtube.com/vi/${previewInfo.id}/hqdefault.jpg`
-                }
-                alt="Preview thumbnail"
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <p className="text-xs sm:text-sm font-bold text-foreground line-clamp-2 leading-snug">
-                {previewInfo.info?.title || (previewInfo.isLoading ? 'Resolving title...' : 'YouTube Video')}
-              </p>
-              {previewInfo.info?.channelTitle && (
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                  {previewInfo.info.channelTitle}
-                </p>
-              )}
-              <p className="text-[10px] font-mono text-primary/80 mt-1 truncate">
-                {previewInfo.url}
-              </p>
-            </div>
-
-            <Button
-              type="button"
-              variant="cyber"
-              chamfer="dual"
-              onClick={handleAddDirectPreview}
-              disabled={isLocked || isSubmittingLink}
-              className="px-4 py-2 font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 h-10 sm:h-11 flex-shrink-0 cursor-pointer"
-              title="Add this video to queue"
-            >
-              {isSubmittingLink ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Plus className="w-3.5 h-3.5" />
-              )}
-              <span>{t('remote.addBtn')}</span>
-            </Button>
-          </div>
-        </div>
+        <LinkPreviewCard
+          previewInfo={previewInfo}
+          isLocked={isLocked}
+          isSubmittingLink={isSubmittingLink}
+          onAdd={handleAddDirectPreview}
+        />
       )}
 
-      {/* No Key / Proxy Contextual Banner (Displayed Below Search Bar) */}
+      {/* No Key / Proxy Contextual Banner */}
       {!searchSettings?.isProxyConfigured && (
         <div className="p-3 bg-muted/20 border border-amber-800/60 text-xs flex flex-col gap-2 rounded-[var(--radius)]">
           <div className="flex items-center justify-between gap-2">
@@ -470,143 +346,15 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         </p>
       )}
 
-      {/* Skeletons while searching */}
-      {isSearching && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 py-2 animate-pulse">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex flex-col bg-muted/20 border border-border/40 rounded-[var(--radius)] overflow-hidden"
-            >
-              <div className="aspect-video bg-muted/40 w-full" />
-              <div className="p-3 flex flex-col gap-2">
-                <div className="h-3.5 bg-muted/50 rounded w-3/4" />
-                <div className="h-3 bg-muted/30 rounded w-1/2" />
-                <div className="h-7 bg-muted/20 rounded mt-2" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* YouTube-Style Video Grid Search Results */}
-      {!isSearching && searchResults.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-              {searchResults.length} Results
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pr-1">
-            {searchResults.map((res) => {
-              const isAdded =
-                addedVideoIds.has(res.id) ||
-                (res.url ? addedVideoIds.has(res.url) : false);
-
-              return (
-                <div
-                  key={res.id}
-                  onClick={() => handleAddSearchResult(res)}
-                  className={cn(
-                    "group/card flex flex-col transition-all duration-200 overflow-hidden select-none rounded-[var(--radius)]",
-                    isAdded
-                      ? "border-2 border-emerald-500/90 bg-emerald-950/30 hover:bg-emerald-950/40 shadow-[0_0_20px_rgba(16,185,129,0.25)] hover:border-emerald-400 cursor-default"
-                      : "bg-card/70 hover:bg-card/95 border border-border/60 hover:border-primary/60 shadow-sm hover:shadow-[0_0_20px_rgba(0,200,212,0.15)] cursor-pointer"
-                  )}
-                >
-                  {/* 16:9 Thumbnail with duration overlay & hover action */}
-                  <div className="relative aspect-video w-full bg-black overflow-hidden flex-shrink-0">
-                    <img
-                      src={res.thumbnail}
-                      alt={res.title}
-                      className={cn(
-                        "w-full h-full object-cover transition-transform duration-300",
-                        !isAdded && "group-hover/card:scale-105"
-                      )}
-                      loading="lazy"
-                    />
-
-                    {/* Added Corner Check Badge */}
-                    {isAdded && (
-                      <div className="absolute top-2 right-2 z-10 bg-emerald-600/95 border border-emerald-400 text-white rounded-full p-1 shadow-lg flex items-center justify-center pointer-events-none">
-                        <Check className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-
-                    {/* Hover Overlay with Add / Added Button */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 flex items-center justify-center p-2">
-                      <Button
-                        variant="cyber"
-                        size="sm"
-                        chamfer="dual"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddSearchResult(res);
-                        }}
-                        disabled={isLocked}
-                        className={cn(
-                          "px-3.5 py-2 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5 shadow-xl transition-all duration-200",
-                          isAdded
-                            ? "!bg-emerald-600 hover:!bg-emerald-500 !text-white !border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)] cursor-default"
-                            : "cursor-pointer"
-                        )}
-                      >
-                        {isAdded ? (
-                          <>
-                            <Check className="w-4 h-4 text-white" />
-                            <span>{t('remote.addedBtn') || 'Added'}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4" />
-                            <span>{t('remote.addBtn')}</span>
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Video Info below thumbnail */}
-                  <div className="p-3 flex flex-col flex-1 justify-between gap-2">
-                    <div>
-                      <h4
-                        className={cn(
-                          "text-xs sm:text-sm font-semibold line-clamp-2 leading-snug transition-colors",
-                          isAdded
-                            ? "text-emerald-300"
-                            : "text-foreground group-hover/card:text-primary"
-                        )}
-                        title={res.title}
-                      >
-                        {res.title}
-                      </h4>
-                      <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">
-                        {res.channelTitle}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Empty Starter State */}
-      {!isSearching && searchResults.length === 0 && !previewInfo && (
-        <div className="flex flex-col items-center justify-center py-12 px-4 text-center text-muted-foreground">
-          <div className="w-14 h-14 rounded-full bg-muted/20 border border-border flex items-center justify-center mb-3 text-muted-foreground/60">
-            <Search className="w-6 h-6" />
-          </div>
-          <p className="text-sm font-semibold text-foreground">
-            Search YouTube for Videos
-          </p>
-          <p className="text-xs text-muted-foreground mt-1 max-w-sm leading-relaxed">
-            Type any song, artist, title, or paste a YouTube video URL to find and queue up to 25 videos on the TV.
-          </p>
-        </div>
-      )}
+      {/* YouTube Video Grid Search Results & Skeletons */}
+      <SearchResultsGrid
+        isSearching={isSearching}
+        searchResults={searchResults}
+        addedVideoIds={addedVideoIds}
+        isLocked={isLocked}
+        previewActive={Boolean(previewInfo)}
+        onAddResult={handleAddSearchResult}
+      />
     </div>
   );
 
