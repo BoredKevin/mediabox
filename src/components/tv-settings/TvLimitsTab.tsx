@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ref, onValue, off } from 'firebase/database';
 import { database } from '@/lib/firebase';
-import { Button, Input } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Gauge, Check, RotateCcw } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { SearchSettings } from '@/lib/roomUtils';

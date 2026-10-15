@@ -5,7 +5,6 @@ import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
 import { auth, ensureAnonymousAuth, signInWithGoogle, logoutUser, database } from '@/lib/firebase';
 import { checkRoomExists } from '@/lib/roomUtils';
 import { useTranslation } from '@/context/LanguageContext';
-import { ConstellationsBackground } from '@boredkevin/ui';
 
 import { JoinScreen } from './JoinScreen';
 import { RoomScreen } from './RoomScreen';
@@ -170,7 +169,7 @@ export const RemoteView: React.FC = () => {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans relative">
       {/* Background Ambience */}
-      <ConstellationsBackground particleCount={25} interactive />
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
 
       {!activeRoomCode ? (
         <JoinScreen

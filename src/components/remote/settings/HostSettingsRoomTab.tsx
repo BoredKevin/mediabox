@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Button } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
 import {
   QrCode,
   Copy,

@@ -3,7 +3,8 @@ import { ref, onValue, off } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
 import { database } from '@/lib/firebase';
 import { useTranslation } from '@/context/LanguageContext';
-import { Card, Button } from '@boredkevin/ui';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Search,

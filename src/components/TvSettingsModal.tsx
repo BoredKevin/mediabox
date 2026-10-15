@@ -7,11 +7,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+} from '@/components/ui/dialog';
+import {
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
-} from '@boredkevin/ui';
+} from '@/components/ui/tabs';
 import { Key, Gauge, Sliders } from 'lucide-react';
 
 import { TvApiTab } from './tv-settings/TvApiTab';
@@ -38,10 +40,10 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="max-w-md w-full flex flex-col bg-card border-border overflow-hidden p-6 shadow-2xl backdrop-blur-xl">
+      <DialogContent className="max-w-md w-full flex flex-col bg-card border-border overflow-hidden p-6 shadow-2xl rounded-none">
         <DialogHeader className="border-b border-border pb-3 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Key className="w-5 h-5 text-primary" />
+            <Key className="w-5 h-5 text-foreground" />
             <DialogTitle className="text-base sm:text-lg font-bold uppercase tracking-wider font-mono">
               {t('tvSettings.title')}
             </DialogTitle>
@@ -57,7 +59,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
           onValueChange={setActiveTab}
           className="w-full flex-1 flex flex-col min-h-0 overflow-hidden mt-3"
         >
-          <TabsList className="grid grid-cols-3 w-full border-b border-border bg-muted/40 p-1 mb-4 rounded-none flex-shrink-0">
+          <TabsList className="grid grid-cols-3 w-full border border-border bg-muted/40 p-1 mb-4 rounded-md flex-shrink-0">
             <TabsTrigger
               value="api"
               className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider py-2"

@@ -6,14 +6,11 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  Button,
-  Input,
-  Badge,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  CornerEdges,
-} from '@boredkevin/ui';
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Scale,
   Search,
@@ -96,10 +93,10 @@ export const LicensesModal: React.FC<LicensesModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[88vh] flex flex-col p-0 gap-0 overflow-hidden border border-border bg-background/95 backdrop-blur-xl shadow-2xl">
+      <DialogContent className="max-w-3xl max-h-[88vh] flex flex-col p-0 gap-0 overflow-hidden border border-border bg-card shadow-2xl rounded-none">
         {/* Header */}
-        <DialogHeader className="p-5 pb-4 border-b border-border/80">
-          <div className="flex items-center gap-2 text-primary mb-1">
+        <DialogHeader className="p-5 pb-4 border-b border-border">
+          <div className="flex items-center gap-2 text-foreground mb-1">
             <Scale className="h-5 w-5" />
             <DialogTitle className="text-xl font-bold tracking-wide">
               Open Source Licenses
@@ -172,9 +169,8 @@ export const LicensesModal: React.FC<LicensesModalProps> = ({
                 return (
                   <div
                     key={pkg.name}
-                    className="relative p-4 rounded-lg border border-primary/40 bg-primary/5 transition-all shadow-sm"
+                    className="relative p-4 rounded-md border border-border bg-muted/30 transition-all shadow-sm"
                   >
-                    <CornerEdges size={8} glow={true} telemetry="CPAL.1.0" />
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -187,7 +183,7 @@ export const LicensesModal: React.FC<LicensesModalProps> = ({
                           <Badge variant="default" className="text-[10px] tracking-wider uppercase font-mono">
                             Host Application
                           </Badge>
-                          <Badge variant="outline" className="border-primary text-primary text-[10px] font-mono">
+                          <Badge variant="outline" className="border-border text-foreground text-[10px] font-mono">
                             {pkg.license}
                           </Badge>
                         </div>
@@ -221,12 +217,12 @@ export const LicensesModal: React.FC<LicensesModalProps> = ({
 
                     {/* Attribution Requirement Callout */}
                     <div className="mt-3 p-2.5 rounded bg-background/60 border border-primary/20 text-xs text-foreground/90 font-mono">
-                      <span className="text-primary font-bold">Attribution Requirement:</span> You must include the prominent display of the phrase &ldquo;Powered by boredkevin/mediabox&rdquo; in the user interface of any Deployment or Derivative Work.
+                      <span className="text-foreground font-bold">Attribution Requirement:</span> You must include the prominent display of the phrase &ldquo;Powered by boredkevin/mediabox&rdquo; in the user interface of any Deployment or Derivative Work.
                     </div>
 
                     {/* Full License Text */}
                     {isExpanded && pkg.licenseText && (
-                      <div className="mt-3 pt-3 border-t border-primary/20">
+                      <div className="mt-3 pt-3 border-t border-border">
                         <div className="flex items-center justify-between pb-1.5">
                           <span className="text-[11px] font-mono text-muted-foreground">
                             Full License Agreement (CPAL-1.0)
@@ -241,7 +237,7 @@ export const LicensesModal: React.FC<LicensesModalProps> = ({
                             {isCopied ? 'Copied' : 'Copy'}
                           </Button>
                         </div>
-                        <pre className="p-3 bg-background/90 border border-border/80 rounded text-[11px] font-mono whitespace-pre-wrap text-muted-foreground max-h-56 overflow-y-auto leading-relaxed selection:bg-primary/30">
+                        <pre className="p-3 bg-background/90 border border-border/80 rounded text-[11px] font-mono whitespace-pre-wrap text-muted-foreground max-h-56 overflow-y-auto leading-relaxed selection:bg-muted">
                           {pkg.licenseText}
                         </pre>
                       </div>
@@ -276,7 +272,7 @@ export const LicensesModal: React.FC<LicensesModalProps> = ({
                           variant="outline"
                           className={`text-[10px] font-mono ${
                             pkg.license.includes('Apache') || pkg.license.includes('CPAL')
-                              ? 'border-primary/50 text-primary'
+                              ? 'border-border text-foreground'
                               : 'text-muted-foreground'
                           }`}
                         >

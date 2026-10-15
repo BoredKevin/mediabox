@@ -1,6 +1,7 @@
 import React from 'react';
 import { Film, Plus, Loader2 } from 'lucide-react';
-import { Badge, Button } from '@boredkevin/ui';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/context/LanguageContext';
 import { VideoInfo } from '@/lib/youtube';
 
@@ -25,19 +26,19 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({
   const { t } = useTranslation();
 
   return (
-    <div className="p-3 sm:p-4 bg-card/80 border border-primary/40 flex flex-col gap-3 animate-in fade-in-0 rounded-[var(--radius)]">
+    <div className="p-3 sm:p-4 bg-card border border-border flex flex-col gap-3 animate-in fade-in-0 rounded-md">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+        <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
           <Film className="w-3.5 h-3.5" />
           Detected YouTube Video
         </span>
-        <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
+        <Badge variant="outline" className="text-[10px] font-mono border-border text-foreground">
           Ready to Queue
         </Badge>
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative aspect-video w-full sm:w-48 bg-black overflow-hidden rounded-[calc(var(--radius)-2px)] border border-border flex-shrink-0">
+        <div className="relative aspect-video w-full sm:w-48 bg-black overflow-hidden rounded-md border border-border flex-shrink-0">
           <img
             src={
               previewInfo.info?.thumbnailUrl ||

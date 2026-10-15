@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useTranslation } from '@/context/LanguageContext';
-import { Card, Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@boredkevin/ui';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Layers } from 'lucide-react';
 
 import { useToast, ToastContainer } from '@/components/common/Toast';

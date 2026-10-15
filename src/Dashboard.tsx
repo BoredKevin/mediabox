@@ -1,5 +1,5 @@
-import React from 'react';
-import { AtmosphericAuroraBackground, useTheme, Button } from '@boredkevin/ui';
+import { useTheme } from '@/context/ThemeContext';
+import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ClockSection } from '@/components/ClockSection';
@@ -28,14 +28,21 @@ const DashboardContent: React.FC = () => {
           title="Room & API Settings"
           className="fixed top-4 left-4 z-40 h-11 w-11"
         >
-          <Settings className="h-4 w-4 text-primary" />
+          <Settings className="h-4 w-4 text-foreground" />
         </Button>
       )}
 
-      <LanguageSwitcher className="fixed top-4 right-18 sm:right-20 z-40" hideOnFullscreen />
+      <LanguageSwitcher
+        className="fixed top-4 right-18 sm:right-20 z-40"
+        hideOnFullscreen
+        isFullscreen={isFullscreen}
+      />
 
-      {/* Dynamic Aurora Canvas Background */}
-      <AtmosphericAuroraBackground />
+      {/* Monotone Background */}
+      <div
+        className="fixed inset-0 z-0 bg-background pointer-events-none select-none"
+        aria-hidden="true"
+      />
 
       <div className="relative z-10 flex min-h-screen md:h-screen flex-col items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8 pb-24 sm:pb-20 md:pb-10">
         <div className="w-full max-w-[1800px] flex-1 flex flex-col justify-between gap-3 sm:gap-4 md:gap-5 md:min-h-0">

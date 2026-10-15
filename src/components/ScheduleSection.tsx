@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Badge, Button } from '@boredkevin/ui';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScheduleItem } from '@/types/schedule';
 import { useTranslation } from '@/context/LanguageContext';
 import { useWatchParty } from '@/context/WatchPartyContext';
@@ -7,7 +9,7 @@ import { useSchedule } from '@/hooks/useSchedule';
 import { CountdownOverlay } from '@/components/CountdownOverlay';
 import { Sparkles, Timer, Clock } from 'lucide-react';
 
-export const ScheduleSection: React.FC = () => {
+export const ScheduleSection: React.FC = React.memo(() => {
   const { t } = useTranslation();
   const { roomState } = useWatchParty();
   const {
@@ -29,48 +31,39 @@ export const ScheduleSection: React.FC = () => {
   // Playback state determination
   const isMediaPlaying = Boolean(roomState?.currentlyPlaying) && !roomState?.isLocked;
   const [carouselIndex, setCarouselIndex] = useState<number>(0);
-  const [carouselProgress, setCarouselProgress] = useState<number>(100);
   const [animPhase, setAnimPhase] = useState<'in' | 'out'>('in');
 
   // Reset carousel when playback state or upcoming items change
   useEffect(() => {
     setCarouselIndex(0);
-    setCarouselProgress(100);
     setAnimPhase('in');
   }, [isMediaPlaying, upcomingItems.length]);
 
-  // 15-second schedule carousel mechanism during playback (starts filled, then empties)
+  // 5-second schedule carousel mechanism during playback
   // Transitions with fade-out slide-up then fade-in slide-up
   useEffect(() => {
     if (!isMediaPlaying || upcomingItems.length <= 1) {
-      setCarouselProgress(100);
       setAnimPhase('in');
       return;
     }
 
     const intervalMs = 5000;
-    const tickMs = 100;
     const exitDurationMs = 300;
-    let elapsed = 0;
 
-    const timer = setInterval(() => {
-      elapsed += tickMs;
-      setCarouselProgress(Math.max(0, (1 - elapsed / intervalMs) * 100));
+    const outTimer = setTimeout(() => {
+      setAnimPhase('out');
+    }, intervalMs - exitDurationMs);
 
-      if (elapsed >= intervalMs - exitDurationMs && elapsed < intervalMs) {
-        setAnimPhase('out');
-      }
+    const switchTimer = setTimeout(() => {
+      setCarouselIndex((prev) => (prev + 1) % upcomingItems.length);
+      setAnimPhase('in');
+    }, intervalMs);
 
-      if (elapsed >= intervalMs) {
-        elapsed = 0;
-        setCarouselProgress(100);
-        setCarouselIndex((prev) => (prev + 1) % upcomingItems.length);
-        setAnimPhase('in');
-      }
-    }, tickMs);
-
-    return () => clearInterval(timer);
-  }, [isMediaPlaying, upcomingItems.length]);
+    return () => {
+      clearTimeout(outTimer);
+      clearTimeout(switchTimer);
+    };
+  }, [isMediaPlaying, upcomingItems.length, carouselIndex]);
 
   // Active item in next schedule card
   const activeNextItem = isMediaPlaying && upcomingItems.length > 0
@@ -136,7 +129,7 @@ export const ScheduleSection: React.FC = () => {
           {/* Header with right-aligned Time Status Metadata */}
           <div className="text-sm uppercase tracking-wider mb-1 text-muted-foreground flex items-center justify-between gap-2">
             <span>{t('schedule.currentSchedule')}</span>
-            <div className="font-mono text-[10px] sm:text-xs text-primary px-2 sm:px-2.5 py-0.5 sm:py-1 bg-primary/10 border border-primary/30 rounded-none flex items-center gap-1.5 shrink-0 tracking-wider">
+            <div className="font-mono text-[10px] sm:text-xs text-foreground px-2 sm:px-2.5 py-0.5 sm:py-1 bg-muted border border-border rounded-md flex items-center gap-1.5 shrink-0 tracking-wider">
               <span>{t('schedule.endsAt', { time: endsAt })}</span>
             </div>
           </div>
@@ -145,9 +138,9 @@ export const ScheduleSection: React.FC = () => {
           </div>
         </div>
         {/* Progress Bar at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-border/20 overflow-hidden">
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-border/40 overflow-hidden">
           <div
-            className="h-full bg-primary/50 transition-all duration-1000 ease-linear"
+            className="h-full bg-foreground/60 transition-[width] duration-1000 ease-linear"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -165,7 +158,7 @@ export const ScheduleSection: React.FC = () => {
               {isMediaPlaying && upcomingItems.length > 1 && (
                 <Badge
                   variant="outline"
-                  className="text-[10px] uppercase font-mono px-1.5 py-0.5 border-primary/40 bg-primary/10 text-primary rounded-none"
+                  className="text-[10px] uppercase font-mono px-1.5 py-0.5 border-border bg-muted text-foreground rounded-md"
                 >
                   {t('schedule.upNextBadge', {
                     current: carouselIndex + 1,
@@ -176,7 +169,7 @@ export const ScheduleSection: React.FC = () => {
               {activeNextItem.countdown && (
                 <Badge
                   variant="outline"
-                  className="text-[10px] uppercase font-mono px-1.5 py-0.5 gap-1 bg-primary/10 text-primary border-primary/40 rounded-none"
+                  className="text-[10px] uppercase font-mono px-1.5 py-0.5 gap-1 bg-muted text-foreground border-border rounded-md"
                 >
                   <Sparkles className="w-3 h-3" /> Special
                 </Badge>
@@ -215,18 +208,18 @@ export const ScheduleSection: React.FC = () => {
           </div>
         </div>
 
-        {/* 15-Second Carousel Progress Bar: transparent (h-[2px], bg-primary/20) at bottom during Playback */}
+        {/* 5-Second Carousel Progress Bar: pure CSS animation at bottom during Playback */}
         {isMediaPlaying && upcomingItems.length > 1 && (
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/[0.04] overflow-hidden pointer-events-none">
             <div
-              className="h-full bg-primary/20 transition-all duration-100 ease-linear"
-              style={{ width: `${carouselProgress}%` }}
+              key={carouselIndex}
+              className="h-full bg-primary/20 animate-schedule-progress"
             />
           </div>
         )}
       </Card>
     </div>
   );
-};
+});
 
 export default ScheduleSection;

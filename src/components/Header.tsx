@@ -1,7 +1,7 @@
 import React from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
-import { Button } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
 
 interface HeaderProps {
   theme: 'dark' | 'light';
@@ -13,7 +13,7 @@ export const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
 
   return (
     <header className="relative flex flex-col items-center justify-center pt-1 pb-1 text-center flex-shrink-0">
-      {/* Theme Toggle Button using @boredkevin/ui Button */}
+      {/* Theme Toggle Button */}
       <Button
         variant="outline"
         chamfer="dual"
@@ -23,9 +23,9 @@ export const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
         className="fixed top-4 right-4 z-50 h-11 w-11"
       >
         {theme === 'dark' ? (
-          <Moon className="h-4 w-4 text-primary" />
+          <Moon className="h-4 w-4 text-foreground" />
         ) : (
-          <Sun className="h-4 w-4 text-amber-500" />
+          <Sun className="h-4 w-4 text-foreground" />
         )}
       </Button>
 

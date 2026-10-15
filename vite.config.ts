@@ -44,8 +44,8 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-firebase': ['firebase/app', 'firebase/database', 'firebase/auth'],
-          'vendor-ui': ['@boredkevin/ui'],
           'vendor-qr': ['qrcode.react'],
+          'vendor-youtubei': ['youtubei.js'],
         },
       },
     },

@@ -1,7 +1,9 @@
 import React from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useTranslation } from '@/context/LanguageContext';
-import { Card, Badge, Button } from '@boredkevin/ui';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Users, User, Shield, Crown, UserX, Trash2 } from 'lucide-react';
 import { QueueItem } from '@/lib/roomUtils';
 
@@ -64,7 +66,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
           return (
             <div
               key={member.uid}
-              className="bg-muted/20 border border-border p-3 flex flex-col gap-2"
+              className="bg-muted/20 border border-border p-3 flex flex-col gap-2 rounded-md"
             >
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2 font-mono flex-wrap">
@@ -78,7 +80,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                   {isOnline ? (
                     <Badge
                       variant="success"
-                      className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-none flex items-center gap-1"
+                      className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-md flex items-center gap-1"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                       {t('remote.onlineBadge')}
@@ -86,7 +88,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                   ) : (
                     <Badge
                       variant="outline"
-                      className="px-1.5 py-0.5 text-[9px] text-muted-foreground border-border font-bold uppercase rounded-none flex items-center gap-1"
+                      className="px-1.5 py-0.5 text-[9px] text-muted-foreground border-border font-bold uppercase rounded-md flex items-center gap-1"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
                       {t('remote.offlineBadge')}
@@ -96,7 +98,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                   {isMemberAdmin && (
                     <Badge
                       variant="outline"
-                      className="px-1.5 py-0.5 text-[9px] bg-purple-950 text-purple-300 border-purple-800 font-bold uppercase flex items-center gap-1 rounded-none"
+                      className="px-1.5 py-0.5 text-[9px] bg-purple-950 text-purple-300 border-purple-800 font-bold uppercase flex items-center gap-1 rounded-md"
                     >
                       <Shield className="w-2.5 h-2.5 text-purple-400" /> {t('remote.adminBadge')}
                     </Badge>
@@ -104,7 +106,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                   {isHostUser && !isMemberAdmin && (
                     <Badge
                       variant="outline"
-                      className="px-1.5 py-0.5 text-[9px] bg-amber-950 text-amber-300 border-amber-800 font-bold uppercase rounded-none"
+                      className="px-1.5 py-0.5 text-[9px] bg-amber-950 text-amber-300 border-amber-800 font-bold uppercase rounded-md"
                     >
                       {t('remote.hostBadge')}
                     </Badge>
@@ -112,7 +114,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                   {isSelf && (
                     <Badge
                       variant="outline"
-                      className="px-1.5 py-0.5 text-[9px] bg-primary/10 text-primary border-primary/30 font-bold uppercase rounded-none"
+                      className="px-1.5 py-0.5 text-[9px] bg-muted text-foreground border-border font-bold uppercase rounded-md"
                     >
                       {t('remote.youBadge')}
                     </Badge>

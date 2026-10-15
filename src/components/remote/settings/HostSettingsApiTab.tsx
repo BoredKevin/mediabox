@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Input } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Key, Eye, EyeOff, Check } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState } from '@/lib/roomUtils';

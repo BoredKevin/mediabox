@@ -1,5 +1,6 @@
 import React from 'react';
-import { Button, Slider } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import {
   Play,
   Pause,
@@ -61,7 +62,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
             onToggleFullscreen();
           }}
           aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-          className="h-11 w-11 sm:h-14 sm:w-14 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-[var(--radius)] flex items-center justify-center transition-all shadow-md active:scale-95"
+          className="h-11 w-11 sm:h-14 sm:w-14 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-md flex items-center justify-center transition-all shadow-md active:scale-95"
           title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
         >
           {isFullscreen ? (
@@ -84,10 +85,10 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
       >
         <div className="flex flex-col min-w-0 max-w-full">
           {isFullscreen && (
-            <div className="mb-2 w-fit bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-2xl md:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 shadow-lg select-none">
+            <div className="mb-2 w-fit bg-background/90 border border-border px-3.5 py-1.5 font-display text-base sm:text-2xl md:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 shadow-lg select-none rounded-md">
               <span>
                 {clockTime.hours}
-                <span className="text-primary opacity-80 animate-blink">:</span>
+                <span className="text-muted-foreground opacity-70 animate-blink">:</span>
                 {clockTime.minutes}
               </span>
             </div>
@@ -127,7 +128,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
             onTogglePlayPause();
           }}
           aria-label={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-          className="h-16 w-16 sm:h-20 sm:w-20 text-foreground hover:text-primary bg-background/80 hover:bg-background/95 border border-border/80 backdrop-blur-md rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-all shadow-2xl active:scale-95"
+          className="h-16 w-16 sm:h-20 sm:w-20 text-foreground bg-background/80 hover:bg-background/95 border border-border/80 backdrop-blur-md rounded-full flex items-center justify-center pointer-events-auto transition-all shadow-2xl active:scale-95"
           title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
         >
           {isPlaying ? (
@@ -147,7 +148,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
         {/* Left: Volume HUD Control */}
         <div className="flex items-center gap-3 sm:gap-4">
           <div
-            className="flex items-center gap-3 sm:gap-4 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-[var(--radius)] bg-background/80 border border-border/60 backdrop-blur-md pointer-events-auto shadow-lg"
+            className="flex items-center gap-3 sm:gap-4 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-md bg-background/80 border border-border/60 backdrop-blur-md pointer-events-auto shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <Button
@@ -155,7 +156,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
               size="icon"
               onClick={() => setMuted((prev) => !prev)}
               aria-label={muted ? 'Unmute' : 'Mute'}
-              className="h-8 w-8 sm:h-10 sm:w-10 text-foreground hover:text-primary transition-colors active:scale-95"
+              className="h-8 w-8 sm:h-10 sm:w-10 text-foreground hover:text-foreground transition-colors active:scale-95"
               title={muted ? 'Unmute' : 'Mute'}
             >
               {muted || displayVolume === 0 ? (
@@ -195,7 +196,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
               onToggleFullscreen();
             }}
             aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-            className="h-11 w-11 sm:h-14 sm:w-14 text-foreground hover:text-primary hover:bg-secondary/60 rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-all shadow-md active:scale-95"
+            className="h-11 w-11 sm:h-14 sm:w-14 text-foreground hover:text-foreground hover:bg-secondary/60 rounded-md flex items-center justify-center pointer-events-auto transition-all shadow-md active:scale-95"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? (

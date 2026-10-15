@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Badge } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Key, Eye, Check } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { SearchSettings } from '@/lib/roomUtils';

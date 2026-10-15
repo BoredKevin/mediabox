@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Card, Button } from '@boredkevin/ui';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 
@@ -60,13 +61,13 @@ export const MediaBoxQrModal: React.FC<MediaBoxQrModalProps> = ({
           </h3>
         </div>
 
-        <div className="p-3 bg-white border-4 border-primary">
+        <div className="p-3 bg-white border-2 border-border rounded-lg">
           <QRCodeSVG value={remoteUrl} size={160} level="M" />
         </div>
 
         <div className="text-center flex flex-col gap-1 w-full">
           <span className="text-xs text-muted-foreground">{t('mediaBox.enterPinCode')}</span>
-          <span className="font-mono text-3xl font-bold tracking-[0.2em] text-primary">
+          <span className="font-mono text-3xl font-bold tracking-[0.2em] text-foreground">
             {roomCode || '------'}
           </span>
         </div>

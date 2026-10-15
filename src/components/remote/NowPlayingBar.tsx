@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import {
-  Button,
-  Slider,
-} from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import {
   Popover,
   PopoverTrigger,

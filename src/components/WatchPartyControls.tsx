@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useWatchParty } from '@/context/WatchPartyContext';
 import { useTranslation } from '@/context/LanguageContext';
-import { Button, Badge } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Tv,
   QrCode,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import { TvSearchModal } from '@/components/TvSearchModal';
 
-export const WatchPartyControls: React.FC = () => {
+export const WatchPartyControls: React.FC = React.memo(() => {
   const { t } = useTranslation();
   const [showSearchModal, setShowSearchModal] = useState<boolean>(false);
   const {
@@ -54,7 +55,7 @@ export const WatchPartyControls: React.FC = () => {
             chamfer="dual"
             onClick={handleCreateRoom}
             disabled={creating}
-            className="px-5 py-2.5 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(0,200,212,0.3)] cursor-pointer"
+            className="px-5 py-2.5 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center gap-2 cursor-pointer rounded-md"
           >
             {creating ? (
               <>
@@ -73,7 +74,7 @@ export const WatchPartyControls: React.FC = () => {
             href={remoteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2.5 bg-card hover:bg-muted/40 border border-border text-foreground text-xs sm:text-sm font-semibold uppercase tracking-wider flex items-center gap-2 transition-colors"
+            className="px-4 py-2.5 bg-card hover:bg-muted/40 border border-border text-foreground text-xs sm:text-sm font-semibold uppercase tracking-wider flex items-center gap-2 transition-colors rounded-md"
           >
             <Smartphone className="w-4 h-4 text-primary" />
             <span>{t('watchParty.openRemoteUI')}</span>
@@ -91,7 +92,7 @@ export const WatchPartyControls: React.FC = () => {
         {/* Left Section: Room Code Badge, QR Code, Lock, Sparkles, Search */}
         <div className="flex items-stretch gap-1 sm:gap-1.5 flex-1 min-w-0">
           {/* Room Code Badge */}
-          <div className="px-2.5 sm:px-3.5 md:px-4 py-1 sm:py-1.5 bg-card border border-border font-mono flex items-center justify-center shadow-sm select-none flex-shrink-0">
+          <div className="px-2.5 sm:px-3.5 md:px-4 py-1 sm:py-1.5 bg-card border border-border font-mono flex items-center justify-center shadow-sm select-none flex-shrink-0 rounded-md">
             <span className="text-lg sm:text-xl md:text-2xl font-black tracking-widest text-primary leading-none">
               {roomCode}
             </span>
@@ -154,7 +155,7 @@ export const WatchPartyControls: React.FC = () => {
         {/* Right Section: Participant Number, End Room */}
         <div className="flex items-stretch gap-1 sm:gap-1.5 flex-shrink-0">
           {/* Member Counter */}
-          <Badge variant="outline" className="flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 bg-card text-foreground text-xs font-semibold flex-shrink-0 rounded-none">
+          <Badge variant="outline" className="flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 bg-card text-foreground text-xs font-semibold flex-shrink-0 rounded-md">
             <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
             <span className="font-mono">{memberCount}</span>
           </Badge>
@@ -179,5 +180,7 @@ export const WatchPartyControls: React.FC = () => {
       />
     </div>
   );
-};
+});
+
+export default WatchPartyControls;
 

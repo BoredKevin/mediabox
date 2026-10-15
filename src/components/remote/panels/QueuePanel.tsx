@@ -1,7 +1,8 @@
 import React from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useTranslation } from '@/context/LanguageContext';
-import { Card, Badge } from '@boredkevin/ui';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import { QueueItem, parseYouTubeVideoId } from '@/lib/roomUtils';
 
@@ -58,16 +59,16 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
             return (
               <div
                 key={item.id || idx}
-                className="flex items-center gap-2 p-2 bg-muted/20 border border-border text-xs"
+                className="flex items-center gap-2 p-2 bg-muted/20 border border-border text-xs rounded-md"
               >
-                <span className="font-mono text-primary font-bold w-5 flex-shrink-0">
+                <span className="font-mono text-foreground font-bold w-5 flex-shrink-0">
                   #{idx + 1}
                 </span>
                 {ytId ? (
                   <img
                     src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
                     alt="thumb"
-                    className="w-10 h-7 object-cover flex-shrink-0 border border-border"
+                    className="w-10 h-7 object-cover flex-shrink-0 border border-border rounded-sm"
                   />
                 ) : null}
                 <div className="truncate flex-1 flex flex-col min-w-0">

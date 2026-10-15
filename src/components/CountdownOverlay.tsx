@@ -4,7 +4,7 @@ import confetti from 'canvas-confetti';
 import { ScheduleItem } from '@/types/schedule';
 import { useTranslation } from '@/context/LanguageContext';
 import { X } from 'lucide-react';
-import { Button } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
 
 interface CountdownOverlayProps {
   item: ScheduleItem;
@@ -41,7 +41,7 @@ export const CountdownOverlay: React.FC<CountdownOverlayProps> = ({
     };
 
     update();
-    const interval = setInterval(update, 50);
+    const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, [targetTimeMs, initialSecondsLeft]);
 
@@ -61,38 +61,32 @@ export const CountdownOverlay: React.FC<CountdownOverlayProps> = ({
     } else if (seconds <= 0 && !hasFiredConfetti.current) {
       hasFiredConfetti.current = true;
 
-      // Confetti burst from multiple angles
-      const duration = 2.5 * 1000;
-      const animationEnd = Date.now() + duration;
-
-      const frame = () => {
+      // Single celebration confetti burst from both lower corners
+      try {
         confetti({
-          particleCount: 10,
+          particleCount: 35,
           angle: 60,
-          spread: 60,
-          origin: { x: 0, y: 0.7 },
+          spread: 55,
+          origin: { x: 0.1, y: 0.7 },
           zIndex: 10001,
           colors: ['#00c8d4', '#3b82f6', '#ec4899', '#f59e0b', '#10b981'],
         });
         confetti({
-          particleCount: 10,
+          particleCount: 35,
           angle: 120,
-          spread: 60,
-          origin: { x: 1, y: 0.7 },
+          spread: 55,
+          origin: { x: 0.9, y: 0.7 },
           zIndex: 10001,
           colors: ['#00c8d4', '#3b82f6', '#ec4899', '#f59e0b', '#10b981'],
         });
-
-        if (Date.now() < animationEnd) {
-          requestAnimationFrame(frame);
-        }
-      };
-      frame();
+      } catch (e) {
+        console.warn('Confetti burst error:', e);
+      }
     }
   }, [seconds]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-black/85 backdrop-blur-2xl animate-overlay-fade select-none">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-black/90 animate-overlay-fade select-none">
       {/* Dismiss Button */}
       {onDismiss && (
         <Button

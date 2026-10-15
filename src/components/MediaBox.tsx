@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useWatchParty } from '@/context/WatchPartyContext';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import { IdleScheduleTimeline } from '@/components/IdleScheduleTimeline';
-import { Card } from '@boredkevin/ui';
+import { Card } from '@/components/ui/card';
 
 import { useClockTime } from '@/hooks/useClockTime';
 import { useCurrentMediaMeta } from '@/hooks/useCurrentMediaMeta';
 import { MediaBoxOverlayControls } from './mediabox/MediaBoxOverlayControls';
 import { MediaBoxQrModal } from './mediabox/MediaBoxQrModal';
 
-export const MediaBox: React.FC = () => {
+export const MediaBox: React.FC = React.memo(() => {
   const {
     roomCode,
     roomState,
@@ -138,15 +138,15 @@ export const MediaBox: React.FC = () => {
       className={`p-0 overflow-hidden flex flex-col relative transition-all duration-300 ${
         isFullscreen
           ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black rounded-none'
-          : 'aspect-video min-h-[220px] sm:min-h-0 w-full bg-background'
+          : 'aspect-video min-h-[220px] sm:min-h-0 w-full bg-card'
       }`}
     >
       {/* Fullscreen Idle Clock */}
       {isFullscreen && !hasActiveMedia && (
-        <div className="absolute top-4 left-5 sm:left-8 z-[110] bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 shadow-lg pointer-events-none select-none">
+        <div className="absolute top-4 left-5 sm:left-8 z-[110] bg-background/90 border border-border px-3.5 py-1.5 font-display text-base sm:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 pointer-events-none select-none rounded-md">
           <span>
             {clockTime.hours}
-            <span className="text-primary opacity-80 animate-blink">:</span>
+            <span className="text-muted-foreground opacity-70 animate-blink">:</span>
             {clockTime.minutes}
           </span>
         </div>
@@ -154,7 +154,7 @@ export const MediaBox: React.FC = () => {
 
       {/* Main Video Player Area */}
       <div
-        className={`flex-1 w-full bg-black relative flex items-center justify-center overflow-hidden h-full group ${
+        className={`flex-1 w-full ${hasActiveMedia ? 'bg-black' : 'bg-card'} relative flex items-center justify-center overflow-hidden h-full group ${
           hasActiveMedia ? 'cursor-pointer' : ''
         } ${isFullscreen && !isOverlayVisible ? 'cursor-none' : ''}`}
         onClick={handleVideoAreaClick}
@@ -206,6 +206,6 @@ export const MediaBox: React.FC = () => {
       />
     </Card>
   );
-};
+});
 
 export default MediaBox;

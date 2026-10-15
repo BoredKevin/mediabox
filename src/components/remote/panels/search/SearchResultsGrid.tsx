@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Plus, Check, Search } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
@@ -66,10 +66,10 @@ export const SearchResultsGrid: React.FC<SearchResultsGridProps> = ({
                 key={res.id}
                 onClick={() => onAddResult(res)}
                 className={cn(
-                  'group/card flex flex-col transition-all duration-200 overflow-hidden select-none rounded-[var(--radius)]',
+                  'group/card flex flex-col transition-all duration-200 overflow-hidden select-none rounded-md',
                   isAdded
-                    ? 'border-2 border-emerald-500/90 bg-emerald-950/30 hover:bg-emerald-950/40 shadow-[0_0_20px_rgba(16,185,129,0.25)] hover:border-emerald-400 cursor-default'
-                    : 'bg-card/70 hover:bg-card/95 border border-border/60 hover:border-primary/60 shadow-sm hover:shadow-[0_0_20px_rgba(0,200,212,0.15)] cursor-pointer'
+                    ? 'border-2 border-emerald-500/90 bg-emerald-950/30 hover:bg-emerald-950/40 cursor-default'
+                    : 'bg-card hover:bg-muted/40 border border-border hover:border-foreground/60 shadow-sm cursor-pointer'
                 )}
               >
                 {/* 16:9 Thumbnail with duration overlay & hover action */}

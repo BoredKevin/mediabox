@@ -1,7 +1,8 @@
 import React from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { RoomState } from '@/lib/roomUtils';
-import { Badge, Button } from '@boredkevin/ui';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Shield, Crown, Lock, Unlock, Settings, Users, LogOut } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from '@/context/LanguageContext';
@@ -61,7 +62,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           {isAdmin ? (
             <Badge
               variant="outline"
-              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none bg-purple-950/60 text-purple-300 border-purple-800/80"
+              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md bg-purple-950/60 text-purple-300 border-purple-800/80"
             >
               <Shield className="w-2.5 h-2.5 text-purple-400" />
               <span>{t('remote.adminBadge')}</span>
@@ -69,7 +70,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           ) : isHost ? (
             <Badge
               variant="default"
-              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none"
+              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md"
             >
               <Crown className="w-2.5 h-2.5" />
               <span>{t('remote.hostBadge')}</span>
@@ -77,7 +78,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           ) : (
             <Badge
               variant="outline"
-              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none text-muted-foreground border-border"
+              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md text-muted-foreground border-border"
             >
               <span>{t('remote.memberBadge')}</span>
             </Badge>
@@ -87,7 +88,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           {isTvOnline ? (
             <Badge
               variant="success"
-              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none"
+              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md"
               title={t('remote.tvOnlineBadge')}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -96,7 +97,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           ) : (
             <Badge
               variant="destructive"
-              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none"
+              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md"
               title={t('remote.tvOfflineBadge')}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
@@ -108,7 +109,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           {roomState?.isLocked && (
             <Badge
               variant="warning"
-              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-none bg-amber-500/15 text-amber-300 border-amber-500/50"
+              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md bg-amber-500/15 text-amber-300 border-amber-500/50"
             >
               <Lock className="w-2.5 h-2.5 text-amber-400" />
               <span>Locked</span>

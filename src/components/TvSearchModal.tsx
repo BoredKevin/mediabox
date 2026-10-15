@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@boredkevin/ui';
+} from '@/components/ui/dialog';
 import { Search } from 'lucide-react';
 import { useWatchParty } from '@/context/WatchPartyContext';
 import { useTranslation } from '@/context/LanguageContext';
@@ -56,10 +56,10 @@ export const TvSearchModal: React.FC<TvSearchModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl md:max-w-5xl lg:max-w-6xl w-full h-[88vh] max-h-[92vh] bg-card/95 border-border shadow-2xl backdrop-blur-xl flex flex-col p-5 sm:p-6 overflow-hidden">
+      <DialogContent className="sm:max-w-4xl md:max-w-5xl lg:max-w-6xl w-full h-[88vh] max-h-[92vh] bg-card border-border shadow-2xl flex flex-col p-5 sm:p-6 overflow-hidden rounded-none">
         <DialogHeader className="border-b border-border pb-3 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-foreground font-display tracking-wider uppercase text-base">
-            <Search className="w-5 h-5 text-primary" />
+            <Search className="w-5 h-5 text-foreground" />
             <span>{t('watchParty.searchModalTitle')}</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">

@@ -1,6 +1,7 @@
 import React from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
-import { Tabs, TabsList, TabsTrigger, TabsContent, Button } from '@boredkevin/ui';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { X, Layers } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { QueueItem } from '@/lib/roomUtils';

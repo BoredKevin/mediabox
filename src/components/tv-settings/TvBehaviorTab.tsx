@@ -1,5 +1,5 @@
 import React from 'react';
-import { Switch } from '@boredkevin/ui';
+import { Switch } from '@/components/ui/switch';
 import { Timer, Video } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState, SearchSettings } from '@/lib/roomUtils';

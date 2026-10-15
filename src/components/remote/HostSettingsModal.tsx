@@ -5,12 +5,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+} from '@/components/ui/dialog';
+import {
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
-  Badge,
-} from '@boredkevin/ui';
+} from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { ShieldAlert, Clock, Key, Gauge } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState } from '@/lib/roomUtils';

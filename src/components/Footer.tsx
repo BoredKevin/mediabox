@@ -1,5 +1,5 @@
 import React, { useState, Suspense } from 'react';
-import { Button } from '@boredkevin/ui';
+import { Button } from '@/components/ui/button';
 
 const LicensesModal = React.lazy(() =>
   import('./LicensesModal').then((m) => ({ default: m.LicensesModal }))

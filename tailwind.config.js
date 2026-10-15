@@ -4,7 +4,6 @@ export default {
   content: [
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}',
-    './node_modules/@boredkevin/ui/dist/**/*.{js,mjs}',
   ],
   theme: {
     container: {
@@ -55,17 +54,6 @@ export default {
           muted: 'hsl(var(--muted-foreground))',
           faint: 'hsl(var(--muted-foreground) / 0.6)',
         },
-      },
-      borderRadius: {
-        none: '0px',
-        sm: '0px',
-        DEFAULT: '0px',
-        md: '0px',
-        lg: '0px',
-        xl: '0px',
-        '2xl': '0px',
-        '3xl': '0px',
-        full: '9999px',
       },
       fontFamily: {
         display: ['JetBrains Mono', 'Courier New', 'monospace'],
