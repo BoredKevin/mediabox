@@ -35,10 +35,12 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    allowedHosts: ['winware.ts.bkev.in'],
   },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks: {
