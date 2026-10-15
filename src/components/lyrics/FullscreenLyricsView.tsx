@@ -34,7 +34,7 @@ export const FullscreenLyricsView: React.FC<FullscreenLyricsViewProps> = ({
   clockTime,
   roomCode,
   lyricsOffsetMs = 0,
-  isWordSync = true,
+  isWordSync = false,
 }) => {
   const hasLyrics = Boolean(lyrics && lyrics.length > 0);
 

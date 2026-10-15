@@ -29,7 +29,7 @@ export const BraccatoLyricsRenderer: React.FC<BraccatoLyricsRendererProps> = ({
   fontSize: customFontSize,
   padding: customPadding,
   lyricsOffsetMs = 0,
-  isWordSync = true,
+  isWordSync = false,
   className = '',
 }) => {
   const lyricsElementRef = useRef<BraccatoLyricsElement | null>(null);

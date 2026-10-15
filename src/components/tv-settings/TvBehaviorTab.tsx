@@ -100,7 +100,7 @@ export const TvBehaviorTab: React.FC<TvBehaviorTabProps> = ({
           </div>
         </div>
         <Switch
-          checked={Boolean(roomState?.lyricsWordSync ?? true)}
+          checked={Boolean(roomState?.lyricsWordSync ?? false)}
           onCheckedChange={(checked) =>
             onSetLyricsWordSync && onSetLyricsWordSync(checked)
           }

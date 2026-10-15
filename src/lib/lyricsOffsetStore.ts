@@ -32,16 +32,16 @@ export function saveLyricsOffset(offsetMs: number): void {
 
 /**
  * Retrieves the saved lyrics sync mode (word-by-word vs syllable-level).
- * Defaults to true (word-by-word sync) for smooth Smart TV playback.
+ * Defaults to false (RichSync syllable-level sync enabled by default).
  */
 export function getSavedLyricsWordSync(): boolean {
-  if (typeof window === 'undefined') return true;
+  if (typeof window === 'undefined') return false;
   try {
     const raw = localStorage.getItem(WORD_SYNC_STORAGE_KEY);
-    if (raw === null) return true; // Default to word-by-word sync
+    if (raw === null) return false; // Default to RichSync enabled (word sync disabled)
     return raw === 'true';
   } catch {
-    return true;
+    return false;
   }
 }
 

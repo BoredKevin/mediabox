@@ -190,15 +190,15 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
             </div>
           </div>
           <Button
-            variant={(roomState?.lyricsWordSync ?? true) ? 'default' : 'outline'}
+            variant={(roomState?.lyricsWordSync ?? false) ? 'default' : 'outline'}
             size="sm"
             onClick={() => {
-              const current = roomState?.lyricsWordSync ?? true;
+              const current = roomState?.lyricsWordSync ?? false;
               sendCommand('setLyricsWordSync', { enabled: !current });
             }}
             className="text-xs font-mono uppercase h-7 cursor-pointer"
           >
-            {(roomState?.lyricsWordSync ?? true) ? t('remote.autoplayOn') : t('remote.autoplayOff')}
+            {(roomState?.lyricsWordSync ?? false) ? t('remote.autoplayOn') : t('remote.autoplayOff')}
           </Button>
         </div>
 

@@ -25,7 +25,7 @@ export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
   const playback = roomState?.playback;
   const isPlaying = playback?.status === 'playing';
   const lyricsOffsetMs = roomState?.lyricsOffsetMs ?? 0;
-  const isWordSync = roomState?.lyricsWordSync ?? true;
+  const isWordSync = roomState?.lyricsWordSync ?? false;
 
   // Dead-reckoning high precision remote time provider:
   // Base timestamp x + elapsed time since last update (getServerTime() - y)
