@@ -1,29 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 import { useWatchParty } from '@/context/WatchPartyContext';
-import { useTranslation } from '@/context/LanguageContext';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
-import { Card, Button, Slider } from '@boredkevin/ui';
-import { pad } from '@/lib/utils';
-import {
-  MonitorOff,
-  MonitorPause,
-  X,
-  Clock,
-  Play,
-  Pause,
-  Volume2,
-  Volume1,
-  VolumeX,
-  Maximize,
-  Minimize,
-} from 'lucide-react';
-import { fetchVideoTitle } from '@/lib/youtube';
-import { parseTrackAndArtist } from '@/lib/trackParser';
 import { IdleScheduleTimeline } from '@/components/IdleScheduleTimeline';
+import { Card } from '@boredkevin/ui';
+
+import { useClockTime } from '@/hooks/useClockTime';
+import { useCurrentMediaMeta } from '@/hooks/useCurrentMediaMeta';
+import { MediaBoxOverlayControls } from './mediabox/MediaBoxOverlayControls';
+import { MediaBoxQrModal } from './mediabox/MediaBoxQrModal';
 
 export const MediaBox: React.FC = () => {
-  const { t } = useTranslation();
   const {
     roomCode,
     roomState,
@@ -38,85 +24,11 @@ export const MediaBox: React.FC = () => {
     handleAdjustVolume,
   } = useWatchParty();
 
-  const [secondsLeft, setSecondsLeft] = useState<number>(30);
-
-  // Live metadata for currently playing video and author
-  const [currentVideoMeta, setCurrentVideoMeta] = useState<{
-    title: string;
-    author: string;
-  }>({ title: '', author: '' });
-
-  useEffect(() => {
-    const currentUrl = roomState?.currentlyPlaying;
-    if (!currentUrl) {
-      setCurrentVideoMeta({ title: '', author: '' });
-      return;
-    }
-
-    let cancelled = false;
-
-    // Fast initial metadata from roomState
-    const initialTitle = roomState.currentlyPlayingTitle || '';
-    if (initialTitle) {
-      const parsed = parseTrackAndArtist(initialTitle);
-      setCurrentVideoMeta({
-        title: initialTitle,
-        author: parsed.artist || '',
-      });
-    }
-
-    // Resolve full title and channel/author from oEmbed
-    fetchVideoTitle(currentUrl)
-      .then((info) => {
-        if (cancelled) return;
-        const title = info.title || initialTitle || roomState.currentlyPlayingTitle || '';
-        const author = info.channelTitle || (title ? parseTrackAndArtist(title).artist : '');
-        setCurrentVideoMeta({
-          title,
-          author,
-        });
-      })
-      .catch(() => {
-        // Keep initialTitle
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [roomState?.currentlyPlaying, roomState?.currentlyPlayingTitle]);
-
-  // Live time display for top-right clock overlay in fullscreen
-  const [clockTime, setClockTime] = useState(() => {
-    const now = new Date();
-    return {
-      hours: pad(now.getHours()),
-      minutes: pad(now.getMinutes()),
-      seconds: pad(now.getSeconds()),
-    };
-  });
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      setClockTime({
-        hours: pad(now.getHours()),
-        minutes: pad(now.getMinutes()),
-        seconds: pad(now.getSeconds()),
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Countdown timer display for QR modal auto-disappear
-  useEffect(() => {
-    if (showQrModal) {
-      setSecondsLeft(30);
-      const interval = setInterval(() => {
-        setSecondsLeft((prev) => Math.max(0, prev - 1));
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [showQrModal]);
+  const clockTime = useClockTime();
+  const currentVideoMeta = useCurrentMediaMeta(
+    roomState?.currentlyPlaying,
+    roomState?.currentlyPlayingTitle
+  );
 
   const [localFullscreen, setLocalFullscreen] = useState<boolean>(false);
   const isPlaying = roomState?.playback?.status === 'playing';
@@ -127,11 +39,11 @@ export const MediaBox: React.FC = () => {
   const [localVolume, setLocalVolume] = useState<number | null>(null);
   const [isDraggingVolume, setIsDraggingVolume] = useState<boolean>(false);
 
-  const displayVolume = isDraggingVolume && localVolume !== null
-    ? localVolume
-    : (localVolume ?? roomState?.playback?.volume ?? 80);
+  const displayVolume =
+    isDraggingVolume && localVolume !== null
+      ? localVolume
+      : localVolume ?? roomState?.playback?.volume ?? 80;
 
-  // Sync local volume with incoming room state when not dragging
   useEffect(() => {
     if (!isDraggingVolume && roomState?.playback?.volume !== undefined) {
       setLocalVolume(roomState.playback.volume);
@@ -152,14 +64,8 @@ export const MediaBox: React.FC = () => {
     }, 5000);
   }, []);
 
-  const handleMouseMove = () => {
-    resetControlsTimeout();
-  };
-
-  const handleMouseEnter = () => {
-    resetControlsTimeout();
-  };
-
+  const handleMouseMove = () => resetControlsTimeout();
+  const handleMouseEnter = () => resetControlsTimeout();
   const handleMouseLeave = () => {
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
@@ -229,11 +135,13 @@ export const MediaBox: React.FC = () => {
   return (
     <Card
       cornerLines={false}
-      className={`p-0 overflow-hidden flex flex-col relative transition-all duration-300 ${isFullscreen
-        ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black rounded-none'
-        : 'aspect-video min-h-[220px] sm:min-h-0 w-full bg-background'
-        }`}
+      className={`p-0 overflow-hidden flex flex-col relative transition-all duration-300 ${
+        isFullscreen
+          ? 'fixed inset-0 z-[100] w-screen h-screen border-none bg-black rounded-none'
+          : 'aspect-video min-h-[220px] sm:min-h-0 w-full bg-background'
+      }`}
     >
+      {/* Fullscreen Idle Clock */}
       {isFullscreen && !hasActiveMedia && (
         <div className="absolute top-4 left-5 sm:left-8 z-[110] bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 shadow-lg pointer-events-none select-none">
           <span>
@@ -244,11 +152,11 @@ export const MediaBox: React.FC = () => {
         </div>
       )}
 
-
       {/* Main Video Player Area */}
       <div
-        className={`flex-1 w-full bg-black relative flex items-center justify-center overflow-hidden h-full group ${hasActiveMedia ? 'cursor-pointer' : ''} ${isFullscreen && !isOverlayVisible ? 'cursor-none' : ''
-          }`}
+        className={`flex-1 w-full bg-black relative flex items-center justify-center overflow-hidden h-full group ${
+          hasActiveMedia ? 'cursor-pointer' : ''
+        } ${isFullscreen && !isOverlayVisible ? 'cursor-none' : ''}`}
         onClick={handleVideoAreaClick}
         onMouseMove={handleMouseMove}
         onMouseEnter={handleMouseEnter}
@@ -268,207 +176,36 @@ export const MediaBox: React.FC = () => {
           )}
         </div>
 
-        {/* Top Overlay: Video Title & Author Name (YouTube embed style) */}
-        {hasActiveMedia && (
-          <div
-            className={`absolute inset-x-0 top-0 z-30 pt-4 sm:pt-6 pb-12 sm:pb-16 px-5 sm:px-8 bg-gradient-to-b from-black/90 via-black/55 to-transparent flex items-start justify-between gap-4 pointer-events-none transition-opacity duration-300 select-none ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
-              }`}
-          >
-            <div className="flex flex-col min-w-0 max-w-full">
-              {isFullscreen && (
-                <div className="mb-2 w-fit bg-background/80 border border-border backdrop-blur-md px-3.5 py-1.5 font-display text-base sm:text-2xl md:text-3xl font-normal tracking-wider text-foreground opacity-90 flex items-center gap-2 shadow-lg select-none">
-                  <span>
-                    {clockTime.hours}
-                    <span className="text-primary opacity-80 animate-blink">:</span>
-                    {clockTime.minutes}
-                  </span>
-                </div>
-              )}
-              <a
-                href={roomState?.currentlyPlaying || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="text-white text-base sm:text-2xl md:text-3xl font-bold truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] hover:underline tracking-tight leading-snug pointer-events-auto transition-colors"
-                title={currentVideoMeta.title || roomState?.currentlyPlayingTitle || 'YouTube Video'}
-              >
-                {currentVideoMeta.title || roomState?.currentlyPlayingTitle || 'YouTube Video'}
-              </a>
-              {currentVideoMeta.author && (
-                <span
-                  className="text-white/85 text-xs sm:text-base md:text-lg font-medium truncate drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] mt-0.5 sm:mt-1"
-                  title={currentVideoMeta.author}
-                >
-                  {currentVideoMeta.author}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Center Play/Pause Button */}
-        {roomState?.currentlyPlaying && !isLocked && (
-          <div
-            className={`absolute inset-0 z-30 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
-              }`}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTogglePlayPause();
-              }}
-              aria-label={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-              className="h-16 w-16 sm:h-20 sm:w-20 text-foreground hover:text-primary bg-background/80 hover:bg-background/95 border border-border/80 backdrop-blur-md rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-all shadow-2xl active:scale-95"
-              title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-            >
-              {isPlaying ? (
-                <Pause className="w-8 h-8 sm:w-10 sm:h-10 fill-current" />
-              ) : (
-                <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-current ml-1" />
-              )}
-            </Button>
-          </div>
-        )}
-
-        {/* Overlay Player Controls for Playing State */}
-        {roomState?.currentlyPlaying && !isLocked && (
-          <div
-            className={`absolute inset-x-0 bottom-0 z-30 p-4 sm:p-6 md:p-8 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex items-center justify-between pointer-events-none transition-opacity duration-300 ${isOverlayVisible ? 'opacity-100' : 'opacity-0'
-              }`}
-          >
-            {/* Left Controls: Tactical Volume Control */}
-            <div className="flex items-center gap-3 sm:gap-4">
-              {/* Volume HUD Control */}
-              <div
-                className="flex items-center gap-3 sm:gap-4 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-[var(--radius)] bg-background/80 border border-border/60 backdrop-blur-md pointer-events-auto shadow-lg"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setMuted((prev) => !prev)}
-                  aria-label={muted ? 'Unmute' : 'Mute'}
-                  className="h-8 w-8 sm:h-10 sm:w-10 text-foreground hover:text-primary transition-colors active:scale-95"
-                  title={muted ? 'Unmute' : 'Mute'}
-                >
-                  {muted || displayVolume === 0 ? (
-                    <VolumeX className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
-                  ) : displayVolume > 50 ? (
-                    <Volume2 className="w-5 h-5 sm:w-6 sm:h-6" />
-                  ) : (
-                    <Volume1 className="w-5 h-5 sm:w-6 sm:h-6" />
-                  )}
-                </Button>
-
-                <Slider
-                  value={[muted ? 0 : displayVolume]}
-                  min={0}
-                  max={100}
-                  step={1}
-                  disabled={isLocked}
-                  onValueChange={handleVolumeValueChange}
-                  onValueCommit={handleVolumeValueCommit}
-                  aria-label="Volume slider"
-                  className="w-28 sm:w-44 md:w-56 cursor-pointer py-2"
-                />
-
-                <span className="font-mono text-xs sm:text-sm md:text-base font-bold text-muted-foreground w-10 sm:w-12 text-right select-none">
-                  {muted ? 0 : displayVolume}%
-                </span>
-              </div>
-            </div>
-
-            {/* Right Controls: Fullscreen */}
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleFullscreen();
-                }}
-                aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                className="h-11 w-11 sm:h-14 sm:w-14 text-foreground hover:text-primary hover:bg-secondary/60 rounded-[var(--radius)] flex items-center justify-center pointer-events-auto transition-all shadow-md active:scale-95"
-                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-              >
-                {isFullscreen ? (
-                  <Minimize className="w-5 h-5 sm:w-7 sm:h-7" />
-                ) : (
-                  <Maximize className="w-5 h-5 sm:w-7 sm:h-7" />
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Overlay Fullscreen Button for Idle or Locked State */}
-        {!hasActiveMedia && (
-          <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-30 pointer-events-auto">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleFullscreen();
-              }}
-              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-              className="h-11 w-11 sm:h-14 sm:w-14 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-[var(--radius)] flex items-center justify-center transition-all shadow-md active:scale-95"
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-            >
-              {isFullscreen ? (
-                <Minimize className="w-5 h-5 sm:w-7 sm:h-7" />
-              ) : (
-                <Maximize className="w-5 h-5 sm:w-7 sm:h-7" />
-              )}
-            </Button>
-          </div>
-        )}
+        {/* Player Overlay Controls */}
+        <MediaBoxOverlayControls
+          hasActiveMedia={hasActiveMedia}
+          isPlaying={isPlaying}
+          isLocked={isLocked}
+          isFullscreen={isFullscreen}
+          isOverlayVisible={isOverlayVisible}
+          clockTime={clockTime}
+          currentVideoMeta={currentVideoMeta}
+          currentlyPlayingUrl={roomState?.currentlyPlaying}
+          currentlyPlayingTitle={roomState?.currentlyPlayingTitle}
+          displayVolume={displayVolume}
+          muted={muted}
+          setMuted={setMuted}
+          onTogglePlayPause={handleTogglePlayPause}
+          onToggleFullscreen={toggleFullscreen}
+          onVolumeChange={handleVolumeValueChange}
+          onVolumeCommit={handleVolumeValueCommit}
+        />
       </div>
 
-      {/* QR Code Overlay Modal inside MediaBox */}
-      {showQrModal && (
-        <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-30 flex items-center justify-center p-4 animate-in fade-in-0 duration-200">
-          <Card
-            cornerLines
-            className="p-6 max-w-sm w-full flex flex-col items-center gap-4 relative shadow-2xl overflow-hidden bg-card border-border"
-          >
-            {/* 30s Animated Timer Progress Line */}
-            <div
-              className="absolute top-0 left-0 h-1 bg-primary/50 transition-all duration-1000 ease-linear"
-              style={{ width: `${(secondsLeft / 30) * 100}%` }}
-            />
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowQrModal(false)}
-              className="absolute top-3 right-3 h-8 w-8 text-muted-foreground hover:text-foreground"
-              title="Close QR Modal"
-            >
-              <X className="w-5 h-5" />
-            </Button>
-
-            <div className="flex flex-col items-center gap-1">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">{t('mediaBox.scanToRemote')}</h3>
-            </div>
-
-            <div className="p-3 bg-white border-4 border-primary">
-              <QRCodeSVG value={remoteUrl} size={160} level="M" />
-            </div>
-
-            <div className="text-center flex flex-col gap-1 w-full">
-              <span className="text-xs text-muted-foreground">{t('mediaBox.enterPinCode')}</span>
-              <span className="font-mono text-3xl font-bold tracking-[0.2em] text-primary">
-                {roomCode || '------'}
-              </span>
-            </div>
-          </Card>
-        </div>
-      )}
-
+      {/* QR Code Overlay Modal */}
+      <MediaBoxQrModal
+        show={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        remoteUrl={remoteUrl}
+        roomCode={roomCode}
+      />
     </Card>
   );
 };
 
+export default MediaBox;
