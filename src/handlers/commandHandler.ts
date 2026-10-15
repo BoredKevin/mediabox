@@ -205,10 +205,14 @@ export const processMemberCommand = async (
         lyricsOffsetMs: clampedOffset,
       });
     } else if (type === 'setLyricsWordSync' && payload && typeof payload.enabled === 'boolean') {
-      saveLyricsWordSync(payload.enabled);
-      await update(ref(database, `rooms/${roomCode}/state`), {
-        lyricsWordSync: payload.enabled,
-      });
+      if (permissions.isAdmin || permissions.isTvOwner || permissions.isHost) {
+        saveLyricsWordSync(payload.enabled);
+        await update(ref(database, `rooms/${roomCode}/state`), {
+          lyricsWordSync: payload.enabled,
+        });
+      } else {
+        console.warn('[TV Host] Unauthorized setLyricsWordSync command from member:', memberUid);
+      }
     } else if (type === 'togglePreferMusicVideos') {
       if (permissions.isAdmin || permissions.isTvOwner || permissions.isHost) {
         const currentVal = roomState?.searchSettings?.preferMusicVideos ?? true;
