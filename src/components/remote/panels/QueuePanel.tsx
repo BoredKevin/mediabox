@@ -15,6 +15,7 @@ interface QueuePanelProps {
   membersList: { uid: string; nickname?: string; isTv?: boolean }[];
   onRemoveItem: (itemId: string, itemAddedBy?: string) => Promise<void>;
   onMoveItem: (index: number, direction: 'up' | 'down') => void;
+  onStartRadio?: () => void;
   embedded?: boolean;
 }
 
@@ -27,6 +28,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   membersList,
   onRemoveItem,
   onMoveItem,
+  onStartRadio,
   embedded = false,
 }) => {
   const { t } = useTranslation();
@@ -152,16 +154,27 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
             )}
 
             {/* YTM Radio Queue / Automix Section */}
-            {radioQueue.length > 0 && (
+            {radioQueue.length > 0 ? (
               <div className="mt-2 pt-2 border-t border-border flex flex-col gap-2">
                 <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   <span className="flex items-center gap-1.5 text-primary/80">
                     <Radio className="w-3.5 h-3.5" />
                     <span>{t('remote.radioQueue')}</span>
                   </span>
-                  <span className="text-[10px] font-mono text-muted-foreground">
-                    {radioQueue.length}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {onStartRadio && (
+                      <button
+                        onClick={onStartRadio}
+                        className="text-[10px] font-mono text-primary/80 hover:text-primary hover:underline cursor-pointer"
+                        title={t('remote.startRadio')}
+                      >
+                        {t('remote.startRadio')}
+                      </button>
+                    )}
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {radioQueue.length}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -194,7 +207,21 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
                   ))}
                 </div>
               </div>
-            )}
+            ) : onStartRadio ? (
+              <div className="mt-3 pt-2.5 border-t border-border/50 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-primary/70" />
+                  <span>{t('remote.radioQueue')}</span>
+                </span>
+                <button
+                  onClick={onStartRadio}
+                  className="text-xs font-mono font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                  title={t('remote.startRadio')}
+                >
+                  + {t('remote.startRadio')}
+                </button>
+              </div>
+            ) : null}
           </>
         )}
       </div>
