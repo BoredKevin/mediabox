@@ -1,5 +1,6 @@
 import { ref, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
+import { saveLyricsOffset, saveLyricsWordSync } from '@/lib/lyricsOffsetStore';
 
 export async function togglePlayPause(roomCode: string, currentStatus?: string): Promise<void> {
   const newStatus = currentStatus === 'playing' ? 'paused' : 'playing';
@@ -47,3 +48,19 @@ export async function toggleCountdown(roomCode: string, isCountdownEnabled: bool
     isCountdownEnabled: !isCountdownEnabled,
   });
 }
+
+export async function setLyricsOffset(roomCode: string, offsetMs: number): Promise<void> {
+  const clamped = Math.min(5000, Math.max(-5000, Math.round(offsetMs)));
+  saveLyricsOffset(clamped);
+  await update(ref(database, `rooms/${roomCode}/state`), {
+    lyricsOffsetMs: clamped,
+  });
+}
+
+export async function setLyricsWordSync(roomCode: string, enabled: boolean): Promise<void> {
+  saveLyricsWordSync(enabled);
+  await update(ref(database, `rooms/${roomCode}/state`), {
+    lyricsWordSync: enabled,
+  });
+}
+

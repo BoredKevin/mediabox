@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { User } from 'firebase/auth';
-import { ref, update, remove } from 'firebase/database';
-import { ensureAnonymousAuth, database } from '@/lib/firebase';
+import { ref, update, remove, get } from 'firebase/database';
+import { database } from '@/lib/firebase';
+import { getServerTime } from '@/lib/serverTime';
+import {
+  ensureDeviceAuth,
+  getStoredTvRoomCode,
+  saveStoredTvRoomCode,
+} from '@/lib/deviceAuth';
 import {
   createRoomAtomic,
   RoomState,
@@ -17,12 +23,15 @@ import { removeQueueItem, addToQueue } from '@/handlers/queueHandler';
 import { processMemberCommand, CommandHandlerContext } from '@/handlers/commandHandler';
 import { processSearchRequest } from '@/handlers/searchProxyHandler';
 import { transitionToNextPlayback, transitionToPreviousPlayback } from '@/handlers/playbackHandler';
+import { fetchAndFilterRadioQueue } from '@/handlers/autoplayHandler';
 import {
   togglePlayPause,
   toggleFullscreen,
   toggleRoomLock,
   toggleAutoplay,
   toggleCountdown,
+  setLyricsOffset,
+  setLyricsWordSync,
 } from '@/handlers/roomActions';
 import { useAutoplayHistory } from './hooks/useAutoplayHistory';
 import { useRoomSubscriptions } from './hooks/useRoomSubscriptions';
@@ -56,10 +65,14 @@ interface WatchPartyContextType {
   handleToggleRoomLock: () => Promise<void>;
   handleToggleAutoplay: () => Promise<void>;
   handleToggleCountdown: () => Promise<void>;
+  handleSetLyricsOffset: (offsetMs: number) => Promise<void>;
+  handleSetLyricsWordSync: (enabled: boolean) => Promise<void>;
   handleAdjustVolume: (volume: number) => Promise<void>;
   copyRemoteLink: () => void;
   handleUpdateSearchSettings: (patch: Partial<SearchSettings>) => Promise<void>;
   handleClearAllRateLimits: () => Promise<void>;
+  handleStartRadioFromCurrent: () => Promise<void>;
+  registerPlayerInstance?: (instance: any) => void;
 }
 
 const WatchPartyContext = createContext<WatchPartyContextType | undefined>(undefined);
@@ -102,6 +115,11 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const processingCommandsRef = useRef<Set<string>>(new Set());
   const lastFullscreenToggleRef = useRef<number>(0);
   const isTransitioningRef = useRef<boolean>(false);
+  const playerInstanceRef = useRef<any>(null);
+
+  const registerPlayerInstance = useCallback((instance: any) => {
+    playerInstanceRef.current = instance;
+  }, []);
 
   // Auto-close QR code popup after 30 seconds
   useEffect(() => {
@@ -111,18 +129,44 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [showQrModal]);
 
-  // Authenticate anonymously on mount.
-  // Room ID persistence is completely disabled to prevent security rule and auth mismatch issues.
+  // Authenticate with persistent device credentials on mount and restore room session if active
   useEffect(() => {
-    try {
-      localStorage.removeItem('mediabox_tv_room_code');
-    } catch {
-      // Ignore storage errors in restricted contexts
-    }
+    let isCancelled = false;
 
-    ensureAnonymousAuth()
-      .then((u) => setUser(u))
+    ensureDeviceAuth()
+      .then(async (u) => {
+        if (isCancelled) return;
+        setUser(u);
+
+        // Attempt to restore persistent TV room code
+        const savedCode = getStoredTvRoomCode();
+        if (savedCode) {
+          try {
+            const roomSnap = await get(ref(database, `rooms/${savedCode}/tv`));
+            if (roomSnap.exists()) {
+              const tvData = roomSnap.val();
+              // Verify room ownership matches this device's persistent UID
+              if (tvData?.uid === u.uid) {
+                console.log(`[WatchPartyContext] Reconnected to persistent TV room: ${savedCode}`);
+                if (!isCancelled) {
+                  setRoomCode(savedCode);
+                }
+                return;
+              }
+            }
+            // Room no longer exists or belongs to another TV/device: clear invalid code
+            saveStoredTvRoomCode(null);
+          } catch (err) {
+            console.warn('[WatchPartyContext] Failed to restore saved TV room:', err);
+            saveStoredTvRoomCode(null);
+          }
+        }
+      })
       .catch((err) => console.error('Auth error in WatchPartyContext:', err));
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   const syncSearchSettingsToFirebase = useCallback(async () => {
@@ -243,6 +287,45 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [roomCode, pushArtist, pushTrack, pushUrl, pushPlayedTrack, popPreviousTrack]);
 
+  // Starts a fresh YTM radio queue seeded by currently playing YouTube track
+  const handleStartRadioFromCurrent = useCallback(async () => {
+    if (!roomCode) return;
+    const currentUrl = roomStateRef.current?.currentlyPlaying;
+    const seedVideoId = currentUrl ? parseYouTubeVideoId(currentUrl) : null;
+    if (!seedVideoId) {
+      console.warn('[WatchParty] Cannot start radio: No currently playing YouTube video.');
+      return;
+    }
+
+    try {
+      console.log(`[WatchParty] Starting fresh YTM Radio queue from seed: ${seedVideoId}`);
+      const preferMusicVideos = roomStateRef.current?.searchSettings?.preferMusicVideos ?? true;
+      const excludedVideoIds = new Set<string>([seedVideoId]);
+      for (const u of urlHistoryRef.current) {
+        const vId = parseYouTubeVideoId(u);
+        if (vId) excludedVideoIds.add(vId);
+      }
+
+      const freshTracks = await fetchAndFilterRadioQueue(
+        seedVideoId,
+        excludedVideoIds,
+        historyRef.current,
+        artistHistoryRef.current,
+        preferMusicVideos
+      );
+
+      radioQueueRef.current = freshTracks;
+      await update(ref(database, `rooms/${roomCode}`), {
+        radioQueue: removeUndefinedFields(freshTracks),
+        'state/isAutoplay': true,
+        updatedAt: Date.now(),
+      });
+      console.log(`[WatchParty] Fresh YTM Radio queue loaded (${freshTracks.length} tracks).`);
+    } catch (err) {
+      console.error('[WatchParty] Failed to start fresh radio from current track:', err);
+    }
+  }, [roomCode, urlHistoryRef, historyRef, artistHistoryRef]);
+
   // Dispatchers for remote member commands and search requests
   const onMemberCommand = useCallback(
     (memberUid: string, command: any) => {
@@ -264,6 +347,22 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         onPlayPreviousTrack: handlePlayPreviousTrack,
         onUpdateSearchSettings: handleUpdateSearchSettings,
         onClearAllRateLimits: handleClearAllRateLimits,
+        onStartRadioFromCurrent: handleStartRadioFromCurrent,
+        onSeek: async (positionMs: number) => {
+          if (playerInstanceRef.current && typeof playerInstanceRef.current.seekTo === 'function') {
+            try {
+              playerInstanceRef.current.seekTo(positionMs / 1000, true);
+            } catch (err) {
+              console.warn('[WatchParty] onSeek playerInstance error:', err);
+            }
+          }
+          if (roomCode) {
+            await update(ref(database, `rooms/${roomCode}/state/playback`), {
+              positionMs,
+              updatedAt: getServerTime(),
+            });
+          }
+        },
         onProcessSearchRequest: (reqId, req) => {
           if (!roomCode) return;
           processSearchRequest(
@@ -334,7 +433,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const handleCreateRoom = async () => {
     setCreating(true);
     try {
-      const u = user || (await ensureAnonymousAuth());
+      const u = user || (await ensureDeviceAuth());
       setUser(u);
 
       const effectiveSettings = getEffectiveSearchSettings();
@@ -343,6 +442,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       const code = await createRoomAtomic(u.uid, effectiveSettings);
       setRoomCode(code);
+      saveStoredTvRoomCode(code);
     } catch (err: any) {
       console.error('Error creating room:', err);
       alert('Failed to create Watch Together room: ' + err.message);
@@ -355,6 +455,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!roomCode) return;
     if (confirm('Are you sure you want to end this Watch Together session?')) {
       await remove(ref(database, `rooms/${roomCode}`));
+      saveStoredTvRoomCode(null);
       setRoomCode(null);
       setRoomState(null);
       setQueue([]);
@@ -433,6 +534,15 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     await toggleCountdown(roomCode, Boolean(roomStateRef.current?.isCountdownEnabled));
   };
 
+  const handleSetLyricsOffset = async (offsetMs: number) => {
+    if (!roomCode) return;
+    await setLyricsOffset(roomCode, offsetMs);
+  };
+
+  const handleSetLyricsWordSync = async (enabled: boolean) => {
+    if (!roomCode) return;
+    await setLyricsWordSync(roomCode, enabled);
+  };
 
   return (
     <WatchPartyContext.Provider
@@ -463,11 +573,15 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleToggleRoomLock,
         handleToggleAutoplay,
         handleToggleCountdown,
+        handleSetLyricsOffset,
+        handleSetLyricsWordSync,
         handleAdjustVolume,
         copyRemoteLink,
         searchSettings,
         handleUpdateSearchSettings,
         handleClearAllRateLimits,
+        handleStartRadioFromCurrent,
+        registerPlayerInstance,
       }}
     >
       {children}

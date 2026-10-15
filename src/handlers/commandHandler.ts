@@ -12,6 +12,7 @@ import {
 } from './queueHandler';
 import { saveSearchConfig } from '@/lib/apiKeyStore';
 import { saveProxyConfig } from '@/lib/proxyConfig';
+import { saveLyricsOffset, saveLyricsWordSync } from '@/lib/lyricsOffsetStore';
 
 export interface CommandHandlerContext {
   roomCode: string;
@@ -28,6 +29,8 @@ export interface CommandHandlerContext {
   onUpdateSearchSettings: (patch: Partial<SearchSettings>) => Promise<void>;
   onClearAllRateLimits: () => Promise<void>;
   onProcessSearchRequest: (reqId: string, req: { requestedBy: string; query: string; createdAt: number }) => void;
+  onStartRadioFromCurrent?: () => Promise<void>;
+  onSeek?: (positionMs: number) => Promise<void> | void;
 }
 
 /**
@@ -52,7 +55,15 @@ export const processMemberCommand = async (
 
   // Reject commands if room controls are locked by admin and user is not authorized
   if (roomState?.isLocked && !permissions.isAuthorized) {
-    if (type === 'addToQueue' || type === 'play' || type === 'pause' || type === 'adjustVolume') {
+    if (
+      type === 'addToQueue' ||
+      type === 'play' ||
+      type === 'pause' ||
+      type === 'adjustVolume' ||
+      type === 'startRadio' ||
+      type === 'startRadioFromCurrent' ||
+      type === 'seek'
+    ) {
       console.warn('[TV Host] Rejected member command because room controls are locked by admin:', type, memberUid);
       return;
     }
@@ -69,6 +80,16 @@ export const processMemberCommand = async (
         status: 'paused',
         updatedAt: Date.now(),
       });
+    } else if (type === 'seek' && payload && typeof payload.positionMs === 'number') {
+      const posMs = Math.max(0, Math.round(payload.positionMs));
+      if (ctx.onSeek) {
+        await ctx.onSeek(posMs);
+      } else {
+        await update(ref(database, `rooms/${roomCode}/state/playback`), {
+          positionMs: posMs,
+          updatedAt: Date.now(),
+        });
+      }
     } else if (type === 'adjustVolume' && payload && typeof payload.volume === 'number') {
       await update(ref(database, `rooms/${roomCode}/state/playback`), {
         volume: Math.min(100, Math.max(0, payload.volume)),
@@ -169,9 +190,24 @@ export const processMemberCommand = async (
       await update(ref(database, `rooms/${roomCode}/state`), {
         isAutoplay: !roomState?.isAutoplay,
       });
+    } else if (type === 'startRadio' || type === 'startRadioFromCurrent') {
+      if (ctx.onStartRadioFromCurrent) {
+        await ctx.onStartRadioFromCurrent();
+      }
     } else if (type === 'toggleCountdown') {
       await update(ref(database, `rooms/${roomCode}/state`), {
         isCountdownEnabled: !roomState?.isCountdownEnabled,
+      });
+    } else if (type === 'setLyricsOffset' && payload && typeof payload.offsetMs === 'number') {
+      const clampedOffset = Math.min(5000, Math.max(-5000, Math.round(payload.offsetMs)));
+      saveLyricsOffset(clampedOffset);
+      await update(ref(database, `rooms/${roomCode}/state`), {
+        lyricsOffsetMs: clampedOffset,
+      });
+    } else if (type === 'setLyricsWordSync' && payload && typeof payload.enabled === 'boolean') {
+      saveLyricsWordSync(payload.enabled);
+      await update(ref(database, `rooms/${roomCode}/state`), {
+        lyricsWordSync: payload.enabled,
       });
     } else if (type === 'togglePreferMusicVideos') {
       if (permissions.isAdmin || permissions.isTvOwner || permissions.isHost) {

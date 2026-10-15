@@ -233,31 +233,66 @@
   outline-offset: 2px !important;
 }
 
-/* 7. Hardware-accelerated CSS progress bar animations (replaces 100ms JS timers) */
+/* 7. Hardware-accelerated compositor-only progress bar animations (zero CPU reflows) */
 @keyframes scheduleProgressFill {
   0% {
-    width: 100%;
+    transform: scaleX(1);
   }
   100% {
-    width: 0%;
+    transform: scaleX(0);
   }
 }
 
 .animate-schedule-progress {
+  transform-origin: left;
   animation: scheduleProgressFill 5s linear forwards;
-  will-change: width;
+  will-change: transform;
 }
 
 @keyframes agendaProgressFill {
   0% {
-    width: 100%;
+    transform: scaleX(1);
   }
   100% {
-    width: 0%;
+    transform: scaleX(0);
   }
 }
 
 .animate-agenda-progress {
+  transform-origin: left;
   animation: agendaProgressFill 15s linear forwards;
-  will-change: width;
-}
+  will-change: transform;
+}
+
+/* 8. Smart TV D-Pad Mode: Locks hover events while navigating via directional keys */
+body.tv-dpad-mode :hover {
+  pointer-events: none !important;
+}
+
+/* 9. Discrete Word-by-Word Highlight (No Fill/Sweep Animation) */
+braccato-lyrics[data-word-sync="true"] .blyrics-word-highlight {
+  background-image: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+  color: var(--blyrics-lyric-active-color, #ffffff) !important;
+  transition: none !important;
+}
+
+braccato-lyrics[data-word-sync="true"] .blyrics-word-highlight .blyrics--letter {
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+  color: var(--blyrics-lyric-active-color, #ffffff) !important;
+}
+
+braccato-lyrics[data-word-sync="true"] .blyrics-word-highlight[data-word-state="upcoming"] {
+  opacity: 0 !important;
+}
+
+braccato-lyrics[data-word-sync="true"] .blyrics-word-highlight[data-word-state="active"],
+braccato-lyrics[data-word-sync="true"] .blyrics-word-highlight[data-word-state="past"] {
+  opacity: 1 !important;
+}
+
+

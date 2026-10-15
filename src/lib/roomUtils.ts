@@ -1,5 +1,6 @@
 import { ref, runTransaction, get } from 'firebase/database';
 import { database } from './firebase';
+import { getSavedLyricsOffset, getSavedLyricsWordSync } from './lyricsOffsetStore';
 
 export interface PlaybackState {
   status: 'playing' | 'paused';
@@ -27,6 +28,8 @@ export interface RoomState {
   isAutoplay?: boolean;
   isCountdownEnabled?: boolean;
   searchSettings?: SearchSettings;
+  lyricsOffsetMs?: number;
+  lyricsWordSync?: boolean;
 }
 
 export interface QueueItem {
@@ -45,6 +48,8 @@ export interface MemberCommand {
     | 'removeFromQueue'
     | 'adjustVolume'
     | 'forceSkip'
+    | 'forcePrevious'
+    | 'previousTrack'
     | 'reorderQueue'
     | 'forceRemoveFromQueue'
     | 'kickMember'
@@ -52,11 +57,17 @@ export interface MemberCommand {
     | 'clearQueue'
     | 'toggleRoomLock'
     | 'toggleAutoplay'
+    | 'startRadio'
+    | 'startRadioFromCurrent'
     | 'toggleCountdown'
     | 'togglePreferMusicVideos'
     | 'searchYouTube'
     | 'manageApiKeys'
-    | 'setYtProxy';
+    | 'setYtProxy'
+    | 'setProxy'
+    | 'setLyricsOffset'
+    | 'setLyricsWordSync'
+    | 'seek';
   createdAt: number;
   payload?: {
     url?: string;
@@ -68,6 +79,8 @@ export interface MemberCommand {
     targetUid?: string;
     purgeQueue?: boolean;
     query?: string;
+    offsetMs?: number;
+    enabled?: boolean;
     // For setYtProxy:
     proxyUrl?: string;
     proxyToken?: string;
@@ -171,6 +184,8 @@ export const createRoomAtomic = async (
         },
         state: {
           currentlyPlaying: '',
+          lyricsOffsetMs: getSavedLyricsOffset(),
+          lyricsWordSync: getSavedLyricsWordSync(),
           playback: {
             status: 'playing',
             positionMs: 0,
