@@ -15,6 +15,7 @@ import { MembersPanel } from './panels/MembersPanel';
 import { NowPlayingBar } from './NowPlayingBar';
 import { HostSettingsModal } from './HostSettingsModal';
 import { SideDrawer } from './SideDrawer';
+import { RemoteLyricsView } from './RemoteLyricsView';
 
 interface RoomScreenProps {
   activeRoomCode: string;
@@ -66,6 +67,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
   // Modal / Drawer state
   const [showHostSettings, setShowHostSettings] = useState<boolean>(false);
   const [showSideDrawer, setShowSideDrawer] = useState<boolean>(false);
+  const [isLyricsActive, setIsLyricsActive] = useState<boolean>(false);
 
   const displayVolume =
     isDraggingVolume && localVolume !== null
@@ -189,20 +191,31 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         <div className="max-w-[1800px] w-full mx-auto h-full flex flex-col">
           {/* Desktop Two-Column Layout (>= 1024px / lg) */}
           <div className="hidden lg:grid lg:grid-cols-[60fr_40fr] xl:grid-cols-[63fr_37fr] lg:gap-6 h-full min-h-0">
-            {/* Left Column: Search & URL Queue Input */}
+            {/* Left Column: Search & URL Queue Input OR Synced Lyrics */}
             <Card cornerLines className="h-full flex flex-col p-5 bg-card border-border overflow-hidden">
-              <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-                <SearchPanel
-                  roomCode={activeRoomCode}
-                  roomState={roomState}
-                  user={user}
-                  isHostOrAdmin={isHostOrAdmin}
-                  sendCommand={sendCommand}
-                  showToast={showToast}
-                  embedded
-                  onOpenHostSettings={() => setShowHostSettings(true)}
-                />
-              </div>
+              {isLyricsActive ? (
+                <div className="flex-1 min-h-0 h-full">
+                  <RemoteLyricsView
+                    roomState={roomState}
+                    isHostOrAdmin={isHostOrAdmin}
+                    sendCommand={sendCommand}
+                    onClose={() => setIsLyricsActive(false)}
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                  <SearchPanel
+                    roomCode={activeRoomCode}
+                    roomState={roomState}
+                    user={user}
+                    isHostOrAdmin={isHostOrAdmin}
+                    sendCommand={sendCommand}
+                    showToast={showToast}
+                    embedded
+                    onOpenHostSettings={() => setShowHostSettings(true)}
+                  />
+                </div>
+              )}
             </Card>
 
             {/* Right Column: Tabbed Queue & Members */}
@@ -230,6 +243,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
                     membersList={membersList}
                     onRemoveItem={handleRemoveQueueItem}
                     onMoveItem={handleMoveQueueItem}
+                    onStartRadio={() => sendCommand('startRadio')}
                     embedded
                   />
                 </TabsContent>
@@ -277,21 +291,32 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
               </Button>
             </div>
 
-            {/* Scrollable Search & Add Panel */}
-            <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-              <Card cornerLines className="p-4 bg-card border-border flex flex-col mb-4">
-                <SearchPanel
-                  roomCode={activeRoomCode}
+            {/* Scrollable Search & Add Panel OR Synced Lyrics */}
+            {isLyricsActive ? (
+              <div className="flex-1 min-h-0 h-full mb-4">
+                <RemoteLyricsView
                   roomState={roomState}
-                  user={user}
                   isHostOrAdmin={isHostOrAdmin}
                   sendCommand={sendCommand}
-                  showToast={showToast}
-                  embedded
-                  onOpenHostSettings={() => setShowHostSettings(true)}
+                  onClose={() => setIsLyricsActive(false)}
                 />
-              </Card>
-            </div>
+              </div>
+            ) : (
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                <Card cornerLines className="p-4 bg-card border-border flex flex-col mb-4">
+                  <SearchPanel
+                    roomCode={activeRoomCode}
+                    roomState={roomState}
+                    user={user}
+                    isHostOrAdmin={isHostOrAdmin}
+                    sendCommand={sendCommand}
+                    showToast={showToast}
+                    embedded
+                    onOpenHostSettings={() => setShowHostSettings(true)}
+                  />
+                </Card>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -306,6 +331,8 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         handleVolumeValueCommit={handleVolumeValueCommit}
         fullscreenCooldown={fullscreenCooldown}
         handleToggleFullscreenClick={handleToggleFullscreenClick}
+        isLyricsActive={isLyricsActive}
+        onToggleLyrics={() => setIsLyricsActive((prev) => !prev)}
       />
 
       {/* Host / Admin Settings Dialog */}
@@ -337,6 +364,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         onRemoveQueueItem={handleRemoveQueueItem}
         onMoveQueueItem={handleMoveQueueItem}
         onKickMember={handleKickMember}
+        onStartRadio={() => sendCommand('startRadio')}
       />
     </div>
   );

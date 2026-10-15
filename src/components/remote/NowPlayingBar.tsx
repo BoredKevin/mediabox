@@ -19,9 +19,12 @@ import {
   Sparkles,
   Film,
   ExternalLink,
+  Radio,
+  Mic2,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState, parseYouTubeVideoId } from '@/lib/roomUtils';
+import { cn } from '@/lib/utils';
 
 interface NowPlayingBarProps {
   roomState: RoomState | null;
@@ -32,6 +35,8 @@ interface NowPlayingBarProps {
   handleVolumeValueCommit: (val: number[]) => void;
   fullscreenCooldown: boolean;
   handleToggleFullscreenClick: () => void;
+  isLyricsActive?: boolean;
+  onToggleLyrics?: () => void;
 }
 
 export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
@@ -43,6 +48,8 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
   handleVolumeValueCommit,
   fullscreenCooldown,
   handleToggleFullscreenClick,
+  isLyricsActive = false,
+  onToggleLyrics,
 }) => {
   const { t } = useTranslation();
   const [volumeTooltipOpen, setVolumeTooltipOpen] = useState<boolean>(false);
@@ -51,6 +58,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
   const currentVideo = roomState?.currentlyPlaying;
   const videoId = currentVideo ? parseYouTubeVideoId(currentVideo) : null;
   const videoTitle = roomState?.currentlyPlayingTitle || currentVideo;
+
   const videoUrl = videoId
     ? `https://www.youtube.com/watch?v=${videoId}`
     : currentVideo?.startsWith('http')
@@ -62,7 +70,13 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
       <div className="max-w-[1800px] mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex flex-col gap-2.5">
         {/* Line 1: Dedicated Current Video Info Line (Thumbnail, Title, and Link) */}
         <div className="flex items-center justify-between gap-3 min-w-0 border-b border-border/40 pb-2.5">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div
+            className={`flex items-center gap-3 min-w-0 flex-1 ${
+              onToggleLyrics ? 'cursor-pointer group select-none' : ''
+            }`}
+            onClick={onToggleLyrics}
+            title={onToggleLyrics ? (isLyricsActive ? 'Back to Search' : 'View Synced Lyrics') : undefined}
+          >
             {videoId ? (
               <div className="relative flex-shrink-0 w-14 h-10 sm:w-16 sm:h-11 overflow-hidden border border-primary/30 bg-black">
                 <img
@@ -86,6 +100,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                   href={videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="text-xs font-mono text-primary/80 hover:text-primary hover:underline flex items-center gap-1.5 truncate mt-0.5"
                   title="Open video on YouTube"
                 >
@@ -99,6 +114,23 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               ) : null}
             </div>
           </div>
+
+          {/* Right: Start Radio Button from currently playing track */}
+          {videoId && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendCommand('startRadio')}
+                disabled={isLocked}
+                className="h-8 sm:h-9 px-2 sm:px-3 text-[11px] sm:text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 border-primary/30 hover:border-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                title={t('remote.startRadio')}
+              >
+                <Radio className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                <span className="hidden min-[480px]:inline">{t('remote.startRadio')}</span>
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Line 2: Playback & TV Controls Line */}
@@ -110,34 +142,45 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
             {/* Mobile Left: Autoplay, TV Fullscreen & Volume Tooltip */}
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               <Button
-                variant={roomState?.isAutoplay ? 'cyber' : 'outline'}
+                variant="outline"
                 chamfer="top-right"
                 onClick={() => sendCommand('toggleAutoplay')}
                 disabled={isLocked}
-                className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
+                className={cn(
+                  "h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0 transition-colors",
+                  roomState?.isAutoplay
+                    ? "border-purple-500/70 bg-purple-500/15 text-purple-300 hover:bg-purple-500/25 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
                 title={`${t('remote.autoplayMode')}: ${
                   roomState?.isAutoplay ? t('remote.autoplayOn') : t('remote.autoplayOff')
                 }`}
               >
                 <Sparkles
-                  className={`w-4 h-4 ${
-                    roomState?.isAutoplay ? 'text-purple-300 animate-pulse' : 'text-muted-foreground'
-                  }`}
+                  className={cn(
+                    "w-4 h-4",
+                    roomState?.isAutoplay ? "text-purple-300" : "text-muted-foreground"
+                  )}
                 />
               </Button>
 
               <Button
-                variant={roomState?.isFullscreen ? 'cyber' : 'outline'}
+                variant="outline"
                 chamfer="top-right"
                 onClick={handleToggleFullscreenClick}
                 disabled={fullscreenCooldown}
-                className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
+                className={cn(
+                  "h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0 transition-colors",
+                  roomState?.isFullscreen
+                    ? "border-primary bg-primary/15 text-primary hover:bg-primary/20 shadow-[0_0_10px_rgba(255,255,255,0.08)]"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
                 title={roomState?.isFullscreen ? t('remote.exitFullscreen') : t('remote.fullscreenTv')}
               >
                 {roomState?.isFullscreen ? (
-                  <Minimize className="w-4 h-4" />
+                  <Minimize className="w-4 h-4 text-primary" />
                 ) : (
-                  <Maximize className="w-4 h-4 text-primary" />
+                  <Maximize className="w-4 h-4 text-foreground/80" />
                 )}
               </Button>
 
@@ -145,10 +188,15 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               <Popover open={volumeTooltipOpen} onOpenChange={setVolumeTooltipOpen}>
                 <PopoverTrigger asChild>
                   <Button
-                    variant={volumeTooltipOpen ? 'cyber' : 'outline'}
+                    variant="outline"
                     chamfer="top-right"
                     disabled={isLocked}
-                    className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
+                    className={cn(
+                      "h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0 transition-colors",
+                      volumeTooltipOpen
+                        ? "border-primary bg-primary/15 text-primary hover:bg-primary/20 shadow-[0_0_10px_rgba(255,255,255,0.08)]"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
                     title="Volume"
                     aria-label="Volume"
                   >
@@ -205,6 +253,30 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                   </span>
                 </PopoverContent>
               </Popover>
+
+              {/* Lyrics Toggle Button */}
+              {onToggleLyrics && (
+                <Button
+                  variant="outline"
+                  chamfer="top-right"
+                  onClick={onToggleLyrics}
+                  className={cn(
+                    "h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors",
+                    isLyricsActive
+                      ? "border-primary bg-primary/15 text-primary hover:bg-primary/20 shadow-[0_0_12px_rgba(255,255,255,0.1)]"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title={isLyricsActive ? 'Hide Lyrics (Show Search)' : 'Show Synced Lyrics'}
+                  aria-label={isLyricsActive ? 'Hide Lyrics (Show Search)' : 'Show Synced Lyrics'}
+                >
+                  <Mic2
+                    className={cn(
+                      "w-4 h-4",
+                      isLyricsActive ? "text-primary" : "text-muted-foreground"
+                    )}
+                  />
+                </Button>
+              )}
             </div>
 
             {/* Mobile Right: Previous, Play/Pause, Skip */}
@@ -216,6 +288,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                   onClick={() => sendCommand('forcePrevious')}
                   className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
                   title={t('watchParty.previousBtn')}
+                  aria-label={t('watchParty.previousBtn')}
                 >
                   <SkipBack className="w-4 h-4 fill-current" />
                 </Button>
@@ -227,23 +300,23 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                   chamfer="dual"
                   onClick={() => sendCommand('pause')}
                   disabled={isLocked}
-                  className="h-11 px-3 min-[380px]:px-4 text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5"
+                  className="h-11 w-11 min-[380px]:w-12 p-0 flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors"
                   title={t('watchParty.pauseBtn')}
+                  aria-label={t('watchParty.pauseBtn')}
                 >
                   <Pause className="w-4 h-4 fill-current" />
-                  <span>{t('watchParty.pauseBtn')}</span>
                 </Button>
               ) : (
                 <Button
-                  variant="cyber"
+                  variant="outline"
                   chamfer="dual"
                   onClick={() => sendCommand('play')}
                   disabled={isLocked}
-                  className="h-11 px-3 min-[380px]:px-4 text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5"
+                  className="h-11 w-11 min-[380px]:w-12 p-0 flex items-center justify-center flex-shrink-0 border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary transition-colors shadow-[0_0_10px_rgba(255,255,255,0.08)]"
                   title={t('watchParty.playBtn')}
+                  aria-label={t('watchParty.playBtn')}
                 >
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>{t('watchParty.playBtn')}</span>
+                  <Play className="w-4 h-4 fill-current ml-0.5 text-primary" />
                 </Button>
               )}
 
@@ -254,6 +327,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                   onClick={() => sendCommand('forceSkip')}
                   className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
                   title={t('watchParty.skipNextBtn')}
+                  aria-label={t('watchParty.skipNextBtn')}
                 >
                   <SkipForward className="w-4 h-4 fill-current" />
                 </Button>
@@ -267,44 +341,44 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
           <div className="hidden lg:flex items-center justify-between w-full">
             {/* Desktop Left: Previous, Play/Pause, Skip & Volume Slider */}
             <div className="flex items-center gap-2.5">
-              {/* Previous Button (Host/Admin) */}
+              {/* Previous Button (Host/Admin) - Icon only */}
               {isHostOrAdmin && (
                 <Button
                   variant="outline"
                   chamfer="top-left"
                   onClick={() => sendCommand('forcePrevious')}
-                  className="h-10 px-3 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5"
+                  className="h-10 w-10 p-0 flex items-center justify-center flex-shrink-0"
                   title={t('watchParty.previousBtn')}
+                  aria-label={t('watchParty.previousBtn')}
                 >
                   <SkipBack className="w-4 h-4 fill-current" />
-                  <span>{t('watchParty.previousBtn')}</span>
                 </Button>
               )}
 
-              {/* Play/Pause Button */}
+              {/* Play/Pause Button - Icon only */}
               {isPlaying ? (
                 <Button
                   variant="outline"
                   chamfer="dual"
                   onClick={() => sendCommand('pause')}
                   disabled={isLocked}
-                  className="h-10 px-4 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2"
+                  className="h-10 w-12 p-0 flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors"
                   title={t('watchParty.pauseBtn')}
+                  aria-label={t('watchParty.pauseBtn')}
                 >
                   <Pause className="w-4 h-4 fill-current" />
-                  <span>{t('watchParty.pauseBtn')}</span>
                 </Button>
               ) : (
                 <Button
-                  variant="cyber"
+                  variant="outline"
                   chamfer="dual"
                   onClick={() => sendCommand('play')}
                   disabled={isLocked}
-                  className="h-10 px-4 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2"
+                  className="h-10 w-12 p-0 flex items-center justify-center flex-shrink-0 border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary transition-colors shadow-[0_0_10px_rgba(255,255,255,0.08)]"
                   title={t('watchParty.playBtn')}
+                  aria-label={t('watchParty.playBtn')}
                 >
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>{t('watchParty.playBtn')}</span>
+                  <Play className="w-4 h-4 fill-current ml-0.5 text-primary" />
                 </Button>
               )}
 
@@ -315,7 +389,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                   chamfer="top-right"
                   onClick={() => sendCommand('forceSkip')}
                   className="h-10 px-3.5 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5"
-                  title="Skip to next video"
+                  title={t('watchParty.skipNextBtn')}
                 >
                   <SkipForward className="w-4 h-4 fill-current" />
                   <span>{t('watchParty.skipNextBtn')}</span>
@@ -360,22 +434,53 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               </div>
             </div>
 
-            {/* Desktop Right: Autoplay & TV Fullscreen */}
+            {/* Desktop Right: Lyrics Toggle, Lyrics Sync, Autoplay & TV Fullscreen */}
             <div className="flex items-center gap-2.5">
+              {onToggleLyrics && (
+                <Button
+                  variant="outline"
+                  chamfer="top-right"
+                  onClick={onToggleLyrics}
+                  className={cn(
+                    "h-10 px-3.5 text-xs font-mono font-semibold flex items-center gap-2 cursor-pointer transition-colors",
+                    isLyricsActive
+                      ? "border-primary bg-primary/15 text-primary hover:bg-primary/20 shadow-[0_0_12px_rgba(255,255,255,0.1)]"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title={isLyricsActive ? 'Hide Lyrics (Show Search)' : 'Show Synced Lyrics'}
+                >
+                  <Mic2
+                    className={cn(
+                      "w-4 h-4",
+                      isLyricsActive ? "text-primary" : "text-muted-foreground"
+                    )}
+                  />
+                  <span className="text-xs font-mono uppercase tracking-wider">
+                    Lyrics
+                  </span>
+                </Button>
+              )}
+
               <Button
-                variant={roomState?.isAutoplay ? 'cyber' : 'outline'}
+                variant="outline"
                 chamfer="top-right"
                 onClick={() => sendCommand('toggleAutoplay')}
                 disabled={isLocked}
-                className="h-10 px-3.5 text-xs font-mono font-semibold flex items-center gap-2"
+                className={cn(
+                  "h-10 px-3.5 text-xs font-mono font-semibold flex items-center gap-2 transition-colors",
+                  roomState?.isAutoplay
+                    ? "border-purple-500/70 bg-purple-500/15 text-purple-300 hover:bg-purple-500/25 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
                 title={`${t('remote.autoplayMode')}: ${
                   roomState?.isAutoplay ? t('remote.autoplayOn') : t('remote.autoplayOff')
                 }`}
               >
                 <Sparkles
-                  className={`w-4 h-4 ${
-                    roomState?.isAutoplay ? 'text-purple-300 animate-pulse' : 'text-muted-foreground'
-                  }`}
+                  className={cn(
+                    "w-4 h-4",
+                    roomState?.isAutoplay ? "text-purple-300" : "text-muted-foreground"
+                  )}
                 />
                 <span className="text-xs font-mono uppercase tracking-wider">
                   {t('remote.autoplayMode')}
@@ -383,17 +488,22 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               </Button>
 
               <Button
-                variant={roomState?.isFullscreen ? 'cyber' : 'outline'}
+                variant="outline"
                 chamfer="top-right"
                 onClick={handleToggleFullscreenClick}
                 disabled={fullscreenCooldown}
-                className="h-10 px-3.5 text-xs font-mono font-semibold flex items-center gap-2"
+                className={cn(
+                  "h-10 px-3.5 text-xs font-mono font-semibold flex items-center gap-2 transition-colors",
+                  roomState?.isFullscreen
+                    ? "border-primary bg-primary/15 text-primary hover:bg-primary/20 shadow-[0_0_10px_rgba(255,255,255,0.08)]"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
                 title={roomState?.isFullscreen ? t('remote.exitFullscreen') : t('remote.fullscreenTv')}
               >
                 {roomState?.isFullscreen ? (
-                  <Minimize className="w-4 h-4" />
+                  <Minimize className="w-4 h-4 text-primary" />
                 ) : (
-                  <Maximize className="w-4 h-4 text-primary" />
+                  <Maximize className="w-4 h-4 text-foreground/80" />
                 )}
                 <span className="text-xs font-mono uppercase tracking-wider">
                   {roomState?.isFullscreen ? t('remote.exitFullscreen') : t('remote.fullscreenTv')}

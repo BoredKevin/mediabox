@@ -3,6 +3,7 @@ import { ref, onValue, set, update, off, onDisconnect, serverTimestamp } from 'f
 import { User as FirebaseUser } from 'firebase/auth';
 import { database } from '@/lib/firebase';
 import { RoomState, QueueItem, SearchResultItem } from '@/lib/roomUtils';
+import { getStoredNickname, saveStoredNickname } from '@/lib/deviceAuth';
 import { useTranslation } from '@/context/LanguageContext';
 import { MemberInfo } from '../panels/MembersPanel';
 
@@ -35,7 +36,7 @@ export function useRemoteRoom({
   const isHostOrAdmin = isHost || isAdmin;
 
   // Nickname state
-  const [myNickname, setMyNickname] = useState<string>('');
+  const [myNickname, setMyNickname] = useState<string>(() => getStoredNickname());
   const hasConfirmedMembership = useRef(false);
 
   useEffect(() => {
@@ -185,12 +186,22 @@ export function useRemoteRoom({
         if (myRecord) {
           if (myRecord.nickname) {
             setMyNickname(myRecord.nickname);
-          } else if (!myRecord.nickname && user.displayName) {
-            const autoNick = user.displayName.slice(0, 25);
-            update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
-              nickname: autoNick,
-            }).catch(() => {});
-            setMyNickname(autoNick);
+            saveStoredNickname(myRecord.nickname);
+          } else {
+            const saved = getStoredNickname();
+            if (saved) {
+              update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
+                nickname: saved,
+              }).catch(() => {});
+              setMyNickname(saved);
+            } else if (user.displayName) {
+              const autoNick = user.displayName.slice(0, 25);
+              update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
+                nickname: autoNick,
+              }).catch(() => {});
+              setMyNickname(autoNick);
+              saveStoredNickname(autoNick);
+            }
           }
         }
       } else {
@@ -220,7 +231,9 @@ export function useRemoteRoom({
           type === 'play' ||
           type === 'pause' ||
           type === 'adjustVolume' ||
-          type === 'toggleAutoplay'
+          type === 'toggleAutoplay' ||
+          type === 'startRadio' ||
+          type === 'startRadioFromCurrent'
         ) {
           showToast(t('toasts.controlsLockedByAdmin'), 'error');
           return;
@@ -252,6 +265,8 @@ export function useRemoteRoom({
           toggleFullscreen: t('toasts.toggleFullscreenSent'),
           clearQueue: t('toasts.clearQueueSent'),
           setYtProxy: t('tvSettings.ytProxySavedNotice'),
+          startRadio: t('toasts.startRadioSent'),
+          startRadioFromCurrent: t('toasts.startRadioSent'),
           toggleRoomLock: roomState?.isLocked
             ? t('toasts.roomUnlocked')
             : t('toasts.roomLocked'),
@@ -283,6 +298,7 @@ export function useRemoteRoom({
           nickname: cleanName || null,
         });
         setMyNickname(cleanName);
+        saveStoredNickname(cleanName);
         showToast(
           cleanName
             ? t('toasts.nicknameSet', { name: cleanName })
