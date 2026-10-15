@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@boredkevin/ui';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { Loader2 } from 'lucide-react';
@@ -18,7 +18,7 @@ export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <HashRouter>
+        <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
@@ -26,7 +26,7 @@ export const App: React.FC = () => {
               <Route path="/remote" element={<RemotePage />} />
             </Routes>
           </Suspense>
-        </HashRouter>
+        </BrowserRouter>
       </LanguageProvider>
     </ThemeProvider>
   );

@@ -328,8 +328,8 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const remoteUrl = roomCode
-    ? `${window.location.origin}/#/join?room=${roomCode}`
-    : `${window.location.origin}/#/join`;
+    ? `${window.location.origin}/join?room=${roomCode}`
+    : `${window.location.origin}/join`;
 
   const copyRemoteLink = () => {
     navigator.clipboard.writeText(remoteUrl);

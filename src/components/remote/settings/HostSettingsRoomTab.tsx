@@ -39,7 +39,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
 
   const handleCopyLink = async () => {
     try {
-      const joinUrl = `${window.location.origin}/#/join?room=${roomCode}`;
+      const joinUrl = `${window.location.origin}/join?room=${roomCode}`;
       await navigator.clipboard.writeText(joinUrl);
       setCopiedLink(true);
       showToast(t('remote.linkCopied'), 'success');
@@ -55,7 +55,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
       <div className="p-4 bg-muted/20 border border-border flex flex-col sm:flex-row items-center gap-4">
         <div className="p-2 bg-white rounded-none border border-border shadow-md flex-shrink-0">
           <QRCodeSVG
-            value={`${window.location.origin}/#/join?room=${roomCode}`}
+            value={`${window.location.origin}/join?room=${roomCode}`}
             size={90}
             level="M"
           />
