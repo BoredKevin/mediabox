@@ -181,6 +181,79 @@ export async function searchYTMusic(query: string): Promise<SearchResultItem[]> 
 }
 
 /**
+ * Fetches YouTube Music "Up Next" / Automix radio recommendations for a specific track.
+ * Returns an array of SearchResultItem tracks directly from YTM's algorithmic radio queue.
+ */
+export async function getYTMusicUpNext(videoId: string): Promise<SearchResultItem[]> {
+  const config = loadProxyConfig();
+  if (!isProxyConfigured(config)) {
+    throw new Error('MediaBox YouTube API proxy is not configured');
+  }
+
+  const yt = await getInnertube(config.proxyUrl, config.proxyToken);
+
+  console.log(`[YTMusic] Fetching Up Next / Automix radio for videoId: "${videoId}" via proxy`);
+  let upNext: any;
+  try {
+    upNext = await yt.music.getUpNext(videoId, true);
+  } catch (err) {
+    console.warn(`[YTMusic] Failed to getUpNext for "${videoId}":`, err);
+    return [];
+  }
+
+  if (!upNext?.contents || !Array.isArray(upNext.contents)) {
+    return [];
+  }
+
+  const results: SearchResultItem[] = [];
+
+  for (const item of upNext.contents) {
+    let video: any = null;
+    if (item.type === 'PlaylistPanelVideo' || ('video_id' in item && 'title' in item)) {
+      video = item;
+    } else if (item.type === 'PlaylistPanelVideoWrapper' && item.primary) {
+      video = item.primary;
+    }
+
+    if (!video) continue;
+    const id = video.video_id;
+    if (!id || typeof id !== 'string') continue;
+
+    const durationSeconds = video.duration?.seconds;
+    if (typeof durationSeconds === 'number' && (durationSeconds < 60 || durationSeconds > 720)) {
+      continue;
+    }
+
+    const title = typeof video.title === 'string' ? video.title : video.title?.text || video.title?.toString() || '';
+    if (!title) continue;
+
+    let channelTitle = '';
+    if (Array.isArray(video.artists) && video.artists.length > 0 && video.artists[0]?.name) {
+      channelTitle = video.artists[0].name;
+    } else if (video.author) {
+      channelTitle = typeof video.author === 'string' ? video.author : video.author.name || String(video.author);
+    }
+
+    let thumbnail = '';
+    if (Array.isArray(video.thumbnail) && video.thumbnail.length > 0) {
+      thumbnail = video.thumbnail[video.thumbnail.length - 1]?.url || video.thumbnail[0]?.url || '';
+    }
+
+    results.push({
+      id,
+      title,
+      channelTitle,
+      thumbnail,
+      url: `https://www.youtube.com/watch?v=${id}`,
+      ...(typeof durationSeconds === 'number' ? { durationSeconds } : {}),
+    });
+  }
+
+  console.log(`[YTMusic] Found ${results.length} valid upNext tracks for videoId "${videoId}"`);
+  return results;
+}
+
+/**
  * Search standard YouTube videos via Innertube + CORS proxy.
  * Used when preferMusicVideos is false for broader YouTube video search.
  * Results are filtered to exclude Shorts (< 60s) and long mixes (> 12m).

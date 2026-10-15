@@ -1,29 +1,6 @@
-import { SearchResultItem } from '@/lib/roomUtils';
-import { parseYouTubeVideoId } from '@/lib/roomUtils';
+import { SearchResultItem, parseYouTubeVideoId } from '@/lib/roomUtils';
 import { parseTrackAndArtist, normalizeStr, cleanArtistName } from '@/lib/trackParser';
-import { fetchSimilarTracksFromLastFm } from '@/lib/lastfmApi';
-import { searchYTMusic } from '@/lib/ytmusicSearch';
-import { isProxyConfigured } from '@/lib/proxyConfig';
-
-/**
- * Searches for tracks during autoplay: queries YouTube Music via the Innertube CORS proxy.
- */
-async function searchForAutoplay(query: string): Promise<{ results: SearchResultItem[]; error?: string; hasApiKey: boolean }> {
-  if (!isProxyConfigured()) {
-    console.warn('[Autoplay] MediaBox YouTube API proxy is not configured.');
-    return { results: [], hasApiKey: false, error: 'MediaBox YouTube API is not configured' };
-  }
-
-  try {
-    const ytMusicQuery = query.replace(/\s+topic$/i, '');
-    console.log('[Autoplay] Searching YTMusic for:', ytMusicQuery);
-    const results = await searchYTMusic(ytMusicQuery);
-    return { results: results || [], hasApiKey: true };
-  } catch (err: any) {
-    console.warn('[Autoplay] YTMusic search failed:', err?.message || err);
-    return { results: [], hasApiKey: true, error: err?.message || 'YTMusic search failed' };
-  }
-}
+import { getYTMusicUpNext, searchYTMusic, searchYouTube } from '@/lib/ytmusicSearch';
 
 /**
  * Checks if two artist names are identical or have fuzzy substring match after cleaning.
@@ -144,10 +121,56 @@ export const isDuplicateSong = (
 };
 
 /**
+ * Finds the first candidate from a list that satisfies all autoplay quality guards.
+ */
+function findValidAutoplayCandidate(
+  candidates: SearchResultItem[],
+  excludedVideoIds: Set<string>,
+  cleanCurrentTrackNorm: string,
+  historyNorms: string[],
+  recentArtistHistory: string[],
+  preferMusicVideos: boolean
+): SearchResultItem | null {
+  const sorted = preferMusicVideos
+    ? candidates
+    : [...candidates].sort((a, b) => scoreAudioPurity(b) - scoreAudioPurity(a));
+
+  for (const item of sorted) {
+    const itemVideoId = parseYouTubeVideoId(item.url) || item.id;
+    if (itemVideoId && excludedVideoIds.has(itemVideoId)) {
+      continue;
+    }
+    // Duration filter: exclude shorts (<60s) and long videos/loops (>12m)
+    if (typeof item.durationSeconds === 'number') {
+      if (item.durationSeconds < 60 || item.durationSeconds > 720) {
+        continue;
+      }
+    }
+    // Title filter: exclude loops, compilations, full albums
+    if (isUnwantedLongOrCompilation(item.title)) {
+      continue;
+    }
+    // Duplicate check
+    if (isDuplicateSong(item.title, item.channelTitle, cleanCurrentTrackNorm, historyNorms)) {
+      continue;
+    }
+    // Artist repeat limit check (<= 2 consecutive)
+    const itemParsed = parseTrackAndArtist(item.title, item.channelTitle);
+    const candidateArtist = itemParsed.artist || item.channelTitle;
+    if (isArtistRepeatLimitReached(candidateArtist, recentArtistHistory)) {
+      continue;
+    }
+    return item;
+  }
+
+  return null;
+}
+
+/**
  * Resolves next autoplay YouTube track based on current song metadata.
+ * Uses YouTube Music's native algorithmic Automix/Radio API in a single network call.
  * Explicitly excludes current playing YouTube video ID, recent URL history, duplicate song names/artists,
  * and limits consecutive artist repeats to at most 2.
- * Supports preferring pure audio/YouTube Music uploads vs. music videos based on preferMusicVideos setting.
  */
 export const getAutoplayNextYouTubeTrack = async (
   currentPlayingTitle: string,
@@ -177,180 +200,77 @@ export const getAutoplayNextYouTubeTrack = async (
     const cleanCurrentTrackNorm = normalizeStr(cleanCurrentTrack);
     const historyNorms = recentHistory.map(normalizeStr);
 
-    console.log('[Autoplay] Current playing track:', cleanCurrentTrack, 'artist:', artist);
+    console.log('[Autoplay] Resolving next track. Current:', cleanCurrentTrack, 'artist:', artist);
     console.log('[Autoplay] preferMusicVideos:', preferMusicVideos);
-    console.log('[Autoplay] Recent artist history (last played first):', recentArtistHistory);
-    console.log('[Autoplay] Excluded Video IDs:', Array.from(excludedVideoIds));
+    console.log('[Autoplay] Recent artist history:', recentArtistHistory);
 
-    const recommendations = await fetchSimilarTracksFromLastFm(currentPlayingTitle, channelTitle, recentHistory);
+    // 1. Primary path: Native YouTube Music Automix / Radio queue
+    if (currentVideoId) {
+      console.log(`[Autoplay] Requesting YTM Up Next / Radio for videoId: "${currentVideoId}"`);
+      const radioTracks = await getYTMusicUpNext(currentVideoId);
+      const match = findValidAutoplayCandidate(
+        radioTracks,
+        excludedVideoIds,
+        cleanCurrentTrackNorm,
+        historyNorms,
+        recentArtistHistory,
+        preferMusicVideos
+      );
 
-    // Try recommendations from Last.fm
-    for (const rec of recommendations) {
-      if (rec.artist && isArtistRepeatLimitReached(rec.artist, recentArtistHistory)) {
-        console.log(`[Autoplay Filter] Skipped Last.fm recommendation due to artist repeat (>2 consecutive): "${rec.artist}" - "${rec.title}"`);
-        continue;
-      }
-
-      const searchQuery = !preferMusicVideos ? `${rec.query} topic` : rec.query;
-
-      console.log('[Autoplay] Searching YouTube for recommendation:', searchQuery);
-      const searchRes = await searchForAutoplay(searchQuery);
-
-      if (searchRes.error) {
-        console.warn(`[Autoplay] YouTube search error for "${searchQuery}":`, searchRes.error);
-      }
-      if (!searchRes.hasApiKey) {
-        console.warn('[Autoplay] MediaBox YouTube API proxy not configured. Aborting recommendation searches.');
-        break;
-      }
-
-      if (searchRes.results && searchRes.results.length > 0) {
-        const candidateResults = preferMusicVideos
-          ? searchRes.results
-          : [...searchRes.results].sort((a, b) => scoreAudioPurity(b) - scoreAudioPurity(a));
-
-        const validMatch = candidateResults.find((item: SearchResultItem) => {
-          const itemVideoId = parseYouTubeVideoId(item.url) || item.id;
-          if (itemVideoId && excludedVideoIds.has(itemVideoId)) {
-            return false;
-          }
-          // Duration filter: exclude shorts (<60s) and long videos/loops (>12m)
-          if (typeof item.durationSeconds === 'number') {
-            if (item.durationSeconds < 60) {
-              console.log(`[Autoplay Filter] Skipped short track (${item.durationSeconds}s): "${item.title}"`);
-              return false;
-            }
-            if (item.durationSeconds > 720) {
-              console.log(`[Autoplay Filter] Skipped long track (${item.durationSeconds}s): "${item.title}"`);
-              return false;
-            }
-          }
-          // Title filter: exclude loops, compilations, full albums
-          if (isUnwantedLongOrCompilation(item.title)) {
-            console.log(`[Autoplay Filter] Skipped long/compilation title: "${item.title}"`);
-            return false;
-          }
-          if (isDuplicateSong(item.title, item.channelTitle, cleanCurrentTrackNorm, historyNorms)) {
-            console.log(`[Autoplay Filter] Skipped duplicate/recent song version: "${item.title}"`);
-            return false;
-          }
-          const itemParsed = parseTrackAndArtist(item.title, item.channelTitle);
-          const candidateArtist = itemParsed.artist || rec.artist || item.channelTitle;
-          if (isArtistRepeatLimitReached(candidateArtist, recentArtistHistory)) {
-            console.log(`[Autoplay Filter] Skipped artist repeat (>2 consecutive): "${candidateArtist}" for "${item.title}"`);
-            return false;
-          }
-          return true;
-        });
-
-        if (validMatch) {
-          const matchedParsed = parseTrackAndArtist(validMatch.title, validMatch.channelTitle);
-          const matchedArtist = matchedParsed.artist || rec.artist || validMatch.channelTitle;
-          console.log(
-            '[Autoplay] Resolved non-duplicate YouTube track:',
-            validMatch.title,
-            validMatch.url,
-            'artist:',
-            matchedArtist,
-            typeof validMatch.durationSeconds === 'number' ? `(${validMatch.durationSeconds}s)` : '',
-            preferMusicVideos ? '' : `(purity score: ${scoreAudioPurity(validMatch)})`
-          );
-          return {
-            url: validMatch.url,
-            title: validMatch.title,
-            artist: matchedArtist,
-          };
-        }
+      if (match) {
+        const itemParsed = parseTrackAndArtist(match.title, match.channelTitle);
+        const matchedArtist = itemParsed.artist || match.channelTitle;
+        console.log(
+          '[Autoplay] Resolved via YTM Radio:',
+          match.title,
+          match.url,
+          'artist:',
+          matchedArtist,
+          typeof match.durationSeconds === 'number' ? `(${match.durationSeconds}s)` : ''
+        );
+        return {
+          url: match.url,
+          title: match.title,
+          artist: matchedArtist,
+        };
       }
     }
 
-    // Fallback: search using track/artist name directly if recommendations were empty or all returned excluded videos
-    const isCurrentArtistRepeat = isArtistRepeatLimitReached(artist, recentArtistHistory);
+    // 2. Fallback path: If video ID was missing or radio queue had no valid candidates, run a single search
+    const fallbackQuery = artist && !isArtistRepeatLimitReached(artist, recentArtistHistory)
+      ? (preferMusicVideos ? `${artist} music` : `${artist} topic`)
+      : (cleanCurrentTrack ? `${cleanCurrentTrack} music` : 'popular music');
 
-    const fallbackQueries = (
+    console.log('[Autoplay] Radio empty or unresolvable; running single fallback search for:', fallbackQuery);
+    const fallbackResults = preferMusicVideos
+      ? await searchYTMusic(fallbackQuery)
+      : await searchYouTube(fallbackQuery);
+
+    const fallbackMatch = findValidAutoplayCandidate(
+      fallbackResults,
+      excludedVideoIds,
+      cleanCurrentTrackNorm,
+      historyNorms,
+      recentArtistHistory,
       preferMusicVideos
-        ? [
-            !isCurrentArtistRepeat && artist ? `${artist} music` : null,
-            cleanCurrentTrack ? `${cleanCurrentTrack} music` : null,
-            'popular music video',
-          ]
-        : [
-            !isCurrentArtistRepeat && artist ? `${artist} topic` : null,
-            cleanCurrentTrack ? `${cleanCurrentTrack} topic` : null,
-            'popular music',
-          ]
-    ).filter(Boolean) as string[];
+    );
 
-    for (const searchQuery of fallbackQueries) {
-      console.log('[Autoplay] Fallback searching YouTube for:', searchQuery);
-      const searchRes = await searchForAutoplay(searchQuery);
-
-      if (searchRes.error) {
-        console.warn(`[Autoplay] Fallback search error for "${searchQuery}":`, searchRes.error);
-      }
-      if (!searchRes.hasApiKey) {
-        console.warn('[Autoplay] MediaBox YouTube API proxy not configured. Aborting fallback searches.');
-        break;
-      }
-
-      if (searchRes.results && searchRes.results.length > 0) {
-        const candidateResults = preferMusicVideos
-          ? searchRes.results
-          : [...searchRes.results].sort((a, b) => scoreAudioPurity(b) - scoreAudioPurity(a));
-
-        const validMatch = candidateResults.find((item: SearchResultItem) => {
-          const itemVideoId = parseYouTubeVideoId(item.url) || item.id;
-          if (itemVideoId && excludedVideoIds.has(itemVideoId)) {
-            return false;
-          }
-          // Duration filter: exclude shorts (<60s) and long videos/loops (>12m)
-          if (typeof item.durationSeconds === 'number') {
-            if (item.durationSeconds < 60) {
-              console.log(`[Autoplay Filter] Skipped short track in fallback (${item.durationSeconds}s): "${item.title}"`);
-              return false;
-            }
-            if (item.durationSeconds > 720) {
-              console.log(`[Autoplay Filter] Skipped long track in fallback (${item.durationSeconds}s): "${item.title}"`);
-              return false;
-            }
-          }
-          // Title filter: exclude loops, compilations, full albums
-          if (isUnwantedLongOrCompilation(item.title)) {
-            console.log(`[Autoplay Filter] Skipped long/compilation title in fallback: "${item.title}"`);
-            return false;
-          }
-          if (isDuplicateSong(item.title, item.channelTitle, cleanCurrentTrackNorm, historyNorms)) {
-            console.log(`[Autoplay Filter] Skipped duplicate/recent song version in fallback: "${item.title}"`);
-            return false;
-          }
-          const itemParsed = parseTrackAndArtist(item.title, item.channelTitle);
-          const candidateArtist = itemParsed.artist || item.channelTitle;
-          if (isArtistRepeatLimitReached(candidateArtist, recentArtistHistory)) {
-            console.log(`[Autoplay Filter] Skipped artist repeat (>2 consecutive) in fallback: "${candidateArtist}" for "${item.title}"`);
-            return false;
-          }
-          return true;
-        });
-
-        if (validMatch) {
-          const matchedParsed = parseTrackAndArtist(validMatch.title, validMatch.channelTitle);
-          const matchedArtist = matchedParsed.artist || validMatch.channelTitle;
-          console.log(
-            '[Autoplay] Resolved fallback YouTube track:',
-            validMatch.title,
-            validMatch.url,
-            'artist:',
-            matchedArtist,
-            typeof validMatch.durationSeconds === 'number' ? `(${validMatch.durationSeconds}s)` : '',
-            preferMusicVideos ? '' : `(purity score: ${scoreAudioPurity(validMatch)})`
-          );
-          return {
-            url: validMatch.url,
-            title: validMatch.title,
-            artist: matchedArtist,
-          };
-        }
-      }
+    if (fallbackMatch) {
+      const itemParsed = parseTrackAndArtist(fallbackMatch.title, fallbackMatch.channelTitle);
+      const matchedArtist = itemParsed.artist || fallbackMatch.channelTitle;
+      console.log(
+        '[Autoplay] Resolved via fallback search:',
+        fallbackMatch.title,
+        fallbackMatch.url,
+        'artist:',
+        matchedArtist,
+        typeof fallbackMatch.durationSeconds === 'number' ? `(${fallbackMatch.durationSeconds}s)` : ''
+      );
+      return {
+        url: fallbackMatch.url,
+        title: fallbackMatch.title,
+        artist: matchedArtist,
+      };
     }
   } catch (err) {
     console.error('[Autoplay] Failed to resolve autoplay track:', err);
