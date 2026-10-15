@@ -17,44 +17,12 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const database = getDatabase(app);
 
-export const ensureAnonymousAuth = (): Promise<User> => {
-  return new Promise((resolve, reject) => {
-    if (auth.currentUser) {
-      resolve(auth.currentUser);
-      return;
-    }
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (user) => {
-        if (user) {
-          unsubscribe();
-          resolve(user);
-        } else {
-          signInAnonymously(auth)
-            .then((cred) => {
-              unsubscribe();
-              resolve(cred.user);
-            })
-            .catch((err) => {
-              unsubscribe();
-              reject(err);
-            });
-        }
-      },
-      (error) => {
-        unsubscribe();
-        reject(error);
-      }
-    );
-  });
-};
-
-export const signInWithGoogle = async (): Promise<User> => {
-  const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(auth, provider);
-  return result.user;
-};
-
-export const logoutUser = async (): Promise<void> => {
-  await signOut(auth);
-};
+// Re-export persistent device auth functions for backwards compatibility
+export {
+  ensureDeviceAuth,
+  ensureDeviceAuth as ensureAnonymousAuth,
+  signInWithGoogle,
+  logoutUser,
+  isGoogleUser,
+  isDeviceUser,
+} from './deviceAuth';

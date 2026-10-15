@@ -2,7 +2,16 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ref, get, update, remove } from 'firebase/database';
 import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
-import { auth, ensureAnonymousAuth, signInWithGoogle, logoutUser, database } from '@/lib/firebase';
+import { auth, database } from '@/lib/firebase';
+import {
+  ensureDeviceAuth,
+  signInWithGoogle,
+  logoutUser,
+  getStoredNickname,
+  saveStoredNickname,
+  getStoredRemoteRoomCode,
+  saveStoredRemoteRoomCode,
+} from '@/lib/deviceAuth';
 import { checkRoomExists } from '@/lib/roomUtils';
 import { useTranslation } from '@/context/LanguageContext';
 
@@ -12,7 +21,7 @@ import { RoomScreen } from './RoomScreen';
 export const RemoteView: React.FC = () => {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialRoom = searchParams.get('room') || '';
+  const initialRoom = searchParams.get('room') || getStoredRemoteRoomCode() || '';
 
   const [user, setUser] = useState<FirebaseUser | null>(auth.currentUser);
   const [inputCode, setInputCode] = useState(initialRoom);
@@ -30,18 +39,25 @@ export const RemoteView: React.FC = () => {
   // Track room codes that have already been auto-joined to prevent infinite rejoin loops on exit
   const lastAutoJoinedRoomRef = useRef<string | null>(null);
 
-  // Listen to auth state changes
+  // Listen to auth state changes and ensure persistent device auth
   useEffect(() => {
+    let isCancelled = false;
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (isCancelled) return;
       if (currentUser) {
         setUser(currentUser);
       } else {
-        ensureAnonymousAuth()
-          .then((u) => setUser(u))
+        ensureDeviceAuth()
+          .then((u) => {
+            if (!isCancelled) setUser(u);
+          })
           .catch((err) => console.error('Auth error in RemoteView:', err));
       }
     });
-    return () => unsubscribe();
+    return () => {
+      isCancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   const handleJoinRoom = useCallback(
@@ -52,7 +68,7 @@ export const RemoteView: React.FC = () => {
       setLoading(true);
 
       try {
-        const u = authUser || auth.currentUser || userRef.current || (await ensureAnonymousAuth());
+        const u = authUser || auth.currentUser || userRef.current || (await ensureDeviceAuth());
         setUser(u);
 
         const exists = await checkRoomExists(cleanCode);
@@ -61,34 +77,31 @@ export const RemoteView: React.FC = () => {
           return;
         }
 
-        // Check if room requires Google Sign-In
-        const settingsSnap = await get(
-          ref(database, `rooms/${cleanCode}/state/searchSettings`)
-        );
-        const roomSettings = settingsSnap.exists() ? settingsSnap.val() : null;
-
-        if (roomSettings?.isProxyConfigured && (!u || u.isAnonymous)) {
-          setLoading(false);
-          return;
-        }
 
         // Write or update member node in RTDB BEFORE updating activeRoomCode
         const memberRef = ref(database, `rooms/${cleanCode}/members/${u.uid}`);
         const memberSnap = await get(memberRef);
         const existingData = memberSnap.exists() ? memberSnap.val() : {};
 
+        const savedNick = getStoredNickname();
+        const effectiveNick =
+          existingData.nickname ||
+          savedNick ||
+          (u.displayName ? u.displayName.slice(0, 25) : '');
+
         await update(memberRef, {
           uid: u.uid,
           joinedAt: existingData.joinedAt || Date.now(),
           online: true,
           lastSeen: Date.now(),
-          ...(existingData.nickname
-            ? {}
-            : u.displayName
-            ? { nickname: u.displayName.slice(0, 25) }
-            : {}),
+          ...(effectiveNick ? { nickname: effectiveNick } : {}),
         });
 
+        if (effectiveNick) {
+          saveStoredNickname(effectiveNick);
+        }
+
+        saveStoredRemoteRoomCode(cleanCode);
         lastAutoJoinedRoomRef.current = cleanCode;
         setUser(u);
         setActiveRoomCode(cleanCode);
@@ -138,11 +151,18 @@ export const RemoteView: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await logoutUser();
-      const anon = await ensureAnonymousAuth();
-      setUser(anon);
+      setLoading(true);
+      const deviceUser = await logoutUser();
+      setUser(deviceUser);
+
+      const currentCode = activeRoomCodeRef.current;
+      if (currentCode) {
+        await handleJoinRoom(currentCode, deviceUser);
+      }
     } catch (err: any) {
       console.error('Logout error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -153,6 +173,7 @@ export const RemoteView: React.FC = () => {
     // Prevent auto-join effect from immediately re-entering the room just exited
     lastAutoJoinedRoomRef.current = currentRoom;
 
+    saveStoredRemoteRoomCode(null);
     setActiveRoomCode(null);
     setInputCode('');
     setSearchParams({}, { replace: true });
@@ -177,8 +198,6 @@ export const RemoteView: React.FC = () => {
           setInputCode={setInputCode}
           onJoin={handleJoinRoom}
           loading={loading}
-          user={user}
-          onGoogleSignIn={handleGoogleSignIn}
         />
       ) : (
         <RoomScreen

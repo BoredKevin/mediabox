@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User, LogOut, Edit3, Shield, Crown } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
+import { isGoogleUser } from '@/lib/deviceAuth';
 
 interface ProfileDropdownProps {
   user: FirebaseUser | null;
@@ -37,6 +38,12 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [nameInput, setNameInput] = useState(myNickname);
+
+  React.useEffect(() => {
+    if (!isEditing) {
+      setNameInput(myNickname);
+    }
+  }, [myNickname, isEditing]);
 
   const displayName = myNickname || user?.displayName || 'Guest Member';
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -102,7 +109,9 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
               )}
             </div>
             <span className="text-[10px] text-muted-foreground font-mono truncate">
-              {user?.email || `UID: ${user?.uid?.substring(0, 8)}...`}
+              {isGoogleUser(user)
+                ? user?.email || `Google: ${user?.uid?.substring(0, 8)}...`
+                : `Device: ${user?.uid?.substring(0, 8)}...`}
             </span>
           </div>
         </DropdownMenuLabel>
@@ -161,7 +170,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         <DropdownMenuSeparator />
 
         {/* Google Sign In / Sign Out */}
-        {user?.isAnonymous === false ? (
+        {isGoogleUser(user) ? (
           <DropdownMenuItem
             onClick={onLogout}
             className="text-xs text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer flex items-center gap-2 p-2"
