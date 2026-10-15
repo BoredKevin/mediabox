@@ -16,6 +16,8 @@ interface YouTubePlayerProps {
   volume: number; // 0 to 100
   muted: boolean;
   onEnded?: () => void;
+  onPlayerInstance?: (player: any) => void;
+  hidden?: boolean;
 }
 
 export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
@@ -24,6 +26,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   volume,
   muted,
   onEnded,
+  onPlayerInstance,
+  hidden = false,
 }) => {
   const { t } = useTranslation();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -66,6 +70,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     // If player instance already exists, just load the new video ID!
     if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
       try {
+        if (onPlayerInstance) onPlayerInstance(playerRef.current);
         if (isPlaying) {
           playerRef.current.loadVideoById(videoId);
         } else {
@@ -113,6 +118,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           onReady: (event: any) => {
             if (!isSubscribed) return;
             try {
+              if (onPlayerInstance) onPlayerInstance(event.target);
               event.target.setVolume(volume);
               if (muted) {
                 event.target.mute();
@@ -194,6 +200,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
 
     return () => {
       isSubscribed = false;
+      if (onPlayerInstance) onPlayerInstance(null);
     };
   }, [videoId, t]);
 
@@ -262,7 +269,11 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   }
 
   return (
-    <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center">
+    <div
+      className={`absolute inset-0 w-full h-full bg-black flex items-center justify-center transition-opacity duration-300 ${
+        hidden ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
+    >
       {embedError && (
         <div className="absolute inset-0 z-30 bg-slate-950/95 p-6 flex flex-col items-center justify-center text-center gap-3 border border-amber-900/50">
           <AlertTriangle className="w-10 h-10 text-amber-500 animate-bounce" />
