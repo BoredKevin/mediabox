@@ -32,9 +32,12 @@ export const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
       <h1 className="font-body text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl text-foreground">
         {t('header.title')}
       </h1>
-      <h2 className="font-body text-sm font-normal sm:text-base mt-1 text-muted-foreground">
-        time.boredkevin.com
+      <h2 className="font-body text-lg font-normal sm:text-base mt-1 text-white-800">
+        time.boredkevin.com <span className={`mt-1 text-sm font-mono font-semibold tracking-wider text-red-400`}>
+          (BETA)
+        </span>
       </h2>
+
     </header>
   );
 };
