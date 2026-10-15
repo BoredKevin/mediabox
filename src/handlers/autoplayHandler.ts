@@ -1,6 +1,5 @@
 import { SearchResultItem, parseYouTubeVideoId } from '@/lib/roomUtils';
 import { parseTrackAndArtist, normalizeStr, cleanArtistName } from '@/lib/trackParser';
-import { getYTMusicUpNext, searchYTMusic, searchYouTube } from '@/lib/ytmusicSearch';
 
 /**
  * Checks if two artist names are identical or have fuzzy substring match after cleaning.
@@ -203,6 +202,8 @@ export const getAutoplayNextYouTubeTrack = async (
     console.log('[Autoplay] Resolving next track. Current:', cleanCurrentTrack, 'artist:', artist);
     console.log('[Autoplay] preferMusicVideos:', preferMusicVideos);
     console.log('[Autoplay] Recent artist history:', recentArtistHistory);
+
+    const { getYTMusicUpNext, searchYTMusic, searchYouTube } = await import('@/lib/ytmusicSearch');
 
     // 1. Primary path: Native YouTube Music Automix / Radio queue
     if (currentVideoId) {

@@ -1,4 +1,4 @@
-import { Innertube } from 'youtubei.js';
+import type { Innertube } from 'youtubei.js';
 import { loadProxyConfig, isProxyConfigured } from './proxyConfig';
 import type { SearchResultItem } from './roomUtils';
 
@@ -90,6 +90,7 @@ async function getInnertube(proxyUrl: string, proxyToken: string): Promise<Inner
   }
   _ytProxyUrl = proxyUrl;
   _ytProxyToken = proxyToken;
+  const { Innertube } = await import('youtubei.js');
   _yt = await Innertube.create({
     generate_session_locally: true,
     retrieve_player: false,

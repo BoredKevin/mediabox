@@ -1,7 +1,6 @@
 import { ref, get, set, update, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { SearchSettings, SearchResultItem, removeUndefinedFields } from '@/lib/roomUtils';
-import { searchYTMusic, searchYouTube } from '@/lib/ytmusicSearch';
 import { loadProxyConfig, isProxyConfigured } from '@/lib/proxyConfig';
 
 export interface SearchRequestData {
@@ -75,11 +74,12 @@ export const processSearchRequest = async (
       return;
     }
 
-    // 3. Perform search via Innertube proxy
+    // 3. Perform search via Innertube proxy (lazily loaded)
     let results: SearchResultItem[] | null = null;
     let errorMessage: string | null = null;
 
     try {
+      const { searchYTMusic, searchYouTube } = await import('@/lib/ytmusicSearch');
       const preferMusic = searchConfig.preferMusicVideos ?? true;
       results = preferMusic
         ? await searchYTMusic(req.query)
