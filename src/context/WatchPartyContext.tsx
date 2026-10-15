@@ -6,6 +6,7 @@ import {
   createRoomAtomic,
   RoomState,
   QueueItem,
+  SearchResultItem,
   parseYouTubeVideoId,
   SearchSettings,
   removeUndefinedFields,
@@ -15,7 +16,7 @@ import { saveSearchConfig, getEffectiveSearchSettings } from '@/lib/apiKeyStore'
 import { removeQueueItem, addToQueue } from '@/handlers/queueHandler';
 import { processMemberCommand, CommandHandlerContext } from '@/handlers/commandHandler';
 import { processSearchRequest } from '@/handlers/searchProxyHandler';
-import { transitionToNextPlayback } from '@/handlers/playbackHandler';
+import { transitionToNextPlayback, transitionToPreviousPlayback } from '@/handlers/playbackHandler';
 import {
   togglePlayPause,
   toggleFullscreen,
@@ -45,6 +46,8 @@ interface WatchPartyContextType {
   handleEndRoom: () => Promise<void>;
   handleTogglePlayPause: () => Promise<void>;
   handlePlayNextInQueue: () => Promise<void>;
+  handlePlayPreviousTrack: () => Promise<boolean>;
+  canGoPrevious: boolean;
   handleRemoveQueueItem: (itemId: string) => Promise<void>;
   showSettingsModal: boolean;
   setShowSettingsModal: (show: boolean) => void;
@@ -82,11 +85,17 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     historyRef,
     urlHistoryRef,
     artistHistoryRef,
+    playedTracksRef,
     pushTrack,
     pushUrl,
     pushArtist,
+    pushPlayedTrack,
+    popPreviousTrack,
     clearHistory,
   } = useAutoplayHistory();
+
+  const radioQueueRef = useRef<SearchResultItem[]>([]);
+  const lastPreviousClickRef = useRef<number>(0);
 
   // Execution tracking & cooldowns
   const processingRequestsRef = useRef<Set<string>>(new Set());
@@ -153,12 +162,18 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         roomCode,
         getQueue: () => queueRefState.current,
         getRoomState: () => roomStateRef.current,
+        getRadioQueue: () => radioQueueRef.current,
+        setRadioQueue: (items) => {
+          radioQueueRef.current = items;
+        },
         history: historyRef.current,
         urlHistory: urlHistoryRef.current,
         artistHistory: artistHistoryRef.current,
         pushTrack,
         pushUrl,
         pushArtist,
+        pushPlayedTrack,
+        popPreviousTrack,
       });
     } catch (err) {
       console.error('[WatchParty] Error transitioning to next track:', err);
@@ -167,7 +182,66 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isTransitioningRef.current = false;
       }, 500);
     }
-  }, [roomCode, pushArtist, pushTrack, pushUrl, historyRef, urlHistoryRef, artistHistoryRef]);
+  }, [roomCode, pushArtist, pushTrack, pushUrl, pushPlayedTrack, popPreviousTrack, historyRef, urlHistoryRef, artistHistoryRef]);
+
+  // Resolves previous song playback or restarts current track from 0
+  const handlePlayPreviousTrack = useCallback(async (): Promise<boolean> => {
+    if (!roomCode || isTransitioningRef.current) return false;
+
+    const now = Date.now();
+    const playbackUpdatedAt = roomStateRef.current?.playback?.updatedAt || 0;
+    const timeSinceStart = now - playbackUpdatedAt;
+    const timeSinceLastClick = now - lastPreviousClickRef.current;
+    lastPreviousClickRef.current = now;
+
+    // If track has played for > 3s and this is a single click, restart track from 0:00
+    if (timeSinceStart > 3000 && timeSinceLastClick > 1500) {
+      await update(ref(database, `rooms/${roomCode}/state/playback`), {
+        positionMs: 0,
+        status: 'playing',
+        updatedAt: now,
+      });
+      return true;
+    }
+
+    isTransitioningRef.current = true;
+    try {
+      const transitioned = await transitionToPreviousPlayback({
+        roomCode,
+        getQueue: () => queueRefState.current,
+        getRoomState: () => roomStateRef.current,
+        getRadioQueue: () => radioQueueRef.current,
+        setRadioQueue: (items) => {
+          radioQueueRef.current = items;
+        },
+        history: historyRef.current,
+        urlHistory: urlHistoryRef.current,
+        artistHistory: artistHistoryRef.current,
+        pushTrack,
+        pushUrl,
+        pushArtist,
+        pushPlayedTrack,
+        popPreviousTrack,
+      });
+
+      if (!transitioned) {
+        // Fallback: restart current track from beginning
+        await update(ref(database, `rooms/${roomCode}/state/playback`), {
+          positionMs: 0,
+          status: 'playing',
+          updatedAt: now,
+        });
+      }
+      return true;
+    } catch (err) {
+      console.error('[WatchParty] Error transitioning to previous track:', err);
+      return false;
+    } finally {
+      setTimeout(() => {
+        isTransitioningRef.current = false;
+      }, 500);
+    }
+  }, [roomCode, pushArtist, pushTrack, pushUrl, pushPlayedTrack, popPreviousTrack]);
 
   // Dispatchers for remote member commands and search requests
   const onMemberCommand = useCallback(
@@ -187,6 +261,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           lastFullscreenToggleRef.current = time;
         },
         onPlayNextInQueue: handlePlayNextInQueue,
+        onPlayPreviousTrack: handlePlayPreviousTrack,
         onUpdateSearchSettings: handleUpdateSearchSettings,
         onClearAllRateLimits: handleClearAllRateLimits,
         onProcessSearchRequest: (reqId, req) => {
@@ -204,7 +279,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       processMemberCommand(memberUid, command, ctx, processingCommandsRef.current);
     },
-    [roomCode, user?.uid, handlePlayNextInQueue, handleUpdateSearchSettings, handleClearAllRateLimits, syncSearchSettingsToFirebase]
+    [roomCode, user?.uid, handlePlayNextInQueue, handlePlayPreviousTrack, handleUpdateSearchSettings, handleClearAllRateLimits, syncSearchSettingsToFirebase]
   );
 
   const onSearchRequest = useCallback(
@@ -283,6 +358,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setRoomCode(null);
       setRoomState(null);
       setQueue([]);
+      radioQueueRef.current = [];
       setShowQrModal(false);
       clearHistory();
     }
@@ -379,6 +455,8 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleEndRoom,
         handleTogglePlayPause,
         handlePlayNextInQueue,
+        handlePlayPreviousTrack,
+        canGoPrevious: playedTracksRef.current.length > 0,
         handleRemoveQueueItem,
         handleAddUrlHost,
         handleToggleFullscreen,

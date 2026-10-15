@@ -24,6 +24,7 @@ export interface CommandHandlerContext {
   lastFullscreenToggleTime: number;
   setLastFullscreenToggleTime: (time: number) => void;
   onPlayNextInQueue: () => Promise<void>;
+  onPlayPreviousTrack: () => Promise<boolean>;
   onUpdateSearchSettings: (patch: Partial<SearchSettings>) => Promise<void>;
   onClearAllRateLimits: () => Promise<void>;
   onProcessSearchRequest: (reqId: string, req: { requestedBy: string; query: string; createdAt: number }) => void;
@@ -104,6 +105,12 @@ export const processMemberCommand = async (
         await ctx.onPlayNextInQueue();
       } else {
         console.warn('[TV Host] Rejected forceSkip command from non-authorized member:', memberUid);
+      }
+    } else if (type === 'forcePrevious' || type === 'previousTrack') {
+      if (permissions.isAuthorized) {
+        await ctx.onPlayPreviousTrack();
+      } else {
+        console.warn('[TV Host] Rejected forcePrevious command from non-authorized member:', memberUid);
       }
     } else if (type === 'forceRemoveFromQueue' && payload && payload.itemId) {
       if (permissions.isAuthorized) {

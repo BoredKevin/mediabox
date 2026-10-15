@@ -4,6 +4,8 @@ import { Slider } from '@/components/ui/slider';
 import {
   Play,
   Pause,
+  SkipBack,
+  SkipForward,
   Volume2,
   Volume1,
   VolumeX,
@@ -26,6 +28,9 @@ interface MediaBoxOverlayControlsProps {
   muted: boolean;
   setMuted: React.Dispatch<React.SetStateAction<boolean>>;
   onTogglePlayPause: () => void;
+  onPreviousTrack?: () => void;
+  onSkipNextTrack?: () => void;
+  canGoPrevious?: boolean;
   onToggleFullscreen: () => void;
   onVolumeChange: (val: number[]) => void;
   onVolumeCommit: (val: number[]) => void;
@@ -45,6 +50,9 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
   muted,
   setMuted,
   onTogglePlayPause,
+  onPreviousTrack,
+  onSkipNextTrack,
+  canGoPrevious = false,
   onToggleFullscreen,
   onVolumeChange,
   onVolumeCommit,
@@ -114,12 +122,29 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
         </div>
       </div>
 
-      {/* Center Play/Pause Button */}
+      {/* Center Transport Cluster: Previous, Play/Pause, Skip */}
       <div
-        className={`absolute inset-0 z-30 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
+        className={`absolute inset-0 z-30 flex items-center justify-center gap-4 sm:gap-6 pointer-events-none transition-opacity duration-300 ${
           isOverlayVisible ? 'opacity-100' : 'opacity-0'
         }`}
       >
+        {/* Previous Track Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPreviousTrack?.();
+          }}
+          disabled={isLocked || !canGoPrevious}
+          aria-label={t('watchParty.previousBtn')}
+          className="h-11 w-11 sm:h-14 sm:w-14 text-foreground bg-background/70 hover:bg-background/90 border border-border/70 backdrop-blur-md rounded-full flex items-center justify-center pointer-events-auto transition-all shadow-xl active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+          title={t('watchParty.previousBtn')}
+        >
+          <SkipBack className="w-5 h-5 sm:w-7 sm:h-7 fill-current" />
+        </Button>
+
+        {/* Center Play/Pause Button */}
         <Button
           variant="ghost"
           size="icon"
@@ -127,8 +152,9 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
             e.stopPropagation();
             onTogglePlayPause();
           }}
+          disabled={isLocked}
           aria-label={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-          className="h-16 w-16 sm:h-20 sm:w-20 text-foreground bg-background/80 hover:bg-background/95 border border-border/80 backdrop-blur-md rounded-full flex items-center justify-center pointer-events-auto transition-all shadow-2xl active:scale-95"
+          className="h-16 w-16 sm:h-20 sm:w-20 text-foreground bg-background/85 hover:bg-background border border-border/80 backdrop-blur-md rounded-full flex items-center justify-center pointer-events-auto transition-all shadow-2xl active:scale-95 cursor-pointer"
           title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
         >
           {isPlaying ? (
@@ -136,6 +162,22 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
           ) : (
             <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-current ml-1" />
           )}
+        </Button>
+
+        {/* Skip Track Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSkipNextTrack?.();
+          }}
+          disabled={isLocked}
+          aria-label={t('watchParty.skipNextBtn')}
+          className="h-11 w-11 sm:h-14 sm:w-14 text-foreground bg-background/70 hover:bg-background/90 border border-border/70 backdrop-blur-md rounded-full flex items-center justify-center pointer-events-auto transition-all shadow-xl active:scale-95 cursor-pointer"
+          title={t('watchParty.skipNextBtn')}
+        >
+          <SkipForward className="w-5 h-5 sm:w-7 sm:h-7 fill-current" />
         </Button>
       </div>
 

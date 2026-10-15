@@ -19,6 +19,8 @@ export const MediaBox: React.FC = React.memo(() => {
     setShowQrModal,
     remoteUrl,
     handlePlayNextInQueue,
+    handlePlayPreviousTrack,
+    canGoPrevious,
     handleTogglePlayPause,
     handleToggleFullscreen,
     handleAdjustVolume,
@@ -191,6 +193,9 @@ export const MediaBox: React.FC = React.memo(() => {
           muted={muted}
           setMuted={setMuted}
           onTogglePlayPause={handleTogglePlayPause}
+          onPreviousTrack={handlePlayPreviousTrack}
+          onSkipNextTrack={handlePlayNextInQueue}
+          canGoPrevious={canGoPrevious}
           onToggleFullscreen={toggleFullscreen}
           onVolumeChange={handleVolumeValueChange}
           onVolumeCommit={handleVolumeValueCommit}

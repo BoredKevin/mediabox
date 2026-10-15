@@ -4,7 +4,7 @@ import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, User, Shield, Crown, UserX, Trash2 } from 'lucide-react';
+import { Users, User, Shield, Crown, UserX, Trash2, Tv } from 'lucide-react';
 import { QueueItem } from '@/lib/roomUtils';
 
 export interface MemberInfo {
@@ -13,12 +13,14 @@ export interface MemberInfo {
   nickname?: string;
   online?: boolean;
   lastSeen?: number;
+  isTv?: boolean;
 }
 
 interface MembersPanelProps {
   membersList: MemberInfo[];
   adminsList: string[];
   hostUid?: string;
+  tvUid?: string | null;
   user: FirebaseUser | null;
   isHostOrAdmin: boolean;
   queue: QueueItem[];
@@ -31,6 +33,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
   membersList,
   adminsList,
   hostUid,
+  tvUid,
   user,
   isHostOrAdmin,
   queue,
@@ -59,9 +62,12 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
           const isMemberAdmin = adminsList.includes(member.uid);
           const isHostUser = member.uid === hostUid;
           const isSelf = member.uid === user?.uid;
+          const isTvUser = Boolean(member.isTv || (tvUid && member.uid === tvUid));
           const isOnline = member.online !== false;
           const memberRequests = queue.filter((item) => item.addedBy === member.uid);
-          const displayName = member.nickname || `User #${mIdx + 1}`;
+          const displayName = isTvUser
+            ? (member.nickname || 'MediaBox TV')
+            : (member.nickname || `User #${mIdx + 1}`);
 
           return (
             <div
@@ -103,7 +109,16 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                       <Shield className="w-2.5 h-2.5 text-purple-400" /> {t('remote.adminBadge')}
                     </Badge>
                   )}
-                  {isHostUser && !isMemberAdmin && (
+                  {isTvUser && (
+                    <Badge
+                      variant="outline"
+                      className="px-1.5 py-0.5 text-[9px] bg-primary/20 text-primary border-primary/50 font-bold uppercase flex items-center gap-1 rounded-md"
+                    >
+                      <Tv className="w-2.5 h-2.5 text-primary" />
+                      <span>{t('remote.tvHostBadge')}</span>
+                    </Badge>
+                  )}
+                  {isHostUser && !isMemberAdmin && !isTvUser && (
                     <Badge
                       variant="outline"
                       className="px-1.5 py-0.5 text-[9px] bg-amber-950 text-amber-300 border-amber-800 font-bold uppercase rounded-md"
@@ -122,13 +137,13 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {isHostOrAdmin && !isSelf && !isMemberAdmin && (
+                  {isHostOrAdmin && !isSelf && !isMemberAdmin && !isTvUser && (
                     <Button
                       variant="destructive"
                       size="sm"
                       chamfer="top-right"
                       onClick={() => onKickMember(member.uid)}
-                      className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 h-auto"
+                      className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 h-auto cursor-pointer"
                       title="Kick member and remove their requested videos"
                     >
                       <UserX className="w-3 h-3" />

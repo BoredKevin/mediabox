@@ -3,6 +3,7 @@
 @import 'tailwindcss/utilities';
 
 :root {
+  color-scheme: light;
   --background: 0 0% 100%;
   --foreground: 0 0% 9%;
   --card: 0 0% 100%;
@@ -27,6 +28,7 @@
 
 .dark,
 [data-theme="dark"] {
+  color-scheme: dark;
   --background: 0 0% 4%;
   --foreground: 0 0% 98%;
   --card: 0 0% 8%;
@@ -47,6 +49,36 @@
   --input: 0 0% 20%;
   --ring: 0 0% 98%;
   --radius: 0.5rem;
+}
+
+/* ==========================================================================
+   Theme-Adaptive Scrollbars (W3C standard + WebKit fallback)
+   ========================================================================== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 @layer base {

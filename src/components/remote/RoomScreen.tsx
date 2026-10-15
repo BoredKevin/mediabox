@@ -37,9 +37,11 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
   const {
     roomState,
     queue,
+    radioQueue,
     memberCount,
     membersList,
     isTvOnline,
+    tvUid,
     isAdmin,
     adminsList,
     isHost,
@@ -221,8 +223,10 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
                 >
                   <QueuePanel
                     queue={queue}
+                    radioQueue={radioQueue}
                     user={user}
                     isHostOrAdmin={isHostOrAdmin}
+                    tvUid={tvUid}
                     membersList={membersList}
                     onRemoveItem={handleRemoveQueueItem}
                     onMoveItem={handleMoveQueueItem}
@@ -238,6 +242,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
                     membersList={membersList}
                     adminsList={adminsList}
                     hostUid={roomState?.hostUid}
+                    tvUid={tvUid}
                     user={user}
                     isHostOrAdmin={isHostOrAdmin}
                     queue={queue}
@@ -322,8 +327,10 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         open={showSideDrawer}
         onClose={() => setShowSideDrawer(false)}
         queue={queue}
+        radioQueue={radioQueue}
         user={user}
         isHostOrAdmin={isHostOrAdmin}
+        tvUid={tvUid}
         membersList={membersList}
         adminsList={adminsList}
         hostUid={roomState?.hostUid}

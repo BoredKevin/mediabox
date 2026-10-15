@@ -81,16 +81,27 @@ export const useRoomSubscriptions = ({
     const connectedRef = ref(database, '.info/connected');
     const tvOnlineRef = ref(database, `rooms/${roomCode}/tv/online`);
     const tvLastSeenRef = ref(database, `rooms/${roomCode}/tv/lastSeen`);
+    const memberOnlineRef = ref(database, `rooms/${roomCode}/members/${userUid}/online`);
 
     const unsubConnected = onValue(connectedRef, (snap) => {
       if (snap.val() === true) {
         onDisconnect(tvOnlineRef).set(false);
         onDisconnect(tvLastSeenRef).set(serverTimestamp());
+        onDisconnect(memberOnlineRef).set(false);
 
         update(ref(database, `rooms/${roomCode}/tv`), {
+          uid: userUid,
           online: true,
           lastSeen: Date.now(),
-        }).catch(() => {});
+        }).catch(() => { });
+
+        update(ref(database, `rooms/${roomCode}/members/${userUid}`), {
+          uid: userUid,
+          nickname: 'Mediabox TV',
+          isTv: true,
+          online: true,
+          lastSeen: Date.now(),
+        }).catch(() => { });
       }
     });
 
@@ -98,7 +109,11 @@ export const useRoomSubscriptions = ({
       update(ref(database, `rooms/${roomCode}/tv`), {
         online: false,
         lastSeen: Date.now(),
-      }).catch(() => {});
+      }).catch(() => { });
+      update(ref(database, `rooms/${roomCode}/members/${userUid}`), {
+        online: false,
+        lastSeen: Date.now(),
+      }).catch(() => { });
     };
     window.addEventListener('beforeunload', handleUnload);
 
@@ -107,6 +122,7 @@ export const useRoomSubscriptions = ({
       off(connectedRef);
       onDisconnect(tvOnlineRef).cancel();
       onDisconnect(tvLastSeenRef).cancel();
+      onDisconnect(memberOnlineRef).cancel();
     };
   }, [roomCode, userUid]);
 
@@ -130,11 +146,11 @@ export const useRoomSubscriptions = ({
               now - mVal.lastSeen > 2 * 60 * 60 * 1000 &&
               !queuedMemberUids.has(mUid)
             ) {
-              remove(ref(database, `rooms/${roomCode}/members/${mUid}`)).catch(() => {});
+              remove(ref(database, `rooms/${roomCode}/members/${mUid}`)).catch(() => { });
             }
           });
         })
-        .catch(() => {});
+        .catch(() => { });
     }, 15 * 60 * 1000);
 
     return () => clearInterval(cleanupInterval);
@@ -231,7 +247,7 @@ export const useRoomSubscriptions = ({
         if (!req) return;
         // GC orphaned requests older than 30s
         if (req.createdAt && now - req.createdAt > 30000) {
-          remove(ref(database, `rooms/${roomCode}/searchRequests/${reqId}`)).catch(() => {});
+          remove(ref(database, `rooms/${roomCode}/searchRequests/${reqId}`)).catch(() => { });
           return;
         }
         if (onSearchRequestRef.current) {

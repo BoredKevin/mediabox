@@ -9,6 +9,7 @@ import {
 import {
   Play,
   Pause,
+  SkipBack,
   SkipForward,
   Volume1,
   Volume2,
@@ -206,17 +207,17 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               </Popover>
             </div>
 
-            {/* Mobile Right: Skip & Play/Pause */}
+            {/* Mobile Right: Previous, Play/Pause, Skip */}
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               {isHostOrAdmin && (
                 <Button
                   variant="outline"
-                  chamfer="top-right"
-                  onClick={() => sendCommand('forceSkip')}
+                  chamfer="top-left"
+                  onClick={() => sendCommand('forcePrevious')}
                   className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
-                  title="Skip to next video"
+                  title={t('watchParty.previousBtn')}
                 >
-                  <SkipForward className="w-4 h-4 fill-current" />
+                  <SkipBack className="w-4 h-4 fill-current" />
                 </Button>
               )}
 
@@ -245,6 +246,18 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                   <span>{t('watchParty.playBtn')}</span>
                 </Button>
               )}
+
+              {isHostOrAdmin && (
+                <Button
+                  variant="outline"
+                  chamfer="top-right"
+                  onClick={() => sendCommand('forceSkip')}
+                  className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
+                  title={t('watchParty.skipNextBtn')}
+                >
+                  <SkipForward className="w-4 h-4 fill-current" />
+                </Button>
+              )}
             </div>
           </div>
 
@@ -252,8 +265,22 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
           {/* DESKTOP VIEW (>= lg): Standard Layout (Play Left, TV Right, Capped Volume) */}
           {/* ======================================================== */}
           <div className="hidden lg:flex items-center justify-between w-full">
-            {/* Desktop Left: Play/Pause, Skip & Volume Slider */}
-            <div className="flex items-center gap-3">
+            {/* Desktop Left: Previous, Play/Pause, Skip & Volume Slider */}
+            <div className="flex items-center gap-2.5">
+              {/* Previous Button (Host/Admin) */}
+              {isHostOrAdmin && (
+                <Button
+                  variant="outline"
+                  chamfer="top-left"
+                  onClick={() => sendCommand('forcePrevious')}
+                  className="h-10 px-3 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5"
+                  title={t('watchParty.previousBtn')}
+                >
+                  <SkipBack className="w-4 h-4 fill-current" />
+                  <span>{t('watchParty.previousBtn')}</span>
+                </Button>
+              )}
+
               {/* Play/Pause Button */}
               {isPlaying ? (
                 <Button

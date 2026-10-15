@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { X, Layers } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
-import { QueueItem } from '@/lib/roomUtils';
+import { QueueItem, SearchResultItem } from '@/lib/roomUtils';
 import { QueuePanel } from '@/components/remote/panels/QueuePanel';
 import { MembersPanel } from '@/components/remote/panels/MembersPanel';
 
@@ -13,9 +13,11 @@ interface SideDrawerProps {
   onClose: () => void;
   defaultTab?: 'queue' | 'members';
   queue: QueueItem[];
+  radioQueue?: SearchResultItem[];
   user: FirebaseUser | null;
   isHostOrAdmin: boolean;
-  membersList: { uid: string; joinedAt: number; nickname?: string }[];
+  tvUid?: string | null;
+  membersList: { uid: string; joinedAt: number; nickname?: string; isTv?: boolean }[];
   adminsList: string[];
   hostUid?: string;
   onRemoveQueueItem: (itemId: string, itemAddedBy?: string) => Promise<void>;
@@ -28,8 +30,10 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
   onClose,
   defaultTab = 'queue',
   queue,
+  radioQueue = [],
   user,
   isHostOrAdmin,
+  tvUid,
   membersList,
   adminsList,
   hostUid,
@@ -84,8 +88,10 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
           >
             <QueuePanel
               queue={queue}
+              radioQueue={radioQueue}
               user={user}
               isHostOrAdmin={isHostOrAdmin}
+              tvUid={tvUid}
               membersList={membersList}
               onRemoveItem={onRemoveQueueItem}
               onMoveItem={onMoveQueueItem}
@@ -101,6 +107,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               membersList={membersList}
               adminsList={adminsList}
               hostUid={hostUid}
+              tvUid={tvUid}
               user={user}
               isHostOrAdmin={isHostOrAdmin}
               queue={queue}

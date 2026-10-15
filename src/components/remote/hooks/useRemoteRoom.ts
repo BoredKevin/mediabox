@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ref, onValue, set, update, off, onDisconnect, serverTimestamp } from 'firebase/database';
 import { User as FirebaseUser } from 'firebase/auth';
 import { database } from '@/lib/firebase';
-import { RoomState, QueueItem } from '@/lib/roomUtils';
+import { RoomState, QueueItem, SearchResultItem } from '@/lib/roomUtils';
 import { useTranslation } from '@/context/LanguageContext';
 import { MemberInfo } from '../panels/MembersPanel';
 
@@ -22,9 +22,11 @@ export function useRemoteRoom({
   const { t } = useTranslation();
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [radioQueue, setRadioQueue] = useState<SearchResultItem[]>([]);
   const [memberCount, setMemberCount] = useState<number>(1);
   const [membersList, setMembersList] = useState<MemberInfo[]>([]);
   const [isTvOnline, setIsTvOnline] = useState<boolean>(true);
+  const [tvUid, setTvUid] = useState<string | null>(null);
 
   // Admin & Host state
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -93,13 +95,31 @@ export function useRemoteRoom({
     const queueRefNode = ref(database, `rooms/${activeRoomCode}/queue`);
     const membersRefNode = ref(database, `rooms/${activeRoomCode}/members`);
     const tvRefNode = ref(database, `rooms/${activeRoomCode}/tv`);
+    const radioQueueRefNode = ref(database, `rooms/${activeRoomCode}/radioQueue`);
 
     onValue(tvRefNode, (snapshot) => {
       if (snapshot.exists()) {
         const tvVal = snapshot.val();
         setIsTvOnline(tvVal?.online !== false);
+        setTvUid(tvVal?.uid || null);
       } else {
         setIsTvOnline(false);
+        setTvUid(null);
+      }
+    });
+
+    onValue(radioQueueRefNode, (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        if (Array.isArray(val)) {
+          setRadioQueue(val);
+        } else if (typeof val === 'object' && val !== null) {
+          setRadioQueue(Object.values(val));
+        } else {
+          setRadioQueue([]);
+        }
+      } else {
+        setRadioQueue([]);
       }
     });
 
@@ -186,6 +206,7 @@ export function useRemoteRoom({
       off(queueRefNode);
       off(membersRefNode);
       off(tvRefNode);
+      off(radioQueueRefNode);
     };
   }, [activeRoomCode, user, onLeaveRoom, showToast, t]);
 
@@ -224,6 +245,7 @@ export function useRemoteRoom({
           removeFromQueue: t('toasts.removeQueueSent'),
           adjustVolume: t('toasts.volumeSet', { vol: payload?.volume }),
           forceSkip: t('toasts.skipSent'),
+          forcePrevious: t('toasts.previousSent'),
           reorderQueue: t('toasts.reorderSent'),
           forceRemoveFromQueue: t('toasts.removeQueueSent'),
           kickMember: t('toasts.kickSent'),
@@ -278,9 +300,11 @@ export function useRemoteRoom({
   return {
     roomState,
     queue,
+    radioQueue,
     memberCount,
     membersList,
     isTvOnline,
+    tvUid,
     isAdmin,
     adminsList,
     isHost,
