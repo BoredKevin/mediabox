@@ -1,4 +1,4 @@
-# System Architecture & Real-Time Data Flow 🔄
+# System Architecture & Real-Time Data Flow
 
 MediaBox is designed as a **Host-Driven Distributed Media Station**. Rather than having all clients run independent media players and hoping they stay synchronized, MediaBox designates one client as the **Authoritative Media Host** (the TV Dashboard) and all other participants as **Interactive Remote Controllers** (the Mobile Remotes).
 
@@ -6,7 +6,7 @@ This document breaks down the core architecture, the CQRS-inspired command pipel
 
 ---
 
-## 🏛️ The Dual-Persona Mental Model
+## The Dual-Persona Mental Model
 
 To understand MediaBox, think of it like a jukebox at an arcade or a karaoke lounge:
 
@@ -39,7 +39,7 @@ To understand MediaBox, think of it like a jukebox at an arcade or a karaoke lou
 
 ---
 
-## 📬 The CQRS Command Pattern
+## The CQRS Command Pattern
 
 In a communal room with dozens of students or friends, multiple people might hit "Play", "Skip", or "Add to Queue" simultaneously. If every phone wrote directly to the room's playback state in Firebase, race conditions, state clobbering, and audio desynchronization would be rampant.
 
@@ -48,10 +48,10 @@ To solve this cleanly, MediaBox uses a pattern inspired by **CQRS (Command-Query
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Guest as 📱 Remote Guest
-    participant RTDB as ☁️ Firebase RTDB
-    participant TV as 🖥️ TV Host (Dashboard)
-    participant YT as 🎬 YouTube IFrame Player
+    actor Guest as Remote Guest
+    participant RTDB as Firebase RTDB
+    participant TV as TV Host (Dashboard)
+    participant YT as YouTube IFrame Player
 
     Guest->>RTDB: Write command to rooms/{room}/members/{uid}/command<br/>{ type: "pause", createdAt: 1729150000 }
     Note over RTDB,TV: TV Host is subscribed to members node via onValue()
@@ -70,7 +70,7 @@ sequenceDiagram
 
 ---
 
-## ⏱️ Clock Synchronization & Dead-Reckoning
+## Clock Synchronization & Dead-Reckoning
 
 How can a phone screen display lyric lines moving at the exact millisecond the singer vocalizes them on the TV, without streaming video to the phone?
 
@@ -107,16 +107,16 @@ This provides 60 FPS silky-smooth lyric animations on mobile phones with practic
 
 ---
 
-## 🔄 Core End-to-End Data Flows
+## Core End-to-End Data Flows
 
 ### Flow 1: Room Creation & Mobile Joining
 
 ```mermaid
 sequenceDiagram
-    actor TV as 🖥️ TV Host
-    actor Guest as 📱 Remote Guest
-    participant Auth as 🔑 Firebase Auth
-    participant RTDB as ☁️ Firebase RTDB
+    actor TV as TV Host
+    actor Guest as Remote Guest
+    participant Auth as Firebase Auth
+    participant RTDB as Firebase RTDB
 
     TV->>Auth: ensureDeviceAuth() (deterministic dev_uuid@mediabox.tv)
     TV->>RTDB: createRoomAtomic() generates 6-digit PIN (e.g. "829104")
@@ -134,11 +134,11 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    actor Guest as 📱 Remote Guest
-    participant RTDB as ☁️ Firebase RTDB
-    participant TV as 🖥️ TV Host
-    participant YTM as 🎵 YouTube Music / Proxy
-    participant oEmbed as ℹ️ YouTube oEmbed
+    actor Guest as Remote Guest
+    participant RTDB as Firebase RTDB
+    participant TV as TV Host
+    participant YTM as YouTube Music / Proxy
+    participant oEmbed as YouTube oEmbed
 
     Guest->>Guest: Types "Starboy The Weeknd" in Search Panel
     Guest->>RTDB: set rooms/{room}/searchRequests/{reqId}
@@ -158,7 +158,7 @@ sequenceDiagram
 
 ---
 
-## 🗂️ Component & Architecture Map
+## Component & Architecture Map
 
 Here is how the project directories correspond to architectural layers:
 

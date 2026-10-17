@@ -1,4 +1,4 @@
-# Lyrics Pipeline & Karaoke Engine 🎤
+# Lyrics Pipeline & Karaoke Engine
 
 One of the crowning features of MediaBox is its **synchronized karaoke lyrics experience**. Both the Big Screen TV and every connected Mobile Remote display word-level or syllable-level animated lyrics that highlight in lockstep with the vocals—resembling Apple Music or Spotify Karaoke mode.
 
@@ -6,7 +6,7 @@ This document breaks down the **7-stage lyrics resolution cascade**, the renderi
 
 ---
 
-## 🌊 The 7-Stage Lyrics Resolution Cascade (`lyricsService.ts`)
+## The 7-Stage Lyrics Resolution Cascade (`lyricsService.ts`)
 
 Finding synchronized lyrics for arbitrary YouTube videos is difficult: titles have weird upload formats (`"Artist - Song (Official Video)"`), albums are omitted, and video lengths include intros and credits.
 
@@ -67,7 +67,7 @@ flowchart TD
 
 ---
 
-## 🎨 Dynamic Dominant Color Extraction (`colorExtractor.ts`)
+## Dynamic Dominant Color Extraction (`colorExtractor.ts`)
 
 When lyrics load, the background behind the scrolling text dynamically transitions to an ambient radial gradient derived from the song's album art:
 
@@ -81,7 +81,7 @@ When lyrics load, the background behind the scrolling text dynamically transitio
 
 ---
 
-## ⚡ Smart TV Optimization: The 22Hz Tick & Syllable Coalescing
+## Smart TV Optimization: The 22Hz Tick & Syllable Coalescing
 
 Running complex Web Animations API tracks for thousands of characters on an entry-level LG webOS or Samsung Smart TV with a weak ARM CPU will quickly cause frame drops and browser freezes.
 
@@ -111,7 +111,7 @@ In Braccato, writing `element.currentTime = time` triggers a synchronous method 
 
 ---
 
-## 📱 Mobile Remote Synced Lyrics (`RemoteLyricsView.tsx`)
+## Mobile Remote Synced Lyrics (`RemoteLyricsView.tsx`)
 
 Every guest in the room can open the **Lyrics Tab** on their phone to read along or sing karaoke:
 - **No Video Stream Needed**: The phone does not stream video or audio. It simply subscribes to `rooms/<room>/state/playback`.
@@ -120,7 +120,7 @@ Every guest in the room can open the **Lyrics Tab** on their phone to read along
 
 ---
 
-## 🔬 Ongoing Research & Handoff Notes
+## Ongoing Research & Handoff Notes
 
-For detailed investigation notes, timing drift metrics, and experimental hypotheses regarding word-fill masks under 8.9× CPU throttling, refer to:
-👉 **[Handoff: Diagnosing & Resolving Word-Filling Stutters in Karaoke Lyrics](file:///D:/coding/BoredKevin/mediabox/docs/handoff_word_fill_stutter.md)**
+For detailed investigation notes, timing drift metrics, and experimental hypotheses regarding word-fill masks under 8.9x CPU throttling, refer to:
+[Handoff: Diagnosing & Resolving Word-Filling Stutters in Karaoke Lyrics](file:///D:/coding/BoredKevin/mediabox/docs/handoff_word_fill_stutter.md)

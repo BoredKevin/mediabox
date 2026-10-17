@@ -1,4 +1,4 @@
-# Playback, Queue & Smart Autoplay Engine 🎵
+# Playback, Queue & Smart Autoplay Engine
 
 At its heart, MediaBox is an intelligent jukebox. But unlike ordinary media players that fall silent or play inappropriate videos when a playlist ends, MediaBox features an industrial-grade **YouTube IFrame playback pipeline** paired with an **Automix Recommendation Engine** that preserves party momentum.
 
@@ -6,7 +6,7 @@ This document explains how media playback works under the hood, how player error
 
 ---
 
-## 🎬 YouTube IFrame Integration & Resilience (`YouTubePlayer.tsx`)
+## YouTube IFrame Integration & Resilience (`YouTubePlayer.tsx`)
 
 Playing video on the web—especially across Smart TVs, desktop browsers, and mobile devices—is notorious for edge cases. MediaBox manages the YouTube IFrame player with extreme care.
 
@@ -38,7 +38,7 @@ Modern browsers (Chrome, Safari, webOS) prohibit unmuted video playback before t
 
 ---
 
-## 🚦 The Tri-Tier Queue Hierarchy (`playbackHandler.ts`)
+## The Tri-Tier Queue Hierarchy (`playbackHandler.ts`)
 
 When a song finishes, MediaBox transitions to the next track using a strict 3-tier precedence hierarchy:
 
@@ -75,7 +75,7 @@ flowchart TD
 
 ---
 
-## 🧠 The Smart Autoplay Algorithm (`autoplayHandler.ts`)
+## The Smart Autoplay Algorithm (`autoplayHandler.ts`)
 
 Unfiltered YouTube autoplay is disastrous for communal listening. Left unattended, YouTube will happily queue:
 - A 10-hour looped meme track.
@@ -123,7 +123,7 @@ export const isArtistRepeatLimitReached = (
 
 ---
 
-## ⏪ Previous Track History Stack (`useAutoplayHistory.ts`)
+## Previous Track History Stack (`useAutoplayHistory.ts`)
 
 MediaBox maintains an in-memory chronological history stack of played tracks:
 ```typescript
@@ -141,7 +141,7 @@ When an admin or host taps **"Previous Track"** (or presses the rewind button on
 
 ---
 
-## 🔊 Debounced Volume Control (`useDebouncedVolume.ts`)
+## Debounced Volume Control (`useDebouncedVolume.ts`)
 
 Dragging a volume slider fires continuous `onChange` events at 60Hz. Writing each change to Firebase RTDB would generate hundreds of network packets, trigger rate-limit throttling, and overwhelm the TV.
 

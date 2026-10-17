@@ -1,10 +1,10 @@
-# Firebase Schema, State & Security 🔐
+# Firebase Schema, State & Security
 
 This document specifies the exact **Firebase Realtime Database (RTDB)** data structures, the role-based security rules enforcing integrity, and the ingenious **Deterministic Device Authentication** system powering MediaBox.
 
 ---
 
-## 🌳 Realtime Database Schema Tree
+## Realtime Database Schema Tree
 
 All data in MediaBox lives under two top-level branches: `/admins` and `/rooms`.
 
@@ -87,7 +87,7 @@ All data in MediaBox lives under two top-level branches: `/admins` and `/rooms`.
 
 ---
 
-## 🛡️ Security Rules Analysis (`database.rules.json`)
+## Security Rules Analysis (`database.rules.json`)
 
 MediaBox enforces strict security invariants in `database.rules.json`:
 
@@ -137,7 +137,7 @@ Under `members/$memberUid/command`, the security rules strictly enforce:
 
 ---
 
-## 🔑 Deterministic Device Authentication (`deviceAuth.ts`)
+## Deterministic Device Authentication (`deviceAuth.ts`)
 
 ### The Problem
 Traditional Firebase Anonymous Authentication has severe flaws in communal environments:
@@ -187,25 +187,25 @@ flowchart TD
 
 ---
 
-## 👥 Role & Permissions Matrix
+## Role & Permissions Matrix
 
 | Capability | TV Host | Room Host | Admin | Regular Guest |
 | :--- | :---: | :---: | :---: | :---: |
-| **Play / Pause / Seek** | ✅ | ✅ | ✅ | ✅ (Unless Room Locked) |
-| **Adjust Volume** | ✅ | ✅ | ✅ | ✅ (Unless Room Locked) |
-| **Add Video to Queue** | ✅ | ✅ | ✅ | ✅ (Unless Room Locked) |
-| **Remove Own Queued Video** | ✅ | ✅ | ✅ | ✅ |
-| **Force Remove Any Video** | ✅ | ✅ | ✅ | ❌ |
-| **Reorder Queue** | ✅ | ✅ | ✅ | ❌ |
-| **Clear Entire Queue** | ✅ | ✅ | ✅ | ❌ |
-| **Skip Track / Previous Track** | ✅ | ✅ | ✅ | ❌ |
-| **Lock / Unlock Room** | ✅ | ✅ | ✅ | ❌ |
-| **Toggle Autoplay / Automix** | ✅ | ✅ | ✅ | ❌ |
-| **Toggle Fullscreen Mode** | ✅ | ✅ | ✅ | ❌ |
-| **Kick Member** | ✅ | ✅ | ✅ | ❌ |
-| **Calibrate Lyrics Offset** | ✅ | ✅ | ✅ | ❌ |
-| **Configure API & CORS Proxy**| ✅ | ✅ | ✅ | ❌ |
-| **Clear Rate Limits** | ✅ | ✅ | ✅ | ❌ |
+| **Play / Pause / Seek** | Yes | Yes | Yes | Yes (Unless Room Locked) |
+| **Adjust Volume** | Yes | Yes | Yes | Yes (Unless Room Locked) |
+| **Add Video to Queue** | Yes | Yes | Yes | Yes (Unless Room Locked) |
+| **Remove Own Queued Video** | Yes | Yes | Yes | Yes |
+| **Force Remove Any Video** | Yes | Yes | Yes | No |
+| **Reorder Queue** | Yes | Yes | Yes | No |
+| **Clear Entire Queue** | Yes | Yes | Yes | No |
+| **Skip Track / Previous Track** | Yes | Yes | Yes | No |
+| **Lock / Unlock Room** | Yes | Yes | Yes | No |
+| **Toggle Autoplay / Automix** | Yes | Yes | Yes | No |
+| **Toggle Fullscreen Mode** | Yes | Yes | Yes | No |
+| **Kick Member** | Yes | Yes | Yes | No |
+| **Calibrate Lyrics Offset** | Yes | Yes | Yes | No |
+| **Configure API & CORS Proxy**| Yes | Yes | Yes | No |
+| **Clear Rate Limits** | Yes | Yes | Yes | No |
 
 > [!NOTE]
 > **Who is the "TV Host"?**: The TV Host is the device displaying the main dashboard (`/`).
