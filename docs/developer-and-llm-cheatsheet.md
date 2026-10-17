@@ -1,10 +1,10 @@
-# Developer & LLM Operational Cheat Sheet 🛠️🤖
+# Developer & LLM Operational Cheat Sheet
 
 Welcome! Whether you are a human developer maintaining MediaBox or an AI Agent / LLM analyzing the codebase, this cheat sheet provides an immediate, dense reference of **directory paths, critical invariants, command patterns, and troubleshooting playbooks**.
 
 ---
 
-## 🧰 Tech Stack Quick Reference
+## Tech Stack Quick Reference
 
 | Technology | Version | Purpose in MediaBox |
 | :--- | :--- | :--- |
@@ -21,7 +21,7 @@ Welcome! Whether you are a human developer maintaining MediaBox or an AI Agent /
 
 ---
 
-## 🗺️ Key Directory & Code Pointer Map
+## Key Directory & Code Pointer Map
 
 | What are you looking for? | File Path | Key Exports / Functions |
 | :--- | :--- | :--- |
@@ -41,13 +41,13 @@ Welcome! Whether you are a human developer maintaining MediaBox or an AI Agent /
 
 ---
 
-## ⚠️ Critical Invariants (The "Rules of the Road")
+## Critical Invariants (The "Rules of the Road")
 
 When writing code or refactoring MediaBox, **DO NOT VIOLATE THESE RULES**:
 
 1. **Never write to TV playback state directly from remote components.**
-   - ❌ *Incorrect*: `update(ref(database, "rooms/123/state/playback"), { status: "paused" })` inside a remote button.
-   - ✅ *Correct*: `sendCommand('pause')` via `useRemoteRoom.ts`. The TV Host executes the pause and writes the authoritative state.
+   - *Incorrect*: `update(ref(database, "rooms/123/state/playback"), { status: "paused" })` inside a remote button.
+   - *Correct*: `sendCommand('pause')` via `useRemoteRoom.ts`. The TV Host executes the pause and writes the authoritative state.
 2. **Never store API keys or proxy auth tokens in Firebase RTDB.**
    - Proxy URLs and Bearer secrets belong strictly in host-local `localStorage` (`mediabox_ytproxy_config`). They must never leak over the network to guests.
 3. **Never destroy and recreate YouTube IFrame DOM nodes on track change.**
@@ -61,7 +61,7 @@ When writing code or refactoring MediaBox, **DO NOT VIOLATE THESE RULES**:
 
 ---
 
-## 👨‍💻 Developer Workflows
+## Developer Workflows
 
 ### How to Add a New Remote Command
 1. Add the command name to `MemberCommand['type']` in `src/lib/roomUtils.ts`.
@@ -88,7 +88,7 @@ npx wrangler deploy
 
 ---
 
-## 🩺 Troubleshooting Playbook
+## Troubleshooting Playbook
 
 ### 1. "Search returns: TV not responding (timeout after 25s)"
 - **Cause**: The TV Host is either closed, disconnected, has lost internet connection, or has hit a rate limit.

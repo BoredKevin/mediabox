@@ -1,4 +1,4 @@
-# Smart TV & Classroom Display 🏫📺
+# Smart TV & Classroom Display
 
 Beyond its jukebox capabilities, MediaBox was specifically built to serve as an **ambient classroom and lounge dashboard**. It replaces dull static clocks with an intelligent timetable, a period countdown alarm, and full compatibility with Smart TV remotes.
 
@@ -6,7 +6,7 @@ This document explains the **Classroom Timetable Engine**, the **10-Second Trans
 
 ---
 
-## 📅 The Classroom Timetable Engine (`useSchedule.ts` & `ScheduleSection.tsx`)
+## The Classroom Timetable Engine (`useSchedule.ts` & `ScheduleSection.tsx`)
 
 In school classrooms or college study spaces, students want music between classes, but everyone needs to know when the current period ends and the next class begins.
 
@@ -40,14 +40,14 @@ When media is playing, screen space is valuable. Rather than displaying an overs
 
 ---
 
-## ⏳ The 10-Second Transition Countdown Overlay (`CountdownOverlay.tsx`)
+## The 10-Second Transition Countdown Overlay (`CountdownOverlay.tsx`)
 
 For events marked with `"countdown": true` in `schedule.json` (such as recess periods, the start of class, or dismissal):
 
 ```
 +-----------------------------------------------------------+
 |                                                           |
-|             ⚠️  NEXT PERIOD COMMENCING  ⚠️                 |
+|               WARNING: NEXT PERIOD COMMENCING             |
 |                                                           |
 |                      [  00:07  ]                          |
 |                                                           |
@@ -62,7 +62,7 @@ For events marked with `"countdown": true` in `schedule.json` (such as recess pe
 
 ---
 
-## 🎮 Smart TV Hardware Remote Integration (`useTvNavigation.ts`)
+## Smart TV Hardware Remote Integration (`useTvNavigation.ts`)
 
 Operating a web browser on a Smart TV using an air-mouse or D-pad is notoriously clunky. MediaBox provides native key event mapping in `src/hooks/useTvNavigation.ts`:
 
@@ -90,7 +90,7 @@ LG Magic Remotes feature a built-in gyroscope that projects a floating mouse cur
 
 ---
 
-## 🔲 Fullscreen / Kiosk Mode
+## Fullscreen / Kiosk Mode
 
 With a single tap on the TV (or remotely from an admin's phone), MediaBox enters **Kiosk Fullscreen**:
 - Hides the top navigation header, clock box, schedule cards, and footer.
@@ -99,7 +99,7 @@ With a single tap on the TV (or remotely from an admin's phone), MediaBox enters
 
 ---
 
-## 📜 Automated License Compliance (`scripts/generate-licenses.js`)
+## Automated License Compliance (`scripts/generate-licenses.js`)
 
 MediaBox is released under the **CPAL-1.0** license. To comply with open-source licensing requirements when embedding hundreds of NPM dependencies (Radix UI, Firebase, Lucide, Tailwind, Braccato):
 

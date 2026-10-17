@@ -1,4 +1,4 @@
-# MediaBox Documentation Hub 🛸📺
+# MediaBox Documentation Hub
 
 Welcome to the comprehensive documentation for **MediaBox**! 
 
@@ -8,7 +8,7 @@ Whether you are a software engineer wanting to understand the architecture, a de
 
 ---
 
-## 🗺️ Documentation Directory
+## Documentation Directory
 
 | Document | Description | Target Audience |
 | :--- | :--- | :--- |
@@ -19,15 +19,15 @@ Whether you are a software engineer wanting to understand the architecture, a de
 | **[5. Search Proxy & Cloudflare Worker](file:///D:/coding/BoredKevin/mediabox/docs/search-proxy-and-worker.md)** | Privacy-preserving TV search mediation, Innertube integration, and BotGuard-proof Cloudflare Worker proxy. | DevOps, Cloud & Security |
 | **[6. Smart TV & Classroom Display](file:///D:/coding/BoredKevin/mediabox/docs/smart-tv-and-classroom-display.md)** | Classroom schedule carousel, period countdowns, webOS/Tizen hardware remote navigation, and i18n. | UI/UX & Embedded TV Engineers |
 | **[7. Developer & LLM Operational Guide](file:///D:/coding/BoredKevin/mediabox/docs/developer-and-llm-cheatsheet.md)** | Quick-reference cheat sheet, code locations, CLI commands, critical invariants, and debugging playbooks. | Developers, AI Agents |
-| **[Handoff: Word-Fill Stutter Investigation](file:///D:/coding/BoredKevin/mediabox/docs/handoff_word_fill_stutter.md)** | In-depth engineering investigation into karaoke word-fill micro-jumps under 8.9× CPU throttling. | Core Performance Engineers |
+| **[Handoff: Word-Fill Stutter Investigation](file:///D:/coding/BoredKevin/mediabox/docs/handoff_word_fill_stutter.md)** | In-depth engineering investigation into karaoke word-fill micro-jumps under 8.9x CPU throttling. | Core Performance Engineers |
 
 ---
 
-## ⚡ The Big Picture: How MediaBox Works
+## The Big Picture: How MediaBox Works
 
 ```mermaid
 flowchart TD
-    subgraph TV["🖥️ BIG SCREEN (TV Station / Dashboard - '/')"]
+    subgraph TV["BIG SCREEN (TV Station / Dashboard - '/')"]
         TV_UI["Dashboard UI (Clock + Schedule + MediaBox)"]
         TV_CTX["WatchPartyContext & Handlers"]
         YT_PLAYER["YouTube IFrame Player & useTvPlaybackSync"]
@@ -35,18 +35,18 @@ flowchart TD
         TV_NAV["TV Navigation (webOS / Tizen Remote Keys)"]
     end
 
-    subgraph CLOUD["☁️ REALTIME BACKEND & PROXY"]
+    subgraph CLOUD["REALTIME BACKEND & PROXY"]
         RTDB[("Firebase Realtime Database")]
         F_AUTH["Firebase Auth (Deterministic Device Auth)"]
         CF_WORKER["Cloudflare Worker ('ytproxy' via Innertube)"]
     end
 
-    subgraph REMOTE["📱 MOBILE CLIENTS (Remote Controller - '/remote')"]
+    subgraph REMOTE["MOBILE CLIENTS (Remote Controller - '/remote')"]
         REM_UI["Remote Screen (Queue + Search + Controls + Lyrics)"]
         REM_HOOK["useRemoteRoom & Dead-Reckoning Clock"]
     end
 
-    subgraph EXTERNAL["🌐 EXTERNAL SERVICES"]
+    subgraph EXTERNAL["EXTERNAL SERVICES"]
         YT_OEMBED["YouTube oEmbed API (Metadata)"]
         YTM_API["YouTube Music API"]
         LYRICS_CASCADE["Lyrics Providers (Unison, BetterLyrics, LRCLib)"]
@@ -71,7 +71,7 @@ flowchart TD
 
 ---
 
-## 🎯 Key Design Principles
+## Key Design Principles
 
 1. **Dual-Persona Architecture**:
    - The **TV Host** (`/`) is the authority. It renders the high-impact visual display, runs the actual media player, drives the audio output, and acts as the room master.
@@ -89,7 +89,7 @@ flowchart TD
 
 ---
 
-## 🚀 Quick Start for Humans
+## Quick Start for Humans
 
 ```bash
 # 1. Install dependencies
@@ -109,7 +109,7 @@ Open `http://localhost:5173/` in your browser for the **TV Dashboard**, and `htt
 
 ---
 
-## 🤖 Note for AI Assistants & LLMs
+## Note for AI Assistants & LLMs
 
 When modifying or analyzing MediaBox:
 - **Never mutate the TV playback state from a remote component**. Always dispatch a command via `sendCommand(type, payload)` through `useRemoteRoom.ts`.

@@ -1,4 +1,4 @@
-# Search Proxy & Cloudflare Worker 🔎🌐
+# Search Proxy & Cloudflare Worker
 
 Searching for songs and tracks on YouTube without paying for enterprise APIs or leaking sensitive developer keys to every guest's phone is one of MediaBox's neatest technical achievements.
 
@@ -6,7 +6,7 @@ This document details the **Privacy-Preserving Search Mediation Architecture**, 
 
 ---
 
-## 🔒 The Privacy-Preserving Proxy Problem
+## The Privacy-Preserving Proxy Problem
 
 When designing a watch party system where arbitrary guests join via their personal phones:
 
@@ -16,18 +16,18 @@ When designing a watch party system where arbitrary guests join via their person
 
 ---
 
-## 🏗️ The Mediated Search Architecture
+## The Mediated Search Architecture
 
 MediaBox solves this by using the **TV Host as a Secure Mediation Gateway**:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Guest as 📱 Remote Guest
-    participant RTDB as ☁️ Firebase RTDB
-    participant TV as 🖥️ TV Host (Dashboard)
-    participant CF as 🛡️ Cloudflare Worker (ytproxy)
-    participant YTM as 🎵 YouTube Music (music.youtube.com)
+    actor Guest as Remote Guest
+    participant RTDB as Firebase RTDB
+    participant TV as TV Host (Dashboard)
+    participant CF as Cloudflare Worker (ytproxy)
+    participant YTM as YouTube Music (music.youtube.com)
 
     Note over TV: TV stores Worker URL & Secret Token<br/>strictly in host-local localStorage!
     Guest->>RTDB: set rooms/{room}/searchRequests/{reqId}<br/>{ requestedBy: uid, query: "Dua Lipa Levitating" }
@@ -56,7 +56,7 @@ sequenceDiagram
 
 ---
 
-## 🛡️ Cloudflare Worker Deep Dive (`workers/ytproxy/`)
+## Cloudflare Worker Deep Dive (`workers/ytproxy/`)
 
 The Cloudflare Worker proxy (`workers/ytproxy/src/index.ts`) is designed to run on Cloudflare's global edge network.
 
@@ -106,7 +106,7 @@ The worker verifies `Authorization: Bearer <token>` on every request.
 
 ---
 
-## 🎶 The YouTube Music Innertube Module (`src/lib/ytmusicSearch.ts`)
+## The YouTube Music Innertube Module (`src/lib/ytmusicSearch.ts`)
 
 On the client side, MediaBox uses `youtubei.js` (Innertube) configured with a custom `fetch` handler:
 
@@ -126,7 +126,7 @@ On the client side, MediaBox uses `youtubei.js` (Innertube) configured with a cu
 
 ---
 
-## 🚀 Cloudflare Worker Setup & Deployment Guide
+## Cloudflare Worker Setup & Deployment Guide
 
 Follow these steps to deploy your own search proxy in under 3 minutes:
 
