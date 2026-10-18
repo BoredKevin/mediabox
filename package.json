@@ -16,7 +16,9 @@
   "scripts": {
     "generate-licenses": "node scripts/generate-licenses.js",
     "dev": "vite",
-    "build": "npm run generate-licenses && tsc && vite build",
+    "build": "node scripts/build.js",
+    "build:frontend": "npm run generate-licenses && tsc && vite build",
+    "build:pages": "npx convex deploy --cmd \"npm run build:frontend\"",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler pages deploy dist"
   },
