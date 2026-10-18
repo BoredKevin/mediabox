@@ -146,6 +146,7 @@ export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
           </div>
         ) : hasLyrics ? (
           <BraccatoLyricsRenderer
+            key={lyricsData.currentVideoId || 'remote-lyrics'}
             lyrics={lyricsData.lyrics}
             getCurrentTime={lyricsData.getCurrentTime}
             isPlaying={isPlaying}

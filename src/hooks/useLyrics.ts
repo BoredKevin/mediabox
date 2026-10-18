@@ -10,6 +10,7 @@ import { extractDominantColor } from '@/lib/colorExtractor';
 import { loadApiToken } from '@/lib/apiTokenStore';
 
 export interface LyricsState {
+  currentVideoId: string | null;
   lyrics: Lyric[] | null;
   isLoading: boolean;
   status: 'idle' | 'fetching' | 'ready' | 'error';
@@ -34,14 +35,17 @@ export function useLyrics(
   isTvMode: boolean = false,
   channelTitle?: string | null
 ) {
+  const videoId = parseYouTubeVideoId(videoUrl || '');
+
   const [lyricsState, setLyricsState] = useState<LyricsState>({
+    currentVideoId: videoId || null,
     lyrics: null,
-    isLoading: false,
-    status: 'idle',
+    isLoading: Boolean(videoId),
+    status: videoId ? 'fetching' : 'idle',
     isYTMusic: false,
     isFromUnison: false,
     shouldShowLyrics: false,
-    albumArt: '',
+    albumArt: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '',
     dominantColor: {
       dominant: '#1a101f',
       gradient: 'radial-gradient(circle at 70% 35%, #24132b 0%, #0d0612 100%)',
@@ -52,7 +56,32 @@ export function useLyrics(
     syncType: 'none',
   });
 
-  const videoId = parseYouTubeVideoId(videoUrl || '');
+  // Synchronously wipe previous song lyrics during render when videoId changes
+  // Prevents leaking old song lyrics into the UI before effects or Convex queries resolve
+  if (lyricsState.currentVideoId !== (videoId || null)) {
+    const isTopic = Boolean(channelTitle && /\s*-\s*Topic$/i.test(channelTitle.trim()));
+    const initialParsed = parseTrackAndArtist(videoTitle || '', channelTitle || '');
+    const cleanArtist = isTopic ? channelTitle!.replace(/\s*-\s*Topic$/i, '').trim() : (initialParsed.artist || '');
+    const cleanTrack = isTopic ? (videoTitle || '').trim() : (initialParsed.track || videoTitle || '');
+    const isEagerYTMusic = Boolean(videoId && (isTopic || isYouTubeMusicTrack(videoUrl, channelTitle, videoTitle || '')));
+
+    setLyricsState({
+      currentVideoId: videoId || null,
+      lyrics: null,
+      isLoading: Boolean(videoId),
+      status: videoId ? 'fetching' : 'idle',
+      isYTMusic: isEagerYTMusic,
+      isFromUnison: false,
+      shouldShowLyrics: isEagerYTMusic,
+      albumArt: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '',
+      dominantColor: lyricsState.dominantColor,
+      trackTitle: cleanTrack,
+      artistName: cleanArtist,
+      sourceLabel: '',
+      syncType: 'none',
+    });
+  }
+
   const resolveOrFetchAction = useAction(api.lyricsActions.resolveOrFetch);
 
   // Subscribe to Convex cachedLyrics for this track
@@ -67,6 +96,7 @@ export function useLyrics(
   useEffect(() => {
     if (!videoId) {
       setLyricsState({
+        currentVideoId: null,
         lyrics: null,
         isLoading: false,
         status: 'idle',
@@ -93,10 +123,12 @@ export function useLyrics(
     const cleanTrack = isTopic ? (videoTitle || '').trim() : (initialParsed.track || videoTitle || '');
     const isEagerYTMusic = isTopic || isYouTubeMusicTrack(videoUrl, channelTitle, videoTitle || '');
 
-    // Waiting for initial query response
-    if (cachedLyricsDoc === undefined) {
+    // Waiting for initial query response or query result from previous videoId
+    if (cachedLyricsDoc === undefined || (cachedLyricsDoc && cachedLyricsDoc.videoId !== videoId)) {
       setLyricsState((prev) => ({
         ...prev,
+        currentVideoId: videoId,
+        lyrics: null,
         isLoading: true,
         status: 'fetching',
         isYTMusic: isEagerYTMusic,
@@ -108,12 +140,31 @@ export function useLyrics(
       return;
     }
 
-    // Document exists in cachedLyrics
-    if (cachedLyricsDoc !== null) {
+    // Document does not exist yet in cachedLyrics (null from query)
+    if (cachedLyricsDoc === null) {
+      setLyricsState((prev) => ({
+        ...prev,
+        currentVideoId: videoId,
+        lyrics: null,
+        isLoading: true,
+        status: 'fetching',
+        isYTMusic: isEagerYTMusic,
+        shouldShowLyrics: isEagerYTMusic || prev.shouldShowLyrics,
+        albumArt: thumbnail,
+        trackTitle: cleanTrack,
+        artistName: cleanArtist,
+      }));
+      return;
+    }
+
+    // Document exists in cachedLyrics for this exact videoId
+    if (cachedLyricsDoc.videoId === videoId) {
       if (cachedLyricsDoc.status === 'fetching') {
         // External fetch is currently in-flight on the backend
         setLyricsState((prev) => ({
           ...prev,
+          currentVideoId: videoId,
+          lyrics: null,
           isLoading: true,
           status: 'fetching',
           isYTMusic: isEagerYTMusic,
@@ -132,6 +183,7 @@ export function useLyrics(
       ) {
         setLyricsState((prev) => ({
           ...prev,
+          currentVideoId: videoId,
           lyrics: null,
           isLoading: false,
           status: cachedLyricsDoc.status === 'error' ? 'error' : 'ready',
@@ -183,6 +235,7 @@ export function useLyrics(
 
         setLyricsState((prev) => ({
           ...prev,
+          currentVideoId: videoId,
           lyrics: parsedLyrics,
           isLoading: false,
           status: 'ready',

@@ -284,6 +284,7 @@ export const MediaBox: React.FC = React.memo(() => {
               {lyricsData.shouldShowLyrics && (
                 isFullscreen ? (
                   <FullscreenLyricsView
+                    key={lyricsData.currentVideoId || 'lyrics-fs'}
                     lyrics={lyricsData.lyrics}
                     isLoading={lyricsData.isLoading}
                     status={lyricsData.status}
@@ -302,6 +303,7 @@ export const MediaBox: React.FC = React.memo(() => {
                   />
                 ) : (
                   <MediaBoxLyricsView
+                    key={lyricsData.currentVideoId || 'lyrics-box'}
                     lyrics={lyricsData.lyrics}
                     isLoading={lyricsData.isLoading}
                     status={lyricsData.status}
