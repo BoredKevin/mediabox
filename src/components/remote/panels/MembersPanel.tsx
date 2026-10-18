@@ -22,6 +22,7 @@ interface MembersPanelProps {
   hostUid?: string;
   tvUid?: string | null;
   user: FirebaseUser | null;
+  currentUid?: string;
   isHostOrAdmin: boolean;
   queue: QueueItem[];
   onKickMember: (targetUid: string) => void;
@@ -35,6 +36,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
   hostUid,
   tvUid,
   user,
+  currentUid,
   isHostOrAdmin,
   queue,
   onKickMember,
@@ -43,6 +45,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
 }) => {
   const { t } = useTranslation();
 
+  const effectiveCurrentUid = currentUid || user?.uid;
   const onlineCount = membersList.filter((m) => m.online !== false).length;
 
   const content = (
@@ -61,7 +64,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
         {membersList.map((member, mIdx) => {
           const isMemberAdmin = adminsList.includes(member.uid);
           const isHostUser = member.uid === hostUid;
-          const isSelf = member.uid === user?.uid;
+          const isSelf = Boolean(effectiveCurrentUid && member.uid === effectiveCurrentUid);
           const isTvUser = Boolean(member.isTv || (tvUid && member.uid === tvUid));
           const isOnline = member.online !== false;
           const memberRequests = queue.filter((item) => item.addedBy === member.uid);

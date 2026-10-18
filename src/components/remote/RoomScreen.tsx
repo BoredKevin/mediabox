@@ -36,6 +36,8 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
   const { toasts, showToast, removeToast } = useToast();
 
   const {
+    roomId,
+    effectiveUid,
     roomState,
     queue,
     radioQueue,
@@ -48,7 +50,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     isHost,
     isHostOrAdmin,
     myNickname,
-    sendCommand,
+    actions,
     handleSaveNickname,
   } = useRemoteRoom({
     activeRoomCode,
@@ -88,7 +90,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
   const handleVolumeValueCommit = (val: number[]) => {
     const newVol = val[0];
     setLocalVolume(newVol);
-    sendCommand('adjustVolume', { volume: newVol });
+    actions.setVolume(newVol);
     setIsDraggingVolume(false);
   };
 
@@ -97,7 +99,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
       showToast(t('toasts.fullscreenCooldown'), 'info');
       return;
     }
-    sendCommand('toggleFullscreen');
+    actions.toggleFullscreen();
     setFullscreenCooldown(true);
     setTimeout(() => {
       setFullscreenCooldown(false);
@@ -105,18 +107,14 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
   };
 
   const handleRemoveQueueItem = async (itemId: string, itemAddedBy?: string) => {
-    const isMyEntry = Boolean(user && itemAddedBy === user.uid);
+    const isMyEntry = Boolean(itemAddedBy && itemAddedBy === effectiveUid);
     if (!isMyEntry && !isHostOrAdmin) {
       showToast(t('toasts.controlsLockedByAdmin'), 'error');
       return;
     }
 
     try {
-      if (isHostOrAdmin && !isMyEntry) {
-        await sendCommand('forceRemoveFromQueue', { itemId });
-      } else {
-        await sendCommand('removeFromQueue', { itemId });
-      }
+      await actions.removeFromQueue(itemId);
     } catch (err: any) {
       console.error('Failed to remove item from queue:', err);
       showToast(t('toasts.commandFailed'), 'error');
@@ -124,10 +122,10 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
   };
 
   const handleKickMember = async (targetUid: string) => {
-    if (!isHostOrAdmin || targetUid === user?.uid) return;
+    if (!isHostOrAdmin || targetUid === effectiveUid) return;
     if (confirm(t('remote.kickMemberConfirm'))) {
       try {
-        await sendCommand('kickMember', { targetUid, purgeQueue: true });
+        await actions.purgeMemberTracks(targetUid);
       } catch (err: any) {
         console.error('Failed to kick member:', err);
         showToast(t('toasts.commandFailed'), 'error');
@@ -146,19 +144,19 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     newQueue[targetIndex] = temp;
 
     const newOrderIds = newQueue.map((item) => item.id);
-    sendCommand('reorderQueue', { queueOrder: newOrderIds });
+    actions.reorderQueue(newOrderIds);
   };
 
   const handleClearQueueAdmin = () => {
     if (!isHostOrAdmin) return;
     if (confirm(t('remote.clearQueueConfirm'))) {
-      sendCommand('clearQueue');
+      actions.clearQueue();
     }
   };
 
   const handleToggleRoomLockAdmin = () => {
     if (!isHostOrAdmin) return;
-    sendCommand('toggleRoomLock');
+    actions.toggleLock();
   };
 
   return (
@@ -196,9 +194,10 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
               {isLyricsActive ? (
                 <div className="flex-1 min-h-0 h-full">
                   <RemoteLyricsView
+                    roomId={roomId}
                     roomState={roomState}
                     isHostOrAdmin={isHostOrAdmin}
-                    sendCommand={sendCommand}
+                    onSeek={(pos) => actions.seek(pos)}
                     onClose={() => setIsLyricsActive(false)}
                   />
                 </div>
@@ -209,7 +208,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
                     roomState={roomState}
                     user={user}
                     isHostOrAdmin={isHostOrAdmin}
-                    sendCommand={sendCommand}
+                    onAddToQueue={(url, title) => actions.addToQueue(url, title)}
                     showToast={showToast}
                     embedded
                     onOpenHostSettings={() => setShowHostSettings(true)}
@@ -238,12 +237,13 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
                     queue={queue}
                     radioQueue={radioQueue}
                     user={user}
+                    currentUid={effectiveUid}
                     isHostOrAdmin={isHostOrAdmin}
                     tvUid={tvUid}
                     membersList={membersList}
                     onRemoveItem={handleRemoveQueueItem}
                     onMoveItem={handleMoveQueueItem}
-                    onStartRadio={() => sendCommand('startRadio')}
+                    onStartRadio={actions.startRadio}
                     embedded
                   />
                 </TabsContent>
@@ -258,6 +258,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
                     hostUid={roomState?.hostUid}
                     tvUid={tvUid}
                     user={user}
+                    currentUid={effectiveUid}
                     isHostOrAdmin={isHostOrAdmin}
                     queue={queue}
                     onKickMember={handleKickMember}
@@ -295,9 +296,10 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
             {isLyricsActive ? (
               <div className="flex-1 min-h-0 h-full mb-4">
                 <RemoteLyricsView
+                  roomId={roomId}
                   roomState={roomState}
                   isHostOrAdmin={isHostOrAdmin}
-                  sendCommand={sendCommand}
+                  onSeek={(pos) => actions.seek(pos)}
                   onClose={() => setIsLyricsActive(false)}
                 />
               </div>
@@ -309,7 +311,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
                     roomState={roomState}
                     user={user}
                     isHostOrAdmin={isHostOrAdmin}
-                    sendCommand={sendCommand}
+                    onAddToQueue={(url, title) => actions.addToQueue(url, title)}
                     showToast={showToast}
                     embedded
                     onOpenHostSettings={() => setShowHostSettings(true)}
@@ -325,7 +327,11 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
       <NowPlayingBar
         roomState={roomState}
         isHostOrAdmin={isHostOrAdmin}
-        sendCommand={sendCommand}
+        onTogglePlayPause={actions.togglePlayPause}
+        onNextTrack={actions.nextTrack}
+        onPreviousTrack={actions.previousTrack}
+        onStartRadio={actions.startRadio}
+        onToggleAutoplay={actions.toggleAutoplay}
         displayVolume={displayVolume}
         handleVolumeValueChange={handleVolumeValueChange}
         handleVolumeValueCommit={handleVolumeValueCommit}
@@ -343,7 +349,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         roomState={roomState}
         isAdmin={isAdmin}
         queueLength={queue.length}
-        sendCommand={sendCommand}
+        actions={actions}
         handleClearQueueAdmin={handleClearQueueAdmin}
         handleToggleRoomLockAdmin={handleToggleRoomLockAdmin}
         showToast={showToast}
@@ -356,6 +362,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         queue={queue}
         radioQueue={radioQueue}
         user={user}
+        currentUid={effectiveUid}
         isHostOrAdmin={isHostOrAdmin}
         tvUid={tvUid}
         membersList={membersList}
@@ -364,7 +371,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         onRemoveQueueItem={handleRemoveQueueItem}
         onMoveQueueItem={handleMoveQueueItem}
         onKickMember={handleKickMember}
-        onStartRadio={() => sendCommand('startRadio')}
+        onStartRadio={actions.startRadio}
       />
     </div>
   );

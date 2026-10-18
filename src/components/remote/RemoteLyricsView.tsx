@@ -1,24 +1,28 @@
 import React from 'react';
-import { RoomState } from '@/lib/roomUtils';
+import { RoomState, calculatePlaybackCurrentTimeSec } from '@/lib/roomUtils';
 import { useLyrics } from '@/hooks/useLyrics';
+import { useCurrentMediaMeta } from '@/hooks/useCurrentMediaMeta';
 import { BraccatoLyricsRenderer } from '@/components/lyrics/BraccatoLyricsRenderer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Search, Disc, Music, Mic2 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
-import { getServerTime } from '@/lib/serverTime';
+
+import type { Id } from '../../../convex/_generated/dataModel';
 
 interface RemoteLyricsViewProps {
+  roomId?: Id<'rooms'> | null;
   roomState: RoomState | null;
   isHostOrAdmin: boolean;
-  sendCommand: (type: any, payload?: any) => Promise<void>;
+  onSeek: (positionMs: number) => Promise<void>;
   onClose?: () => void;
 }
 
 export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
+  roomId,
   roomState,
   isHostOrAdmin,
-  sendCommand,
+  onSeek,
   onClose,
 }) => {
   const { t } = useTranslation();
@@ -28,24 +32,21 @@ export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
   const isWordSync = roomState?.lyricsWordSync ?? false;
 
   // Dead-reckoning high precision remote time provider:
-  // Base timestamp x + elapsed time since last update (getServerTime() - y)
-  // Uses Firebase normalized server time to eliminate multi-device clock skew.
+  // Base timestamp positionMs + elapsed time since last update (Date.now() - updatedAt)
   const getCurrentTime = React.useCallback((): number => {
-    if (!playback) return 0;
-    const baseSec = (playback.positionMs || 0) / 1000;
-    if (playback.status === 'playing') {
-      const now = getServerTime();
-      const elapsedSec = Math.max(0, (now - (playback.updatedAt || now)) / 1000);
-      return baseSec + elapsedSec;
-    }
-    return baseSec;
+    return calculatePlaybackCurrentTimeSec(playback);
   }, [playback]);
 
   const handleSeek = React.useCallback(
     (seconds: number) => {
-      sendCommand('seek', { positionMs: Math.round(seconds * 1000) });
+      onSeek(Math.round(seconds * 1000));
     },
-    [sendCommand]
+    [onSeek]
+  );
+
+  const currentVideoMeta = useCurrentMediaMeta(
+    roomState?.currentlyPlaying,
+    roomState?.currentlyPlayingTitle
   );
 
   const lyricsData = useLyrics(
@@ -53,7 +54,10 @@ export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
     roomState?.currentlyPlayingTitle,
     null,
     getCurrentTime,
-    handleSeek
+    handleSeek,
+    roomId,
+    false,
+    currentVideoMeta.author
   );
 
   const hasLyrics = Boolean(lyricsData.lyrics && lyricsData.lyrics.length > 0);

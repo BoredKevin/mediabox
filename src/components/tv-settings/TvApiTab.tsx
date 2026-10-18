@@ -1,146 +1,140 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Key, Eye, Check } from 'lucide-react';
+import { Key, Eye, EyeOff, Check, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
-import { SearchSettings } from '@/lib/roomUtils';
-import { loadProxyConfig, saveProxyConfig, isProxyConfigured } from '@/lib/proxyConfig';
+import { loadApiToken, saveApiToken } from '@/lib/apiTokenStore';
 
-interface TvApiTabProps {
-  searchSettings: SearchSettings;
-  onUpdateSearchSettings: (patch: Partial<SearchSettings>) => Promise<void>;
-}
-
-export const TvApiTab: React.FC<TvApiTabProps> = ({
-  searchSettings,
-  onUpdateSearchSettings,
-}) => {
+export const TvApiTab: React.FC = () => {
   const { t } = useTranslation();
 
-  const [proxyUrl, setProxyUrl] = useState('');
-  const [proxyToken, setProxyToken] = useState('');
-  const [proxyTokenRevealed, setProxyTokenRevealed] = useState(false);
-  const [proxyRevealCountdown, setProxyRevealCountdown] = useState(0);
-  const [proxySaved, setProxySaved] = useState(false);
+  const [tokenInput, setTokenInput] = useState('');
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
-    const pCfg = loadProxyConfig();
-    setProxyUrl(pCfg.proxyUrl);
-    setProxyToken(pCfg.proxyToken);
-    setProxySaved(false);
-  }, [searchSettings]);
+    setTokenInput(loadApiToken());
+  }, []);
 
-  useEffect(() => {
-    if (!proxyTokenRevealed) return;
-    setProxyRevealCountdown(5);
-    const interval = setInterval(() => {
-      setProxyRevealCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setProxyTokenRevealed(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [proxyTokenRevealed]);
+  const verification = useQuery(
+    api.admins.verifyApiToken,
+    tokenInput.trim() ? { token: tokenInput.trim() } : 'skip'
+  );
 
-  const handleSaveProxy = async (e: React.FormEvent) => {
+  const isValid = Boolean(verification?.valid);
+  const hasToken = Boolean(tokenInput.trim());
+
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    saveProxyConfig({ proxyUrl, proxyToken });
-    const configured = isProxyConfigured({ proxyUrl, proxyToken });
-    await onUpdateSearchSettings({
-      proxyUrl: proxyUrl.trim(),
-      isProxyConfigured: configured,
-    });
-    setProxySaved(true);
-    setTimeout(() => setProxySaved(false), 3000);
+    saveApiToken(tokenInput.trim());
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2500);
   };
 
-  const configured = isProxyConfigured({ proxyUrl, proxyToken });
+  const handleClear = () => {
+    setTokenInput('');
+    saveApiToken('');
+  };
 
   return (
-    <form onSubmit={handleSaveProxy} className="space-y-4">
-      {/* Proxy Status Pill */}
-      <div className="flex items-center justify-between p-3 bg-muted/20 border border-border">
-        <span className="text-xs font-mono font-bold uppercase tracking-wider text-foreground">
-          Proxy Status
-        </span>
-        <Badge variant={configured ? 'default' : 'outline'} className="text-[10px] font-mono">
-          {configured ? t('tvSettings.ytProxyStatusConnected') : t('tvSettings.ytProxyStatusDisconnected')}
-        </Badge>
-      </div>
-
-      <p className="text-xs text-muted-foreground leading-relaxed">
-        {t('tvSettings.ytProxyDesc')}
-      </p>
-
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground block mb-1">
-            {t('tvSettings.ytProxyUrlLabel')}
-          </label>
-          <Input
-            type="url"
-            chamfer="dual"
-            value={proxyUrl}
-            onChange={(e) => setProxyUrl(e.target.value)}
-            placeholder={t('tvSettings.ytProxyUrlPlaceholder')}
-            className="text-xs font-mono h-9"
-          />
+    <div className="space-y-6">
+      {/* Clearance Status Card */}
+      <div className="p-4 bg-muted/20 border border-border space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {isValid ? (
+              <ShieldCheck className="w-5 h-5 text-primary flex-shrink-0" />
+            ) : (
+              <ShieldAlert className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            )}
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-foreground">
+              Clearance Status
+            </span>
+          </div>
+          <Badge
+            variant={isValid ? 'default' : 'outline'}
+            className={`text-[10px] font-mono ${
+              isValid
+                ? 'bg-primary/20 text-primary border-primary/40'
+                : 'text-amber-400 border-amber-500/40'
+            }`}
+          >
+            {isValid
+              ? 'ACTIVE'
+              : hasToken
+              ? 'INVALID TOKEN'
+              : 'NO TOKEN'}
+          </Badge>
         </div>
 
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Authorized TV displays with a valid clearance token can search YouTube and resolve lyrics freely without human verification.
+          Hosts can also beam a token directly to this TV from Host Settings on their phone.
+        </p>
+      </div>
+
+      {/* API Token Form */}
+      <form onSubmit={handleSave} className="space-y-4">
         <div>
-          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground block mb-1">
-            {t('tvSettings.ytProxyTokenLabel')}
+          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground block mb-1.5">
+            TV Master Clearance Token
           </label>
           <div className="relative">
             <Input
-              type={proxyTokenRevealed ? 'text' : 'password'}
+              type={isRevealed ? 'text' : 'password'}
               chamfer="dual"
-              value={proxyToken}
-              onChange={(e) => setProxyToken(e.target.value)}
-              placeholder={t('tvSettings.ytProxyTokenPlaceholder')}
-              className="text-xs font-mono h-9 pr-10"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              placeholder="Paste backend API token here..."
+              className="text-xs font-mono h-9 pr-12"
             />
             <button
               type="button"
-              onClick={() => setProxyTokenRevealed((prev) => !prev)}
+              onClick={() => setIsRevealed((prev) => !prev)}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
-              title={proxyTokenRevealed ? 'Hide' : 'Reveal Token (5s)'}
+              title={isRevealed ? 'Hide' : 'Reveal'}
             >
-              {proxyTokenRevealed ? (
-                <span className="text-[10px] font-mono font-bold text-amber-400">
-                  {proxyRevealCountdown}s
-                </span>
-              ) : (
-                <Eye className="w-4 h-4" />
-              )}
+              {isRevealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
         </div>
-      </div>
 
-      <Button
-        type="submit"
-        variant="cyber"
-        chamfer="dual"
-        className="w-full text-xs font-bold uppercase tracking-wider h-9 flex items-center justify-center gap-1.5 cursor-pointer"
-      >
-        {proxySaved ? (
-          <>
-            <Check className="w-3.5 h-3.5" />
-            <span>{t('tvSettings.ytProxySavedNotice')}</span>
-          </>
-        ) : (
-          <>
-            <Key className="w-3.5 h-3.5" />
-            <span>{t('tvSettings.ytProxySaveBtn')}</span>
-          </>
-        )}
-      </Button>
-    </form>
+        <div className="flex gap-2">
+          <Button
+            type="submit"
+            variant="cyber"
+            chamfer="dual"
+            className="flex-1 text-xs font-bold uppercase tracking-wider h-9 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            {isSaved ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Token Saved!</span>
+              </>
+            ) : (
+              <>
+                <Key className="w-3.5 h-3.5" />
+                <span>Save Token</span>
+              </>
+            )}
+          </Button>
+
+          {hasToken && (
+            <Button
+              type="button"
+              variant="outline"
+              chamfer="dual"
+              onClick={handleClear}
+              className="text-xs font-mono h-9 px-3 text-muted-foreground hover:text-destructive"
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+      </form>
+    </div>
   );
 };

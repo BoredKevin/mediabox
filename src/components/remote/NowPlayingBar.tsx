@@ -29,7 +29,11 @@ import { cn } from '@/lib/utils';
 interface NowPlayingBarProps {
   roomState: RoomState | null;
   isHostOrAdmin: boolean;
-  sendCommand: (type: any, payload?: any) => Promise<void>;
+  onTogglePlayPause: () => Promise<void>;
+  onNextTrack: () => Promise<void>;
+  onPreviousTrack: () => Promise<void>;
+  onStartRadio: () => Promise<void>;
+  onToggleAutoplay: () => Promise<void>;
   displayVolume: number;
   handleVolumeValueChange: (val: number[]) => void;
   handleVolumeValueCommit: (val: number[]) => void;
@@ -42,7 +46,11 @@ interface NowPlayingBarProps {
 export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
   roomState,
   isHostOrAdmin,
-  sendCommand,
+  onTogglePlayPause,
+  onNextTrack,
+  onPreviousTrack,
+  onStartRadio,
+  onToggleAutoplay,
   displayVolume,
   handleVolumeValueChange,
   handleVolumeValueCommit,
@@ -121,7 +129,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => sendCommand('startRadio')}
+                onClick={onStartRadio}
                 disabled={isLocked}
                 className="h-8 sm:h-9 px-2 sm:px-3 text-[11px] sm:text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 border-primary/30 hover:border-primary hover:bg-primary/10 transition-colors cursor-pointer"
                 title={t('remote.startRadio')}
@@ -144,7 +152,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               <Button
                 variant="outline"
                 chamfer="top-right"
-                onClick={() => sendCommand('toggleAutoplay')}
+                onClick={onToggleAutoplay}
                 disabled={isLocked}
                 className={cn(
                   "h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0 transition-colors",
@@ -285,7 +293,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 <Button
                   variant="outline"
                   chamfer="top-left"
-                  onClick={() => sendCommand('forcePrevious')}
+                  onClick={onPreviousTrack}
                   className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
                   title={t('watchParty.previousBtn')}
                   aria-label={t('watchParty.previousBtn')}
@@ -298,7 +306,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 <Button
                   variant="outline"
                   chamfer="dual"
-                  onClick={() => sendCommand('pause')}
+                  onClick={onTogglePlayPause}
                   disabled={isLocked}
                   className="h-11 w-11 min-[380px]:w-12 p-0 flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors"
                   title={t('watchParty.pauseBtn')}
@@ -310,7 +318,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 <Button
                   variant="outline"
                   chamfer="dual"
-                  onClick={() => sendCommand('play')}
+                  onClick={onTogglePlayPause}
                   disabled={isLocked}
                   className="h-11 w-11 min-[380px]:w-12 p-0 flex items-center justify-center flex-shrink-0 border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary transition-colors shadow-[0_0_10px_rgba(255,255,255,0.08)]"
                   title={t('watchParty.playBtn')}
@@ -324,7 +332,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 <Button
                   variant="outline"
                   chamfer="top-right"
-                  onClick={() => sendCommand('forceSkip')}
+                  onClick={onNextTrack}
                   className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
                   title={t('watchParty.skipNextBtn')}
                   aria-label={t('watchParty.skipNextBtn')}
@@ -346,7 +354,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 <Button
                   variant="outline"
                   chamfer="top-left"
-                  onClick={() => sendCommand('forcePrevious')}
+                  onClick={onPreviousTrack}
                   className="h-10 w-10 p-0 flex items-center justify-center flex-shrink-0"
                   title={t('watchParty.previousBtn')}
                   aria-label={t('watchParty.previousBtn')}
@@ -360,7 +368,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 <Button
                   variant="outline"
                   chamfer="dual"
-                  onClick={() => sendCommand('pause')}
+                  onClick={onTogglePlayPause}
                   disabled={isLocked}
                   className="h-10 w-12 p-0 flex items-center justify-center flex-shrink-0 hover:bg-muted transition-colors"
                   title={t('watchParty.pauseBtn')}
@@ -372,7 +380,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 <Button
                   variant="outline"
                   chamfer="dual"
-                  onClick={() => sendCommand('play')}
+                  onClick={onTogglePlayPause}
                   disabled={isLocked}
                   className="h-10 w-12 p-0 flex items-center justify-center flex-shrink-0 border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary transition-colors shadow-[0_0_10px_rgba(255,255,255,0.08)]"
                   title={t('watchParty.playBtn')}
@@ -387,7 +395,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 <Button
                   variant="outline"
                   chamfer="top-right"
-                  onClick={() => sendCommand('forceSkip')}
+                  onClick={onNextTrack}
                   className="h-10 px-3.5 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5"
                   title={t('watchParty.skipNextBtn')}
                 >
@@ -464,7 +472,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               <Button
                 variant="outline"
                 chamfer="top-right"
-                onClick={() => sendCommand('toggleAutoplay')}
+                onClick={onToggleAutoplay}
                 disabled={isLocked}
                 className={cn(
                   "h-10 px-3.5 text-xs font-mono font-semibold flex items-center gap-2 transition-colors",

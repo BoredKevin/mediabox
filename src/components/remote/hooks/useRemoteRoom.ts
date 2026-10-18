@@ -1,11 +1,39 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { ref, onValue, set, update, off, onDisconnect, serverTimestamp } from 'firebase/database';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
-import { database } from '@/lib/firebase';
+import { useQuery, useMutation, useAction } from 'convex/react';
+import { api } from '../../../../convex/_generated/api';
+import { Id } from '../../../../convex/_generated/dataModel';
+import { useSafePresence } from '@/hooks/useSafePresence';
 import { RoomState, QueueItem, SearchResultItem } from '@/lib/roomUtils';
-import { getStoredNickname, saveStoredNickname } from '@/lib/deviceAuth';
+import { getStoredNickname, saveStoredNickname, getOrCreateDeviceCredentials } from '@/lib/deviceAuth';
 import { useTranslation } from '@/context/LanguageContext';
 import { MemberInfo } from '../panels/MembersPanel';
+import { loadApiToken } from '@/lib/apiTokenStore';
+
+export interface RemoteActions {
+  togglePlayPause: () => Promise<void>;
+  nextTrack: () => Promise<void>;
+  previousTrack: () => Promise<void>;
+  setVolume: (volume: number) => Promise<void>;
+  seek: (positionMs: number) => Promise<void>;
+  addToQueue: (url: string, title?: string) => Promise<void>;
+  removeFromQueue: (queueId: string) => Promise<void>;
+  reorderQueue: (orderedIds: string[]) => Promise<void>;
+  clearQueue: () => Promise<void>;
+  purgeMemberTracks: (targetUid: string) => Promise<void>;
+  toggleLock: () => Promise<void>;
+  toggleAutoplay: () => Promise<void>;
+  toggleCountdown: () => Promise<void>;
+  toggleFullscreen: () => Promise<void>;
+  claimHost: () => Promise<void>;
+  startRadio: () => Promise<void>;
+  beamTokenToTv: (token: string) => Promise<void>;
+  updateSettings: (settings: {
+    lyricsOffsetMs?: number;
+    lyricsWordSync?: boolean;
+    preferMusicVideos?: boolean;
+  }) => Promise<void>;
+}
 
 interface UseRemoteRoomProps {
   activeRoomCode: string;
@@ -21,21 +49,6 @@ export function useRemoteRoom({
   showToast,
 }: UseRemoteRoomProps) {
   const { t } = useTranslation();
-  const [roomState, setRoomState] = useState<RoomState | null>(null);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [radioQueue, setRadioQueue] = useState<SearchResultItem[]>([]);
-  const [memberCount, setMemberCount] = useState<number>(1);
-  const [membersList, setMembersList] = useState<MemberInfo[]>([]);
-  const [isTvOnline, setIsTvOnline] = useState<boolean>(true);
-  const [tvUid, setTvUid] = useState<string | null>(null);
-
-  // Admin & Host state
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [adminsList, setAdminsList] = useState<string[]>([]);
-  const isHost = Boolean(user && roomState?.hostUid === user.uid);
-  const isHostOrAdmin = isHost || isAdmin;
-
-  // Nickname state
   const [myNickname, setMyNickname] = useState<string>(() => getStoredNickname());
   const hasConfirmedMembership = useRef(false);
 
@@ -43,262 +56,343 @@ export function useRemoteRoom({
     hasConfirmedMembership.current = false;
   }, [activeRoomCode, user?.uid]);
 
-  // Subscribe to RTDB admins node
-  useEffect(() => {
-    if (!user) return;
-    const adminsRefNode = ref(database, 'admins');
-    const unsubAdmins = onValue(adminsRefNode, (snapshot) => {
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        const uids = Object.keys(val);
-        setAdminsList(uids);
-        setIsAdmin(uids.includes(user.uid));
-      } else {
-        setAdminsList([]);
-        setIsAdmin(false);
-      }
-    });
-    return () => off(adminsRefNode);
-  }, [user]);
-
-  // Member presence tracking via .info/connected
-  useEffect(() => {
-    if (!activeRoomCode || !user) return;
-
-    const connectedRef = ref(database, '.info/connected');
-    const memberOnlineRef = ref(database, `rooms/${activeRoomCode}/members/${user.uid}/online`);
-    const memberLastSeenRef = ref(database, `rooms/${activeRoomCode}/members/${user.uid}/lastSeen`);
-
-    const unsubConnected = onValue(connectedRef, (snap) => {
-      if (snap.val() === true) {
-        onDisconnect(memberOnlineRef).set(false);
-        onDisconnect(memberLastSeenRef).set(serverTimestamp());
-
-        update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
-          online: true,
-          lastSeen: Date.now(),
-        }).catch(() => {});
-      }
-    });
-
-    return () => {
-      off(connectedRef);
-      onDisconnect(memberOnlineRef).cancel();
-      onDisconnect(memberLastSeenRef).cancel();
-    };
-  }, [activeRoomCode, user]);
-
-  // Subscribe to room updates (state, queue, members, tv)
-  useEffect(() => {
-    if (!activeRoomCode || !user) return;
-
-    const stateRefNode = ref(database, `rooms/${activeRoomCode}/state`);
-    const queueRefNode = ref(database, `rooms/${activeRoomCode}/queue`);
-    const membersRefNode = ref(database, `rooms/${activeRoomCode}/members`);
-    const tvRefNode = ref(database, `rooms/${activeRoomCode}/tv`);
-    const radioQueueRefNode = ref(database, `rooms/${activeRoomCode}/radioQueue`);
-
-    onValue(tvRefNode, (snapshot) => {
-      if (snapshot.exists()) {
-        const tvVal = snapshot.val();
-        setIsTvOnline(tvVal?.online !== false);
-        setTvUid(tvVal?.uid || null);
-      } else {
-        setIsTvOnline(false);
-        setTvUid(null);
-      }
-    });
-
-    onValue(radioQueueRefNode, (snapshot) => {
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        if (Array.isArray(val)) {
-          setRadioQueue(val);
-        } else if (typeof val === 'object' && val !== null) {
-          setRadioQueue(Object.values(val));
-        } else {
-          setRadioQueue([]);
-        }
-      } else {
-        setRadioQueue([]);
-      }
-    });
-
-    onValue(stateRefNode, (snapshot) => {
-      if (snapshot.exists()) {
-        setRoomState(snapshot.val());
-      } else {
-        if (hasConfirmedMembership.current) {
-          onLeaveRoom();
-          showToast(t('toasts.roomClosedByHost'), 'error');
-        }
-      }
-    });
-
-    onValue(queueRefNode, (snapshot) => {
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        const items = Object.entries(val).map(([id, item]: [string, any]) => ({
-          id,
-          ...item,
-        }));
-        setQueue(items.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0)));
-      } else {
-        setQueue([]);
-      }
-    });
-
-    onValue(membersRefNode, (snapshot) => {
-      if (snapshot.exists()) {
-        const membersData = snapshot.val();
-
-        if (user && membersData[user.uid]) {
-          hasConfirmedMembership.current = true;
-        } else if (user && !membersData[user.uid]) {
-          if (hasConfirmedMembership.current) {
-            onLeaveRoom();
-            showToast(t('toasts.kickedByHost'), 'error', 6000);
-            return;
-          } else {
-            update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
-              uid: user.uid,
-              joinedAt: Date.now(),
-              online: true,
-              lastSeen: Date.now(),
-              ...(user.displayName ? { nickname: user.displayName.slice(0, 25) } : {}),
-            }).catch(() => {});
-          }
-        }
-
-        const list: MemberInfo[] = Object.entries(membersData).map(([uid, m]: [string, any]) => ({
-          uid,
-          joinedAt: m?.joinedAt || 0,
-          nickname: m?.nickname || '',
-          online: m?.online !== false,
-          lastSeen: m?.lastSeen || 0,
-        }));
-        list.sort((a, b) => a.joinedAt - b.joinedAt);
-
-        setMembersList(list);
-        setMemberCount(list.filter((m) => m.online).length);
-
-        const myRecord = list.find((m) => m.uid === user.uid);
-        if (myRecord) {
-          if (myRecord.nickname) {
-            setMyNickname(myRecord.nickname);
-            saveStoredNickname(myRecord.nickname);
-          } else {
-            const saved = getStoredNickname();
-            if (saved) {
-              update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
-                nickname: saved,
-              }).catch(() => {});
-              setMyNickname(saved);
-            } else if (user.displayName) {
-              const autoNick = user.displayName.slice(0, 25);
-              update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
-                nickname: autoNick,
-              }).catch(() => {});
-              setMyNickname(autoNick);
-              saveStoredNickname(autoNick);
-            }
-          }
-        }
-      } else {
-        if (hasConfirmedMembership.current) {
-          onLeaveRoom();
-          showToast(t('toasts.roomCleared'), 'error');
-        }
-      }
-    });
-
-    return () => {
-      off(stateRefNode);
-      off(queueRefNode);
-      off(membersRefNode);
-      off(tvRefNode);
-      off(radioQueueRefNode);
-    };
-  }, [activeRoomCode, user, onLeaveRoom, showToast, t]);
-
-  const sendCommand = useCallback(
-    async (type: any, payload?: any) => {
-      if (!activeRoomCode || !user) return;
-
-      if (roomState?.isLocked && !isHostOrAdmin) {
-        if (
-          type === 'addToQueue' ||
-          type === 'play' ||
-          type === 'pause' ||
-          type === 'adjustVolume' ||
-          type === 'toggleAutoplay' ||
-          type === 'startRadio' ||
-          type === 'startRadioFromCurrent'
-        ) {
-          showToast(t('toasts.controlsLockedByAdmin'), 'error');
-          return;
-        }
-      }
-
-      try {
-        const commandRefNode = ref(
-          database,
-          `rooms/${activeRoomCode}/members/${user.uid}/command`
-        );
-        await set(commandRefNode, {
-          type,
-          createdAt: Date.now(),
-          payload: payload || {},
-        });
-
-        const labelMap: Record<string, string> = {
-          play: t('toasts.playSent'),
-          pause: t('toasts.pauseSent'),
-          addToQueue: t('toasts.videoAddedQueue'),
-          removeFromQueue: t('toasts.removeQueueSent'),
-          adjustVolume: t('toasts.volumeSet', { vol: payload?.volume }),
-          forceSkip: t('toasts.skipSent'),
-          forcePrevious: t('toasts.previousSent'),
-          reorderQueue: t('toasts.reorderSent'),
-          forceRemoveFromQueue: t('toasts.removeQueueSent'),
-          kickMember: t('toasts.kickSent'),
-          toggleFullscreen: t('toasts.toggleFullscreenSent'),
-          clearQueue: t('toasts.clearQueueSent'),
-          setYtProxy: t('tvSettings.ytProxySavedNotice'),
-          startRadio: t('toasts.startRadioSent'),
-          startRadioFromCurrent: t('toasts.startRadioSent'),
-          toggleRoomLock: roomState?.isLocked
-            ? t('toasts.roomUnlocked')
-            : t('toasts.roomLocked'),
-          toggleAutoplay: roomState?.isAutoplay
-            ? t('toasts.autoplayDisabled')
-            : t('toasts.autoplayEnabled'),
-          toggleCountdown: roomState?.isCountdownEnabled
-            ? t('toasts.countdownDisabled')
-            : t('toasts.countdownEnabled'),
-        };
-        if (type !== 'addToQueue') {
-          showToast(labelMap[type] || t('toasts.commandSent', { type }), 'success');
-        }
-      } catch (err: any) {
-        console.error('Failed to send command:', err);
-        showToast(t('toasts.commandFailed'), 'error');
-      }
-    },
-    [activeRoomCode, user, roomState?.isLocked, roomState?.isAutoplay, roomState?.isCountdownEnabled, isHostOrAdmin, showToast, t]
+  // Convex Subscriptions
+  const room = useQuery(
+    api.rooms.getRoom,
+    activeRoomCode ? { code: activeRoomCode } : 'skip'
   );
+  const rawQueue = useQuery(
+    api.queue.getQueue,
+    room?._id ? { roomId: room._id } : 'skip'
+  );
+  const rawRadio = useQuery(
+    api.playback.getRadioQueue,
+    room?._id ? { roomId: room._id } : 'skip'
+  );
+
+  const effectiveUid = useMemo(() => {
+    return user?.uid || getOrCreateDeviceCredentials().uuid;
+  }, [user?.uid]);
+
+  // Admin status check
+  const adminsQuery = useQuery(api.admins.list);
+  const isAdminQuery = useQuery(
+    api.admins.isAdmin,
+    effectiveUid ? { uid: effectiveUid } : 'skip'
+  );
+
+  const adminsList = useMemo(() => {
+    return adminsQuery ? adminsQuery.map((a: any) => a.uid) : [];
+  }, [adminsQuery]);
+  const isAdmin = Boolean(isAdminQuery);
+
+  const isHost = Boolean(room?.hostUid && room.hostUid === effectiveUid);
+  const isHostOrAdmin = isHost || isAdmin;
+  const tvUid = room?.tvUid || null;
+
+  // Track room closure
+  useEffect(() => {
+    if (room) {
+      hasConfirmedMembership.current = true;
+    } else if (room === null && hasConfirmedMembership.current) {
+      onLeaveRoom();
+      showToast(t('toasts.roomClosedByHost'), 'error');
+    }
+  }, [room, onLeaveRoom, showToast, t]);
+
+  // Presence via resilient safe presence hook
+  const presenceList = useSafePresence(
+    activeRoomCode,
+    effectiveUid,
+    10000
+  );
+
+  const isTvOnline = useMemo(() => {
+    if (presenceList && room?.tvUid) {
+      return presenceList.some((p) => p.userId === room.tvUid && p.online);
+    }
+    return Boolean(room?.tvOnline);
+  }, [presenceList, room?.tvUid, room?.tvOnline]);
+
+  const membersList: MemberInfo[] = useMemo(() => {
+    const list: MemberInfo[] = [];
+
+    // Always represent the TV display itself as a member
+    if (room?.tvUid) {
+      list.push({
+        uid: room.tvUid,
+        nickname: 'Mediabox TV',
+        online: isTvOnline,
+        joinedAt: 0,
+        lastSeen: Date.now(),
+        isTv: true,
+      });
+    }
+
+    // Add online remote members (excluding the TV UID)
+    if (presenceList) {
+      for (const p of presenceList) {
+        if (p.userId === room?.tvUid) continue;
+        const isMe = p.userId === effectiveUid;
+        const customNick = (p.data as any)?.nickname;
+        const nickname = customNick || (isMe ? myNickname || 'You' : 'Guest');
+        list.push({
+          uid: p.userId,
+          nickname,
+          online: true,
+          joinedAt: p.lastDisconnected || 0,
+          lastSeen: Date.now(),
+          isTv: false,
+        });
+      }
+    }
+
+    return list;
+  }, [presenceList, room?.tvUid, isTvOnline, effectiveUid, myNickname]);
+
+  const memberCount = useMemo(() => {
+    return Math.max(1, membersList.filter((m) => m.online !== false).length);
+  }, [membersList]);
+
+  // Map Convex Room to RoomState
+  const roomState: RoomState | null = useMemo(() => {
+    if (!room) return null;
+    return {
+      currentlyPlaying: room.currentlyPlaying,
+      currentlyPlayingTitle: room.currentlyPlayingTitle,
+      playback: room.playback,
+      hostUid: room.hostUid,
+      isFullscreen: room.isFullscreen,
+      isLocked: room.isLocked,
+      isAutoplay: room.isAutoplay,
+      isCountdownEnabled: room.isCountdownEnabled,
+      lyricsOffsetMs: room.lyricsOffsetMs,
+      lyricsWordSync: room.lyricsWordSync,
+      tvOnline: room.tvOnline,
+      roomId: room._id,
+      searchSettings: {
+        maxResults: 20,
+        rateLimitCount: 15,
+        rateLimitWindowMs: 60000,
+        preferMusicVideos: room.preferMusicVideos,
+      },
+    };
+  }, [room]);
+
+  // Map Convex Queue to QueueItem[]
+  const queue: QueueItem[] = useMemo(() => {
+    if (!rawQueue) return [];
+    return rawQueue.map((item: any) => ({
+      id: item._id,
+      url: item.url,
+      title: item.title,
+      addedBy: item.addedBy,
+      addedByName: item.addedByName,
+      addedAt: item.createdAt,
+    }));
+  }, [rawQueue]);
+
+  // Map Convex Radio Queue to SearchResultItem[]
+  const radioQueue: SearchResultItem[] = useMemo(() => {
+    if (!rawRadio) return [];
+    return rawRadio.map((item: any) => ({
+      id: item.id,
+      url: item.url,
+      title: item.title,
+      channelTitle: item.channelTitle,
+      durationSeconds: item.durationSeconds,
+      thumbnail: item.thumbnailUrl || '',
+    }));
+  }, [rawRadio]);
+
+  // Convex Mutations & Actions
+  const joinRoomMutation = useMutation(api.rooms.joinRoom);
+  const claimHostMutation = useMutation(api.rooms.claimHost);
+  const togglePlayPauseMutation = useMutation(api.playback.togglePlayPause);
+  const nextTrackMutation = useMutation(api.playback.nextTrack);
+  const previousTrackMutation = useMutation(api.playback.previousTrack);
+  const setVolumeMutation = useMutation(api.playback.setVolume);
+  const seekMutation = useMutation(api.playback.seek);
+  const addQueueMutation = useMutation(api.queue.add);
+  const removeQueueMutation = useMutation(api.queue.remove);
+  const reorderQueueMutation = useMutation(api.queue.reorder);
+  const clearQueueMutation = useMutation(api.queue.clear);
+  const purgeMemberTracksMutation = useMutation(api.queue.purgeMemberTracks);
+  const toggleLockMutation = useMutation(api.rooms.toggleLock);
+  const toggleAutoplayMutation = useMutation(api.rooms.toggleAutoplay);
+  const toggleCountdownMutation = useMutation(api.rooms.toggleCountdown);
+  const toggleFullscreenMutation = useMutation(api.rooms.toggleFullscreen);
+  const updateSettingsMutation = useMutation(api.rooms.updateSettings);
+  const beamTokenToTvMutation = useMutation(api.rooms.beamTokenToTv);
+  const updateRoomUserMutation = useMutation(api.presence.updateRoomUser);
+  const fetchAndPlayNextRadioAction = useAction(api.youtube.fetchAndPlayNextRadio);
+
+  // Auto-join room and auto-claim host if room is held only by the TV display
+  useEffect(() => {
+    if (room?._id && effectiveUid) {
+      joinRoomMutation({ roomId: room._id, callerUid: effectiveUid }).catch((e) => {
+        console.warn('[useRemoteRoom] joinRoom error:', e);
+      });
+    }
+  }, [room?._id, effectiveUid, joinRoomMutation]);
+
+  // Strongly-typed direct Convex actions
+  const actions: RemoteActions = useMemo(() => {
+    const checkLocked = () => {
+      if (room?.isLocked && !isHostOrAdmin) {
+        showToast(t('toasts.controlsLockedByAdmin'), 'error');
+        return false;
+      }
+      return true;
+    };
+
+    return {
+      togglePlayPause: async () => {
+        if (!room?._id || !checkLocked()) return;
+        await togglePlayPauseMutation({ roomId: room._id });
+      },
+      nextTrack: async () => {
+        if (!room?._id) return;
+        await nextTrackMutation({ roomId: room._id });
+      },
+      previousTrack: async () => {
+        if (!room?._id) return;
+        await previousTrackMutation({ roomId: room._id, forcePrevious: true });
+      },
+      setVolume: async (volume: number) => {
+        if (!room?._id || !checkLocked()) return;
+        await setVolumeMutation({ roomId: room._id, volume });
+      },
+      seek: async (positionMs: number) => {
+        if (!room?._id) return;
+        await seekMutation({ roomId: room._id, positionMs });
+      },
+      addToQueue: async (url: string, title?: string) => {
+        if (!room?._id || !checkLocked()) return;
+        await addQueueMutation({
+          roomId: room._id,
+          url,
+          title: title || '',
+          addedBy: effectiveUid,
+          addedByName: myNickname || 'Guest',
+        });
+      },
+      removeFromQueue: async (queueId: string) => {
+        if (!room?._id) return;
+        await removeQueueMutation({
+          queueId: queueId as Id<'queue'>,
+          callerUid: effectiveUid,
+        });
+      },
+      reorderQueue: async (orderedIds: string[]) => {
+        if (!room?._id) return;
+        await reorderQueueMutation({
+          roomId: room._id,
+          orderedIds: orderedIds as Id<'queue'>[],
+          callerUid: effectiveUid,
+        });
+      },
+      clearQueue: async () => {
+        if (!room?._id) return;
+        await clearQueueMutation({
+          roomId: room._id,
+          callerUid: effectiveUid,
+        });
+      },
+      purgeMemberTracks: async (targetUid: string) => {
+        if (!room?._id) return;
+        await purgeMemberTracksMutation({
+          roomId: room._id,
+          targetUid,
+          callerUid: effectiveUid,
+        });
+      },
+      toggleLock: async () => {
+        if (!room?._id) return;
+        await toggleLockMutation({ roomId: room._id, callerUid: effectiveUid });
+      },
+      toggleAutoplay: async () => {
+        if (!room?._id || !checkLocked()) return;
+        await toggleAutoplayMutation({ roomId: room._id, callerUid: effectiveUid });
+      },
+      toggleCountdown: async () => {
+        if (!room?._id) return;
+        await toggleCountdownMutation({ roomId: room._id, callerUid: effectiveUid });
+      },
+      toggleFullscreen: async () => {
+        if (!room?._id) return;
+        await toggleFullscreenMutation({ roomId: room._id });
+      },
+      claimHost: async () => {
+        if (!room?._id) return;
+        await claimHostMutation({ roomId: room._id, callerUid: effectiveUid });
+      },
+      startRadio: async () => {
+        if (!room?._id || !checkLocked()) return;
+        const apiToken = loadApiToken();
+        await fetchAndPlayNextRadioAction({
+          roomId: room._id,
+          apiToken: apiToken || undefined,
+        });
+      },
+      updateSettings: async (settings) => {
+        if (!room?._id) return;
+        await updateSettingsMutation({
+          roomId: room._id,
+          callerUid: effectiveUid,
+          settings,
+        });
+      },
+      beamTokenToTv: async (token: string) => {
+        if (!room?._id) return;
+        await beamTokenToTvMutation({
+          roomId: room._id,
+          callerUid: effectiveUid,
+          token,
+        });
+      },
+    };
+  }, [
+    room?._id,
+    room?.isLocked,
+    isHostOrAdmin,
+    effectiveUid,
+    myNickname,
+    showToast,
+    t,
+    togglePlayPauseMutation,
+    nextTrackMutation,
+    previousTrackMutation,
+    setVolumeMutation,
+    seekMutation,
+    addQueueMutation,
+    removeQueueMutation,
+    reorderQueueMutation,
+    clearQueueMutation,
+    purgeMemberTracksMutation,
+    toggleLockMutation,
+    toggleAutoplayMutation,
+    toggleCountdownMutation,
+    toggleFullscreenMutation,
+    claimHostMutation,
+    fetchAndPlayNextRadioAction,
+    updateSettingsMutation,
+    beamTokenToTvMutation,
+  ]);
 
   const handleSaveNickname = useCallback(
     async (name: string) => {
-      if (!activeRoomCode || !user) return;
       const cleanName = name.trim().slice(0, 25);
-
+      setMyNickname(cleanName);
+      saveStoredNickname(cleanName);
       try {
-        await update(ref(database, `rooms/${activeRoomCode}/members/${user.uid}`), {
-          nickname: cleanName || null,
-        });
-        setMyNickname(cleanName);
-        saveStoredNickname(cleanName);
+        if (activeRoomCode) {
+          await updateRoomUserMutation({
+            roomId: activeRoomCode,
+            userId: effectiveUid,
+            data: { nickname: cleanName },
+          });
+        }
         showToast(
           cleanName
             ? t('toasts.nicknameSet', { name: cleanName })
@@ -306,14 +400,15 @@ export function useRemoteRoom({
           'success'
         );
       } catch (err: any) {
-        console.error('Failed to update nickname:', err);
-        showToast(t('toasts.nicknameFailed'), 'error');
+        console.warn('Failed to update nickname in presence:', err);
       }
     },
-    [activeRoomCode, user, showToast, t]
+    [activeRoomCode, effectiveUid, updateRoomUserMutation, showToast, t]
   );
 
   return {
+    roomId: room?._id || null,
+    effectiveUid,
     roomState,
     queue,
     radioQueue,
@@ -326,7 +421,7 @@ export function useRemoteRoom({
     isHost,
     isHostOrAdmin,
     myNickname,
-    sendCommand,
+    actions,
     handleSaveNickname,
   };
 }

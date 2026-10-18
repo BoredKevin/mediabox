@@ -15,6 +15,7 @@ interface SideDrawerProps {
   queue: QueueItem[];
   radioQueue?: SearchResultItem[];
   user: FirebaseUser | null;
+  currentUid?: string;
   isHostOrAdmin: boolean;
   tvUid?: string | null;
   membersList: { uid: string; joinedAt: number; nickname?: string; isTv?: boolean }[];
@@ -33,6 +34,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
   queue,
   radioQueue = [],
   user,
+  currentUid,
   isHostOrAdmin,
   tvUid,
   membersList,
@@ -92,6 +94,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               queue={queue}
               radioQueue={radioQueue}
               user={user}
+              currentUid={currentUid}
               isHostOrAdmin={isHostOrAdmin}
               tvUid={tvUid}
               membersList={membersList}
@@ -112,6 +115,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               hostUid={hostUid}
               tvUid={tvUid}
               user={user}
+              currentUid={currentUid}
               isHostOrAdmin={isHostOrAdmin}
               queue={queue}
               onKickMember={onKickMember}

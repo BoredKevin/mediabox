@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ref, get, update, remove } from 'firebase/database';
 import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
-import { auth, database } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
+import { convex } from '@/lib/convex';
+import { api } from '../../../convex/_generated/api';
 import {
   ensureDeviceAuth,
+  getOrCreateDeviceCredentials,
   signInWithGoogle,
   logoutUser,
   getStoredNickname,
@@ -12,7 +14,6 @@ import {
   getStoredRemoteRoomCode,
   saveStoredRemoteRoomCode,
 } from '@/lib/deviceAuth';
-import { checkRoomExists } from '@/lib/roomUtils';
 import { useTranslation } from '@/context/LanguageContext';
 
 import { JoinScreen } from './JoinScreen';
@@ -23,7 +24,13 @@ export const RemoteView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRoom = searchParams.get('room') || getStoredRemoteRoomCode() || '';
 
-  const [user, setUser] = useState<FirebaseUser | null>(auth.currentUser);
+  const [user, setUser] = useState<FirebaseUser | null>(() => {
+    const creds = getOrCreateDeviceCredentials();
+    return (auth.currentUser || {
+      uid: creds.uuid,
+      displayName: getStoredNickname() || 'Guest',
+    }) as any;
+  });
   const [inputCode, setInputCode] = useState(initialRoom);
   const [activeRoomCode, setActiveRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,21 +46,20 @@ export const RemoteView: React.FC = () => {
   // Track room codes that have already been auto-joined to prevent infinite rejoin loops on exit
   const lastAutoJoinedRoomRef = useRef<string | null>(null);
 
-  // Listen to auth state changes and ensure persistent device auth
+  // Background non-blocking auth sync
   useEffect(() => {
     let isCancelled = false;
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (isCancelled) return;
       if (currentUser) {
         setUser(currentUser);
-      } else {
-        ensureDeviceAuth()
-          .then((u) => {
-            if (!isCancelled) setUser(u);
-          })
-          .catch((err) => console.error('Auth error in RemoteView:', err));
       }
     });
+    ensureDeviceAuth()
+      .then((u) => {
+        if (!isCancelled && u) setUser(u);
+      })
+      .catch(() => {});
     return () => {
       isCancelled = true;
       unsubscribe();
@@ -68,42 +74,21 @@ export const RemoteView: React.FC = () => {
       setLoading(true);
 
       try {
-        const u = authUser || auth.currentUser || userRef.current || (await ensureDeviceAuth());
-        setUser(u);
+        const u = authUser || userRef.current || user || {
+          uid: getOrCreateDeviceCredentials().uuid,
+          displayName: getStoredNickname() || 'Guest',
+        };
+        setUser(u as any);
 
-        const exists = await checkRoomExists(cleanCode);
-        if (!exists) {
+        const room = await convex.query(api.rooms.getRoom, { code: cleanCode });
+        if (!room) {
           setLoading(false);
+          alert('Watch Together room not found or session has ended.');
           return;
-        }
-
-
-        // Write or update member node in RTDB BEFORE updating activeRoomCode
-        const memberRef = ref(database, `rooms/${cleanCode}/members/${u.uid}`);
-        const memberSnap = await get(memberRef);
-        const existingData = memberSnap.exists() ? memberSnap.val() : {};
-
-        const savedNick = getStoredNickname();
-        const effectiveNick =
-          existingData.nickname ||
-          savedNick ||
-          (u.displayName ? u.displayName.slice(0, 25) : '');
-
-        await update(memberRef, {
-          uid: u.uid,
-          joinedAt: existingData.joinedAt || Date.now(),
-          online: true,
-          lastSeen: Date.now(),
-          ...(effectiveNick ? { nickname: effectiveNick } : {}),
-        });
-
-        if (effectiveNick) {
-          saveStoredNickname(effectiveNick);
         }
 
         saveStoredRemoteRoomCode(cleanCode);
         lastAutoJoinedRoomRef.current = cleanCode;
-        setUser(u);
         setActiveRoomCode(cleanCode);
         setSearchParams({ room: cleanCode }, { replace: true });
       } catch (err: any) {
@@ -112,15 +97,15 @@ export const RemoteView: React.FC = () => {
         setLoading(false);
       }
     },
-    [setSearchParams]
+    [setSearchParams, user]
   );
 
   // Auto-join if room code parameter present in URL (only once per unique room code)
   useEffect(() => {
     const roomParam = searchParams.get('room');
-    if (user && roomParam && roomParam !== lastAutoJoinedRoomRef.current && !activeRoomCode) {
+    if (roomParam && roomParam !== lastAutoJoinedRoomRef.current && !activeRoomCode) {
       lastAutoJoinedRoomRef.current = roomParam;
-      handleJoinRoom(roomParam, user);
+      handleJoinRoom(roomParam, user || undefined);
     }
   }, [user, searchParams, activeRoomCode, handleJoinRoom]);
 
@@ -177,14 +162,6 @@ export const RemoteView: React.FC = () => {
     setActiveRoomCode(null);
     setInputCode('');
     setSearchParams({}, { replace: true });
-
-    if (currentRoom && currentUser) {
-      try {
-        await remove(ref(database, `rooms/${currentRoom}/members/${currentUser.uid}`));
-      } catch (err) {
-        console.warn('Failed to remove member node on leave:', err);
-      }
-    }
   }, [setSearchParams]);
 
   return (

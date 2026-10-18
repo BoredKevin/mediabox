@@ -41,12 +41,6 @@ export const TvSearchModal: React.FC<TvSearchModalProps> = ({
     }, 3500);
   };
 
-  const sendCommand = async (type: any, payload?: any) => {
-    if (type === 'addToQueue' && payload?.url) {
-      await handleAddUrlHost(payload.url, payload.title);
-    }
-  };
-
   const handleOpenHostSettings = () => {
     onOpenChange(false);
     setShowSettingsModal(true);
@@ -86,7 +80,9 @@ export const TvSearchModal: React.FC<TvSearchModalProps> = ({
             roomState={roomState}
             user={user}
             isHostOrAdmin={true}
-            sendCommand={sendCommand}
+            onAddToQueue={async (url, title) => {
+              await handleAddUrlHost(url, title);
+            }}
             showToast={showToast}
             embedded={true}
             onOpenHostSettings={handleOpenHostSettings}

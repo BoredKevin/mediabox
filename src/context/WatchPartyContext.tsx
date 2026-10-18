@@ -1,45 +1,36 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { User } from 'firebase/auth';
-import { ref, update, remove, get } from 'firebase/database';
-import { database } from '@/lib/firebase';
-import { getServerTime } from '@/lib/serverTime';
+import { useQuery, useMutation, useAction } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { Id } from '../../convex/_generated/dataModel';
+import { useSafePresence } from '@/hooks/useSafePresence';
 import {
   ensureDeviceAuth,
+  getOrCreateDeviceCredentials,
   getStoredTvRoomCode,
   saveStoredTvRoomCode,
 } from '@/lib/deviceAuth';
 import {
-  createRoomAtomic,
   RoomState,
   QueueItem,
   SearchResultItem,
   parseYouTubeVideoId,
   SearchSettings,
-  removeUndefinedFields,
 } from '@/lib/roomUtils';
 import { fetchVideoTitle } from '@/lib/youtube';
 import { saveSearchConfig, getEffectiveSearchSettings } from '@/lib/apiKeyStore';
-import { removeQueueItem, addToQueue } from '@/handlers/queueHandler';
-import { processMemberCommand, CommandHandlerContext } from '@/handlers/commandHandler';
-import { processSearchRequest } from '@/handlers/searchProxyHandler';
-import { transitionToNextPlayback, transitionToPreviousPlayback } from '@/handlers/playbackHandler';
-import { fetchAndFilterRadioQueue } from '@/handlers/autoplayHandler';
 import {
-  togglePlayPause,
-  toggleFullscreen,
-  toggleRoomLock,
-  toggleAutoplay,
-  toggleCountdown,
-  setLyricsOffset,
-  setLyricsWordSync,
-} from '@/handlers/roomActions';
-import { useAutoplayHistory } from './hooks/useAutoplayHistory';
-import { useRoomSubscriptions } from './hooks/useRoomSubscriptions';
-import { useDebouncedVolume } from '@/hooks/useDebouncedVolume';
+  getSavedLyricsOffset,
+  getSavedLyricsWordSync,
+  saveLyricsOffset,
+  saveLyricsWordSync,
+} from '@/lib/lyricsOffsetStore';
+import { loadApiToken } from '@/lib/apiTokenStore';
 
 interface WatchPartyContextType {
   user: User | null;
   roomCode: string | null;
+  roomId: Id<'rooms'> | null;
   roomState: RoomState | null;
   queue: QueueItem[];
   memberCount: number;
@@ -73,13 +64,22 @@ interface WatchPartyContextType {
   handleClearAllRateLimits: () => Promise<void>;
   handleStartRadioFromCurrent: () => Promise<void>;
   registerPlayerInstance?: (instance: any) => void;
+  handleSyncPlaybackCheckpoint?: (positionMs: number, durationMs?: number) => Promise<void>;
 }
 
 const WatchPartyContext = createContext<WatchPartyContextType | undefined>(undefined);
 
 export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const creds = useMemo(() => getOrCreateDeviceCredentials(), []);
+  const [user, setUser] = useState<User | null>(() => {
+    const c = getOrCreateDeviceCredentials();
+    return {
+      uid: c.uuid,
+      email: `dev_${c.uuid.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}@mediabox.tv`,
+      displayName: 'TV Host',
+    } as any;
+  });
+  const [roomCode, setRoomCode] = useState<string | null>(() => getStoredTvRoomCode());
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [creating, setCreating] = useState<boolean>(false);
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
@@ -88,32 +88,8 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Search settings
   const [searchSettings, setSearchSettings] = useState<SearchSettings>(() => getEffectiveSearchSettings());
-  const searchSettingsRef = useRef<SearchSettings>(searchSettings);
-  useEffect(() => {
-    searchSettingsRef.current = searchSettings;
-  }, [searchSettings]);
 
-  // Autoplay history management
-  const {
-    historyRef,
-    urlHistoryRef,
-    artistHistoryRef,
-    playedTracksRef,
-    pushTrack,
-    pushUrl,
-    pushArtist,
-    pushPlayedTrack,
-    popPreviousTrack,
-    clearHistory,
-  } = useAutoplayHistory();
-
-  const radioQueueRef = useRef<SearchResultItem[]>([]);
-  const lastPreviousClickRef = useRef<number>(0);
-
-  // Execution tracking & cooldowns
-  const processingRequestsRef = useRef<Set<string>>(new Set());
-  const processingCommandsRef = useRef<Set<string>>(new Set());
-  const lastFullscreenToggleRef = useRef<number>(0);
+  // Track transitions to prevent double-skips
   const isTransitioningRef = useRef<boolean>(false);
   const playerInstanceRef = useRef<any>(null);
 
@@ -121,7 +97,20 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     playerInstanceRef.current = instance;
   }, []);
 
-  // Auto-close QR code popup after 30 seconds
+  // Background non-blocking device auth
+  useEffect(() => {
+    let isCancelled = false;
+    ensureDeviceAuth()
+      .then((u) => {
+        if (!isCancelled && u) setUser(u);
+      })
+      .catch((err) => console.warn('[WatchPartyContext] Optional background auth notice:', err));
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // Auto-close QR code modal after 30 seconds
   useEffect(() => {
     if (showQrModal) {
       const timer = setTimeout(() => setShowQrModal(false), 30000);
@@ -129,96 +118,179 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [showQrModal]);
 
-  // Authenticate with persistent device credentials on mount and restore room session if active
+  // Convex Subscriptions
+  const room = useQuery(api.rooms.getRoom, roomCode ? { code: roomCode } : 'skip');
+  const rawQueue = useQuery(
+    api.queue.getQueue,
+    room?._id ? { roomId: room._id } : 'skip'
+  );
+
+  // Track newly created room to prevent query lag from clearing it
+  const createdRoomCodeRef = useRef<string | null>(null);
+
+  // Clear stale room code if query returns null (session ended or invalid code)
   useEffect(() => {
-    let isCancelled = false;
-
-    ensureDeviceAuth()
-      .then(async (u) => {
-        if (isCancelled) return;
-        setUser(u);
-
-        // Attempt to restore persistent TV room code
-        const savedCode = getStoredTvRoomCode();
-        if (savedCode) {
-          try {
-            const roomSnap = await get(ref(database, `rooms/${savedCode}/tv`));
-            if (roomSnap.exists()) {
-              const tvData = roomSnap.val();
-              // Verify room ownership matches this device's persistent UID
-              if (tvData?.uid === u.uid) {
-                console.log(`[WatchPartyContext] Reconnected to persistent TV room: ${savedCode}`);
-                if (!isCancelled) {
-                  setRoomCode(savedCode);
-                }
-                return;
-              }
-            }
-            // Room no longer exists or belongs to another TV/device: clear invalid code
-            saveStoredTvRoomCode(null);
-          } catch (err) {
-            console.warn('[WatchPartyContext] Failed to restore saved TV room:', err);
-            saveStoredTvRoomCode(null);
-          }
-        }
-      })
-      .catch((err) => console.error('Auth error in WatchPartyContext:', err));
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
-
-  const syncSearchSettingsToFirebase = useCallback(async () => {
-    const effective = getEffectiveSearchSettings();
-    setSearchSettings(effective);
-    searchSettingsRef.current = effective;
-    if (roomCode) {
-      const updatePayload: Record<string, any> = { ...effective };
-      if (!effective.proxyUrl) {
-        updatePayload.proxyUrl = null;
+    if (roomCode && room) {
+      if (createdRoomCodeRef.current === roomCode) {
+        createdRoomCodeRef.current = null;
       }
-      await update(
-        ref(database, `rooms/${roomCode}/state/searchSettings`),
-        removeUndefinedFields(updatePayload)
-      );
+    } else if (roomCode && room === null) {
+      if (createdRoomCodeRef.current === roomCode) {
+        // Query has not propagated yet for the room we just created; ignore
+        return;
+      }
+      console.log(`[WatchPartyContext] Room ${roomCode} no longer exists. Clearing saved session.`);
+      saveStoredTvRoomCode(null);
+      setRoomCode(null);
     }
-  }, [roomCode]);
+  }, [roomCode, room]);
 
-  const handleUpdateSearchSettings = useCallback(async (patch: Partial<SearchSettings>) => {
-    saveSearchConfig(patch);
-    await syncSearchSettingsToFirebase();
-  }, [syncSearchSettingsToFirebase]);
+  // TV Presence via resilient safe presence hook
+  const tvUserId = room?.tvUid || creds.uuid;
+  const presenceList = useSafePresence(
+    roomCode,
+    tvUserId,
+    10000
+  );
 
-  const handleClearAllRateLimits = useCallback(async () => {
-    if (roomCode) {
-      await remove(ref(database, `rooms/${roomCode}/searchRateLimits`));
+  const memberCount = useMemo(() => {
+    if (!roomCode) return 0;
+    if (!presenceList || presenceList.length === 0) return 1;
+    return Math.max(1, presenceList.length);
+  }, [roomCode, presenceList]);
+
+  // Convex Mutations & Actions
+  const createRoomMutation = useMutation(api.rooms.create);
+  const endRoomMutation = useMutation(api.rooms.endRoom);
+  const togglePlayPauseMutation = useMutation(api.playback.togglePlayPause);
+  const nextTrackMutation = useMutation(api.playback.nextTrack);
+  const previousTrackMutation = useMutation(api.playback.previousTrack);
+  const syncPositionCheckpointMutation = useMutation(api.playback.syncPositionCheckpoint);
+  const setVolumeMutation = useMutation(api.playback.setVolume);
+  const addQueueMutation = useMutation(api.queue.add);
+  const removeQueueMutation = useMutation(api.queue.remove);
+  const toggleFullscreenMutation = useMutation(api.rooms.toggleFullscreen);
+  const toggleLockMutation = useMutation(api.rooms.toggleLock);
+  const toggleAutoplayMutation = useMutation(api.rooms.toggleAutoplay);
+  const toggleCountdownMutation = useMutation(api.rooms.toggleCountdown);
+  const updateSettingsMutation = useMutation(api.rooms.updateSettings);
+  const fetchAndPlayNextRadioAction = useAction(api.youtube.fetchAndPlayNextRadio);
+
+  // Map Convex room to RoomState
+  const roomState: RoomState | null = useMemo(() => {
+    if (!room) return null;
+    return {
+      currentlyPlaying: room.currentlyPlaying,
+      currentlyPlayingTitle: room.currentlyPlayingTitle,
+      playback: room.playback,
+      hostUid: room.hostUid,
+      isFullscreen: room.isFullscreen,
+      isLocked: room.isLocked,
+      isAutoplay: room.isAutoplay,
+      isCountdownEnabled: room.isCountdownEnabled,
+      lyricsOffsetMs: room.lyricsOffsetMs,
+      lyricsWordSync: room.lyricsWordSync,
+      tvOnline: room.tvOnline,
+      searchSettings: {
+        maxResults: searchSettings.maxResults,
+        rateLimitCount: searchSettings.rateLimitCount,
+        rateLimitWindowMs: searchSettings.rateLimitWindowMs,
+        preferMusicVideos: room.preferMusicVideos,
+      },
+    };
+  }, [room, searchSettings]);
+
+  // Map Convex queue to QueueItem[]
+  const queue: QueueItem[] = useMemo(() => {
+    if (!rawQueue) return [];
+    return rawQueue.map((item: any) => ({
+      id: item._id,
+      url: item.url,
+      title: item.title,
+      addedBy: item.addedBy,
+      addedAt: item.createdAt,
+    }));
+  }, [rawQueue]);
+
+  // Auto-play next track if player is idle and queue has pending songs
+  useEffect(() => {
+    if (
+      room?._id &&
+      !room.currentlyPlaying &&
+      rawQueue &&
+      rawQueue.length > 0 &&
+      !isTransitioningRef.current
+    ) {
+      isTransitioningRef.current = true;
+      nextTrackMutation({ roomId: room._id })
+        .catch((e) => console.error('[WatchParty] Auto-play next error:', e))
+        .finally(() => {
+          setTimeout(() => {
+            isTransitioningRef.current = false;
+          }, 500);
+        });
     }
-  }, [roomCode]);
+  }, [room?._id, room?.currentlyPlaying, rawQueue, nextTrackMutation]);
 
-  // Resolves the next song to play, prioritizing the member queue above autoplay recommendations
-  const handlePlayNextInQueue = useCallback(async () => {
-    if (!roomCode || isTransitioningRef.current) return;
-    isTransitioningRef.current = true;
-
+  const handleCreateRoom = useCallback(async () => {
+    setCreating(true);
     try {
-      await transitionToNextPlayback({
-        roomCode,
-        getQueue: () => queueRefState.current,
-        getRoomState: () => roomStateRef.current,
-        getRadioQueue: () => radioQueueRef.current,
-        setRadioQueue: (items) => {
-          radioQueueRef.current = items;
-        },
-        history: historyRef.current,
-        urlHistory: urlHistoryRef.current,
-        artistHistory: artistHistoryRef.current,
-        pushTrack,
-        pushUrl,
-        pushArtist,
-        pushPlayedTrack,
-        popPreviousTrack,
+      const deviceCreds = getOrCreateDeviceCredentials();
+      const hostId = deviceCreds.uuid;
+
+      const effectiveSettings = getEffectiveSearchSettings();
+      setSearchSettings(effectiveSettings);
+
+      const result = await createRoomMutation({
+        hostUid: hostId,
+        tvUid: hostId,
+        tvUuid: deviceCreds.uuid,
+        preferMusicVideos: effectiveSettings.preferMusicVideos,
+        lyricsOffsetMs: getSavedLyricsOffset(),
+        lyricsWordSync: getSavedLyricsWordSync(),
       });
+
+      createdRoomCodeRef.current = result.code;
+      setRoomCode(result.code);
+      saveStoredTvRoomCode(result.code);
+    } catch (err: any) {
+      console.error('[WatchParty] Error creating room in Convex:', err);
+      alert('Failed to create Watch Together room: ' + err.message);
+    } finally {
+      setCreating(false);
+    }
+  }, [user?.uid, createRoomMutation]);
+
+  const handleEndRoom = useCallback(async () => {
+    if (!room?._id) return;
+    if (confirm('Are you sure you want to end this Watch Together session?')) {
+      const callerId = user?.uid || creds.uuid;
+      await endRoomMutation({ roomId: room._id, callerUid: callerId });
+      saveStoredTvRoomCode(null);
+      setRoomCode(null);
+      setShowQrModal(false);
+    }
+  }, [room?._id, user?.uid, creds.uuid, endRoomMutation]);
+
+  const handleTogglePlayPause = useCallback(async () => {
+    if (!room?._id) return;
+    let posMs: number | undefined;
+    if (playerInstanceRef.current && typeof playerInstanceRef.current.getCurrentTime === 'function') {
+      try {
+        posMs = Math.max(0, Math.round(playerInstanceRef.current.getCurrentTime() * 1000));
+      } catch (_) {}
+    }
+    await togglePlayPauseMutation({
+      roomId: room._id,
+      positionMs: posMs,
+    });
+  }, [room?._id, togglePlayPauseMutation]);
+
+  const handlePlayNextInQueue = useCallback(async () => {
+    if (!room?._id || isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+    try {
+      await nextTrackMutation({ roomId: room._id });
     } catch (err) {
       console.error('[WatchParty] Error transitioning to next track:', err);
     } finally {
@@ -226,56 +298,13 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isTransitioningRef.current = false;
       }, 500);
     }
-  }, [roomCode, pushArtist, pushTrack, pushUrl, pushPlayedTrack, popPreviousTrack, historyRef, urlHistoryRef, artistHistoryRef]);
+  }, [room?._id, nextTrackMutation]);
 
-  // Resolves previous song playback or restarts current track from 0
   const handlePlayPreviousTrack = useCallback(async (): Promise<boolean> => {
-    if (!roomCode || isTransitioningRef.current) return false;
-
-    const now = Date.now();
-    const playbackUpdatedAt = roomStateRef.current?.playback?.updatedAt || 0;
-    const timeSinceStart = now - playbackUpdatedAt;
-    const timeSinceLastClick = now - lastPreviousClickRef.current;
-    lastPreviousClickRef.current = now;
-
-    // If track has played for > 3s and this is a single click, restart track from 0:00
-    if (timeSinceStart > 3000 && timeSinceLastClick > 1500) {
-      await update(ref(database, `rooms/${roomCode}/state/playback`), {
-        positionMs: 0,
-        status: 'playing',
-        updatedAt: now,
-      });
-      return true;
-    }
-
+    if (!room?._id || isTransitioningRef.current) return false;
     isTransitioningRef.current = true;
     try {
-      const transitioned = await transitionToPreviousPlayback({
-        roomCode,
-        getQueue: () => queueRefState.current,
-        getRoomState: () => roomStateRef.current,
-        getRadioQueue: () => radioQueueRef.current,
-        setRadioQueue: (items) => {
-          radioQueueRef.current = items;
-        },
-        history: historyRef.current,
-        urlHistory: urlHistoryRef.current,
-        artistHistory: artistHistoryRef.current,
-        pushTrack,
-        pushUrl,
-        pushArtist,
-        pushPlayedTrack,
-        popPreviousTrack,
-      });
-
-      if (!transitioned) {
-        // Fallback: restart current track from beginning
-        await update(ref(database, `rooms/${roomCode}/state/playback`), {
-          positionMs: 0,
-          status: 'playing',
-          updatedAt: now,
-        });
-      }
+      await previousTrackMutation({ roomId: room._id });
       return true;
     } catch (err) {
       console.error('[WatchParty] Error transitioning to previous track:', err);
@@ -285,270 +314,178 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isTransitioningRef.current = false;
       }, 500);
     }
-  }, [roomCode, pushArtist, pushTrack, pushUrl, pushPlayedTrack, popPreviousTrack]);
+  }, [room?._id, previousTrackMutation]);
 
-  // Starts a fresh YTM radio queue seeded by currently playing YouTube track
-  const handleStartRadioFromCurrent = useCallback(async () => {
-    if (!roomCode) return;
-    const currentUrl = roomStateRef.current?.currentlyPlaying;
-    const seedVideoId = currentUrl ? parseYouTubeVideoId(currentUrl) : null;
-    if (!seedVideoId) {
-      console.warn('[WatchParty] Cannot start radio: No currently playing YouTube video.');
-      return;
-    }
+  const handleRemoveQueueItem = useCallback(
+    async (itemId: string) => {
+      if (!room?._id) return;
+      const callerId = room?.tvUid || creds.uuid;
+      await removeQueueMutation({
+        queueId: itemId as Id<'queue'>,
+        callerUid: callerId,
+      });
+    },
+    [room?._id, room?.tvUid, user?.uid, creds.uuid, removeQueueMutation]
+  );
 
-    try {
-      console.log(`[WatchParty] Starting fresh YTM Radio queue from seed: ${seedVideoId}`);
-      const preferMusicVideos = roomStateRef.current?.searchSettings?.preferMusicVideos ?? true;
-      const excludedVideoIds = new Set<string>([seedVideoId]);
-      for (const u of urlHistoryRef.current) {
-        const vId = parseYouTubeVideoId(u);
-        if (vId) excludedVideoIds.add(vId);
+  const handleAddUrlHost = useCallback(
+    async (urlInput: string, explicitTitle?: string): Promise<boolean> => {
+      if (!urlInput.trim() || !room?._id) return false;
+
+      const ytId = parseYouTubeVideoId(urlInput.trim());
+      if (!ytId) {
+        alert('Please enter a valid YouTube video link.');
+        return false;
       }
 
-      const freshTracks = await fetchAndFilterRadioQueue(
-        seedVideoId,
-        excludedVideoIds,
-        historyRef.current,
-        artistHistoryRef.current,
-        preferMusicVideos
-      );
+      const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
+      let videoTitle = explicitTitle?.trim() || '';
+      if (!videoTitle) {
+        const info = await fetchVideoTitle(videoUrl);
+        videoTitle = info.title || '';
+      }
 
-      radioQueueRef.current = freshTracks;
-      await update(ref(database, `rooms/${roomCode}`), {
-        radioQueue: removeUndefinedFields(freshTracks),
-        'state/isAutoplay': true,
-        updatedAt: Date.now(),
+      const callerId = room?.tvUid || creds.uuid;
+      await addQueueMutation({
+        roomId: room._id,
+        url: videoUrl,
+        title: videoTitle,
+        addedBy: callerId,
+        addedByName: 'TV Host',
       });
-      console.log(`[WatchParty] Fresh YTM Radio queue loaded (${freshTracks.length} tracks).`);
-    } catch (err) {
-      console.error('[WatchParty] Failed to start fresh radio from current track:', err);
-    }
-  }, [roomCode, urlHistoryRef, historyRef, artistHistoryRef]);
-
-  // Dispatchers for remote member commands and search requests
-  const onMemberCommand = useCallback(
-    (memberUid: string, command: any) => {
-      if (!roomCode) return;
-
-      const ctx: CommandHandlerContext = {
-        roomCode,
-        roomState: roomStateRef.current,
-        queue: queueRefState.current,
-        hostUid: hostUidRef.current,
-        tvOwnerUid: user?.uid || null,
-        admins: adminsListRef.current,
-        searchSettings: searchSettingsRef.current,
-        lastFullscreenToggleTime: lastFullscreenToggleRef.current,
-        setLastFullscreenToggleTime: (time: number) => {
-          lastFullscreenToggleRef.current = time;
-        },
-        onPlayNextInQueue: handlePlayNextInQueue,
-        onPlayPreviousTrack: handlePlayPreviousTrack,
-        onUpdateSearchSettings: handleUpdateSearchSettings,
-        onClearAllRateLimits: handleClearAllRateLimits,
-        onStartRadioFromCurrent: handleStartRadioFromCurrent,
-        onSeek: async (positionMs: number) => {
-          if (playerInstanceRef.current && typeof playerInstanceRef.current.seekTo === 'function') {
-            try {
-              playerInstanceRef.current.seekTo(positionMs / 1000, true);
-            } catch (err) {
-              console.warn('[WatchParty] onSeek playerInstance error:', err);
-            }
-          }
-          if (roomCode) {
-            await update(ref(database, `rooms/${roomCode}/state/playback`), {
-              positionMs,
-              updatedAt: getServerTime(),
-            });
-          }
-        },
-        onProcessSearchRequest: (reqId, req) => {
-          if (!roomCode) return;
-          processSearchRequest(
-            reqId,
-            req,
-            roomCode,
-            searchSettingsRef.current,
-            processingRequestsRef.current,
-            syncSearchSettingsToFirebase
-          );
-        },
-      };
-
-      processMemberCommand(memberUid, command, ctx, processingCommandsRef.current);
+      return true;
     },
-    [roomCode, user?.uid, handlePlayNextInQueue, handlePlayPreviousTrack, handleUpdateSearchSettings, handleClearAllRateLimits, syncSearchSettingsToFirebase]
+    [room?._id, room?.tvUid, user?.uid, creds.uuid, addQueueMutation]
   );
 
-  const onSearchRequest = useCallback(
-    (reqId: string, req: any) => {
-      if (!roomCode) return;
-      processSearchRequest(
-        reqId,
-        req,
-        roomCode,
-        searchSettingsRef.current,
-        processingRequestsRef.current,
-        syncSearchSettingsToFirebase
-      );
+  const handleToggleFullscreen = useCallback(async () => {
+    if (!room?._id) return;
+    await toggleFullscreenMutation({ roomId: room._id });
+  }, [room?._id, toggleFullscreenMutation]);
+
+  const handleToggleRoomLock = useCallback(async () => {
+    if (!room?._id) return;
+    const callerId = room?.tvUid || creds.uuid;
+    await toggleLockMutation({ roomId: room._id, callerUid: callerId });
+  }, [room?._id, room?.tvUid, user?.uid, creds.uuid, toggleLockMutation]);
+
+  const handleToggleAutoplay = useCallback(async () => {
+    if (!room?._id) return;
+    const callerId = room?.tvUid || creds.uuid;
+    await toggleAutoplayMutation({ roomId: room._id, callerUid: callerId });
+  }, [room?._id, room?.tvUid, user?.uid, creds.uuid, toggleAutoplayMutation]);
+
+  const handleToggleCountdown = useCallback(async () => {
+    if (!room?._id) return;
+    const callerId = room?.tvUid || creds.uuid;
+    await toggleCountdownMutation({ roomId: room._id, callerUid: callerId });
+  }, [room?._id, room?.tvUid, user?.uid, creds.uuid, toggleCountdownMutation]);
+
+  const handleSetLyricsOffset = useCallback(
+    async (offsetMs: number) => {
+      const clamped = Math.min(5000, Math.max(-5000, Math.round(offsetMs)));
+      saveLyricsOffset(clamped);
+      if (!room?._id) return;
+      const callerId = room?.tvUid || creds.uuid;
+      await updateSettingsMutation({
+        roomId: room._id,
+        callerUid: callerId,
+        settings: { lyricsOffsetMs: clamped },
+      });
     },
-    [roomCode, syncSearchSettingsToFirebase]
+    [room?._id, room?.tvUid, user?.uid, creds.uuid, updateSettingsMutation]
   );
 
-  // Hook for Firebase subscriptions
-  const {
-    roomState,
-    setRoomState,
-    queue,
-    setQueue,
-    memberCount,
-    hostUidRef,
-    adminsListRef,
-    roomStateRef,
-    queueRefState,
-  } = useRoomSubscriptions({
-    roomCode,
-    userUid: user?.uid,
-    onSearchSettingsChanged: (settings) => setSearchSettings(settings),
-    onMemberCommand,
-    onSearchRequest,
-  });
+  const handleSetLyricsWordSync = useCallback(
+    async (enabled: boolean) => {
+      saveLyricsWordSync(enabled);
+      if (!room?._id) return;
+      const callerId = room?.tvUid || creds.uuid;
+      await updateSettingsMutation({
+        roomId: room._id,
+        callerUid: callerId,
+        settings: { lyricsWordSync: enabled },
+      });
+    },
+    [room?._id, room?.tvUid, user?.uid, creds.uuid, updateSettingsMutation]
+  );
 
-  // Debounced volume adjustment
-  const { handleAdjustVolume } = useDebouncedVolume(roomCode, setRoomState);
+  const handleAdjustVolume = useCallback(
+    async (volume: number) => {
+      if (!room?._id) return;
+      await setVolumeMutation({ roomId: room._id, volume });
+    },
+    [room?._id, setVolumeMutation]
+  );
 
-  // Active queue watcher: if player is idle and queue has items, automatically start playing
-  useEffect(() => {
-    if (
-      roomCode &&
-      !roomState?.currentlyPlaying &&
-      queue.length > 0 &&
-      !isTransitioningRef.current
-    ) {
-      handlePlayNextInQueue();
-    }
-  }, [roomCode, roomState?.currentlyPlaying, queue.length, handlePlayNextInQueue]);
+  const handleSyncPlaybackCheckpoint = useCallback(
+    async (positionMs: number, durationMs?: number) => {
+      if (!room?._id) return;
+      try {
+        await syncPositionCheckpointMutation({
+          roomId: room._id,
+          positionMs,
+          durationMs,
+        });
+      } catch (e) {
+        // Ignore background transient network errors
+      }
+    },
+    [room?._id, syncPositionCheckpointMutation]
+  );
 
-  const handleCreateRoom = async () => {
-    setCreating(true);
+  const handleStartRadioFromCurrent = useCallback(async () => {
+    if (!room?._id) return;
     try {
-      const u = user || (await ensureDeviceAuth());
-      setUser(u);
-
-      const effectiveSettings = getEffectiveSearchSettings();
-      setSearchSettings(effectiveSettings);
-      searchSettingsRef.current = effectiveSettings;
-
-      const code = await createRoomAtomic(u.uid, effectiveSettings);
-      setRoomCode(code);
-      saveStoredTvRoomCode(code);
-    } catch (err: any) {
-      console.error('Error creating room:', err);
-      alert('Failed to create Watch Together room: ' + err.message);
-    } finally {
-      setCreating(false);
+      const apiToken = loadApiToken();
+      await fetchAndPlayNextRadioAction({
+        roomId: room._id,
+        apiToken: apiToken || undefined,
+      });
+    } catch (err) {
+      console.error('[WatchParty] Failed to start radio:', err);
     }
-  };
+  }, [room?._id, fetchAndPlayNextRadioAction]);
 
-  const handleEndRoom = async () => {
-    if (!roomCode) return;
-    if (confirm('Are you sure you want to end this Watch Together session?')) {
-      await remove(ref(database, `rooms/${roomCode}`));
-      saveStoredTvRoomCode(null);
-      setRoomCode(null);
-      setRoomState(null);
-      setQueue([]);
-      radioQueueRef.current = [];
-      setShowQrModal(false);
-      clearHistory();
-    }
-  };
+  const handleUpdateSearchSettings = useCallback(
+    async (patch: Partial<SearchSettings>) => {
+      saveSearchConfig(patch);
+      const effective = getEffectiveSearchSettings();
+      setSearchSettings(effective);
+      if (room?._id) {
+        const callerId = room?.tvUid || creds.uuid;
+        await updateSettingsMutation({
+          roomId: room._id,
+          callerUid: callerId,
+          settings: {
+            preferMusicVideos: effective.preferMusicVideos,
+          },
+        });
+      }
+    },
+    [room?._id, room?.tvUid, user?.uid, creds.uuid, updateSettingsMutation]
+  );
 
-  const handleTogglePlayPause = async () => {
-    if (!roomCode || !roomState) return;
-    await togglePlayPause(roomCode, roomState.playback?.status);
-  };
-
-  const handleRemoveQueueItem = async (itemId: string) => {
-    if (!roomCode) return;
-    await removeQueueItem(roomCode, itemId);
-  };
-
-  const handleAddUrlHost = async (urlInput: string, explicitTitle?: string): Promise<boolean> => {
-    if (!urlInput.trim() || !roomCode) return false;
-
-    const ytId = parseYouTubeVideoId(urlInput.trim());
-    if (!ytId) {
-      alert('Please enter a valid YouTube video link.');
-      return false;
-    }
-
-    const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
-    let videoTitle = explicitTitle?.trim() || '';
-    if (!videoTitle) {
-      const info = await fetchVideoTitle(videoUrl);
-      videoTitle = info.title || '';
-    }
-
-    const isActivelyPlaying =
-      Boolean(roomState?.currentlyPlaying) && roomState?.playback?.status === 'playing';
-
-    await addToQueue(
-      roomCode,
-      videoUrl,
-      videoTitle,
-      user?.uid || 'host',
-      isActivelyPlaying
-    );
-    return true;
-  };
+  const handleClearAllRateLimits = useCallback(async () => {
+    // Rate limits and Turnstile are managed via Convex actions
+  }, []);
 
   const remoteUrl = roomCode
     ? `${window.location.origin}/join?room=${roomCode}`
     : `${window.location.origin}/join`;
 
-  const copyRemoteLink = () => {
+  const copyRemoteLink = useCallback(() => {
     navigator.clipboard.writeText(remoteUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
-  };
-
-  const handleToggleFullscreen = async () => {
-    if (!roomCode) return;
-    await toggleFullscreen(roomCode, Boolean(roomStateRef.current?.isFullscreen), lastFullscreenToggleRef);
-  };
-
-  const handleToggleRoomLock = async () => {
-    if (!roomCode || !roomStateRef.current) return;
-    await toggleRoomLock(roomCode, Boolean(roomStateRef.current.isLocked));
-  };
-
-  const handleToggleAutoplay = async () => {
-    if (!roomCode) return;
-    await toggleAutoplay(roomCode, Boolean(roomStateRef.current?.isAutoplay));
-  };
-
-  const handleToggleCountdown = async () => {
-    if (!roomCode) return;
-    await toggleCountdown(roomCode, Boolean(roomStateRef.current?.isCountdownEnabled));
-  };
-
-  const handleSetLyricsOffset = async (offsetMs: number) => {
-    if (!roomCode) return;
-    await setLyricsOffset(roomCode, offsetMs);
-  };
-
-  const handleSetLyricsWordSync = async (enabled: boolean) => {
-    if (!roomCode) return;
-    await setLyricsWordSync(roomCode, enabled);
-  };
+  }, [remoteUrl]);
 
   return (
     <WatchPartyContext.Provider
       value={{
         user,
         roomCode,
+        roomId: room?._id || null,
         roomState,
         queue,
         memberCount,
@@ -566,7 +503,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleTogglePlayPause,
         handlePlayNextInQueue,
         handlePlayPreviousTrack,
-        canGoPrevious: playedTracksRef.current.length > 0,
+        canGoPrevious: Boolean(room && room.playedHistory && room.playedHistory.length > 0),
         handleRemoveQueueItem,
         handleAddUrlHost,
         handleToggleFullscreen,
@@ -582,6 +519,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleClearAllRateLimits,
         handleStartRadioFromCurrent,
         registerPlayerInstance,
+        handleSyncPlaybackCheckpoint,
       }}
     >
       {children}

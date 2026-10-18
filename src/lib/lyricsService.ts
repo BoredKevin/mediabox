@@ -3,6 +3,7 @@ import {
   LRCParser,
   PlainParser,
   parseQRC,
+  detectParser,
   type Lyric,
   type LyricPart,
 } from '@braccato/parsers';
@@ -15,6 +16,7 @@ export interface ResolvedLyricsData {
   sourceHref?: string;
   isFromUnison: boolean;
   syncType?: 'syllable' | 'word' | 'line' | 'unsynced';
+  rawTtml?: string;
   enrichedMeta?: {
     song: string;
     artist: string;
@@ -161,8 +163,8 @@ export async function fetchUnisonByVideoId(
     if (unisonRes.ok) {
       const json = await unisonRes.json();
       const data = json?.data;
-      if (data?.format && data?.lyrics && PARSERS[data.format]) {
-        const parser = PARSERS[data.format];
+      if (data?.lyrics) {
+        const parser = detectParser(data.lyrics);
         const parsedLyrics = parser.parse(data.lyrics, (data.duration || durationSeconds || 180) * 1000);
         if (parsedLyrics && parsedLyrics.length > 0) {
           const hasSyllables = parsedLyrics.some((l: any) => l.parts && l.parts.length > 0);
@@ -172,6 +174,7 @@ export async function fetchUnisonByVideoId(
             sourceHref: 'https://unison.boidu.dev/',
             isFromUnison: true,
             syncType: hasSyllables ? 'syllable' : 'line',
+            rawTtml: data.format === 'ttml' ? data.lyrics : undefined,
           };
         }
       }
@@ -182,15 +185,362 @@ export async function fetchUnisonByVideoId(
   return null;
 }
 
+// In-memory cache for resolved ISRCs to avoid redundant search queries
+const isrcCache = new Map<string, string[]>();
+
+// In-memory cache for Deezer track IDs used by Octave Streaming
+const deezerTrackIdCache = new Map<string, string>();
+
+function normalizeText(text: string): string {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+
 /**
- * Resolves lyrics following the Better Lyrics API & Unison direct specifications:
+ * Performs a JSONP lookup on Deezer Search API in browser environments
+ * to obtain official verified major-label ISRCs without CORS restrictions.
+ */
+function fetchDeezerJsonp(query: string, timeoutMs = 4000): Promise<string[]> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return Promise.resolve([]);
+  }
+
+  return new Promise((resolve) => {
+    const callbackName = `deezer_cb_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    let timer: any = null;
+
+    const cleanup = () => {
+      if (timer) clearTimeout(timer);
+      try {
+        delete (window as any)[callbackName];
+      } catch {}
+      const script = document.getElementById(callbackName);
+      if (script && script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+
+    (window as any)[callbackName] = (data: any) => {
+      cleanup();
+      const isrcs: string[] = [];
+      if (Array.isArray(data?.data)) {
+        for (const item of data.data) {
+          if (item?.id && !deezerTrackIdCache.has(query.toLowerCase())) {
+            deezerTrackIdCache.set(query.toLowerCase(), String(item.id));
+          }
+          if (item?.isrc && typeof item.isrc === 'string') {
+            isrcs.push(item.isrc.trim().toUpperCase());
+          }
+        }
+      }
+      resolve(isrcs);
+    };
+
+    timer = setTimeout(() => {
+      cleanup();
+      resolve([]);
+    }, timeoutMs);
+
+    const script = document.createElement('script');
+    script.id = callbackName;
+    script.src = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=5&output=jsonp&callback=${callbackName}`;
+    script.onerror = () => {
+      cleanup();
+      resolve([]);
+    };
+    document.body.appendChild(script);
+  });
+}
+
+/**
+ * Searches Deezer API for ISRCs (using JSONP in browser or direct fetch in Node/SSR).
+ */
+async function fetchDeezerIsrcs(
+  song: string,
+  artist: string,
+  signal?: AbortSignal
+): Promise<string[]> {
+  const query = `${song} ${artist}`.trim();
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    return await fetchDeezerJsonp(query);
+  }
+
+  try {
+    const res = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=5`, {
+      signal,
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const isrcs: string[] = [];
+    if (Array.isArray(data?.data)) {
+      for (const item of data.data) {
+        if (item?.id && !deezerTrackIdCache.has(query.toLowerCase())) {
+          deezerTrackIdCache.set(query.toLowerCase(), String(item.id));
+        }
+        if (item?.isrc && typeof item.isrc === 'string') {
+          isrcs.push(item.isrc.trim().toUpperCase());
+        }
+      }
+    }
+    return isrcs;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Searches MusicBrainz recordings for ISRCs (open public database with CORS enabled).
+ */
+async function fetchMusicBrainzIsrcs(
+  song: string,
+  artist: string,
+  signal?: AbortSignal
+): Promise<string[]> {
+  try {
+    const url = `https://musicbrainz.org/ws/2/recording?query=recording:%22${encodeURIComponent(song)}%22%20AND%20artist:%22${encodeURIComponent(artist)}%22&fmt=json&limit=5`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'MediaBox/1.0 (https://github.com/boredkevin/mediabox)',
+      },
+      signal,
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const isrcs: string[] = [];
+    for (const r of data?.recordings || []) {
+      if (Array.isArray(r.isrcs)) {
+        for (const isrc of r.isrcs) {
+          if (isrc && typeof isrc === 'string' && !isrcs.includes(isrc.toUpperCase())) {
+            isrcs.push(isrc.trim().toUpperCase());
+          }
+        }
+      }
+    }
+    return isrcs;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Queries LRC.red's search endpoint for matching track IDs / ISRCs.
+ */
+async function fetchLrcRedSearchIsrcs(
+  song: string,
+  artist: string,
+  duration?: number,
+  album?: string,
+  signal?: AbortSignal
+): Promise<string[]> {
+  try {
+    const url = new URL('https://lrc.red/api/v1');
+    url.searchParams.set('track', song);
+    url.searchParams.set('artist', artist);
+    if (duration && duration > 0) url.searchParams.set('duration', String(duration));
+    if (album) url.searchParams.set('album', album);
+
+    const res = await fetch(url.toString(), { signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const isrcs: string[] = [];
+    if (Array.isArray(data?.results)) {
+      for (const r of data.results) {
+        const id = r.isrc || r.id;
+        if (id && typeof id === 'string' && !isrcs.includes(id.toUpperCase())) {
+          isrcs.push(id.trim().toUpperCase());
+        }
+      }
+    }
+    return isrcs;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetches candidate ISRCs from publicly accessible music metadata APIs
+ * (LRC.red search, Deezer, and MusicBrainz).
+ */
+export async function fetchIsrcsFromPublicApis(
+  song: string,
+  artist: string,
+  duration?: number,
+  album?: string,
+  signal?: AbortSignal
+): Promise<string[]> {
+  const cacheKey = `${song}___${artist}`.toLowerCase();
+  if (isrcCache.has(cacheKey)) {
+    return isrcCache.get(cacheKey) || [];
+  }
+
+  const [deezerRes, mbRes, lrcredRes] = await Promise.allSettled([
+    fetchDeezerIsrcs(song, artist, signal),
+    fetchMusicBrainzIsrcs(song, artist, signal),
+    fetchLrcRedSearchIsrcs(song, artist, duration, album, signal),
+  ]);
+
+  const candidates: string[] = [];
+  const pushUnique = (list: any) => {
+    if (Array.isArray(list)) {
+      for (const id of list) {
+        if (id && typeof id === 'string') {
+          const upper = id.trim().toUpperCase();
+          if (!candidates.includes(upper)) {
+            candidates.push(upper);
+          }
+        }
+      }
+    }
+  };
+
+  if (deezerRes.status === 'fulfilled') pushUnique(deezerRes.value);
+  if (mbRes.status === 'fulfilled') pushUnique(mbRes.value);
+  if (lrcredRes.status === 'fulfilled') pushUnique(lrcredRes.value);
+
+  isrcCache.set(cacheKey, candidates);
+  return candidates;
+}
+
+/**
+ * Fetches and parses syllable/word-level TTML from https://lrc.red/s/{ISRC}.ttml
+ */
+async function fetchLrcRedLyrics(
+  isrc: string,
+  signal?: AbortSignal
+): Promise<{ lyrics: Lyric[]; rawTtml: string; syncType: 'syllable' | 'line' } | null> {
+  if (!isrc) return null;
+  try {
+    const res = await fetch(`https://lrc.red/s/${encodeURIComponent(isrc)}.ttml`, { signal });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text || !text.includes('<tt')) return null;
+
+    const parsed = TTMLParser.parse(text);
+    if (!parsed || parsed.length === 0) return null;
+
+    const hasSyllables = parsed.some((l) => l.parts && l.parts.length > 0);
+    return {
+      lyrics: parsed,
+      rawTtml: text,
+      syncType: hasSyllables ? 'syllable' : 'line',
+    };
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw err;
+    return null;
+  }
+}
+
+/**
+ * Parses Octave Streaming's richSync array or fallback LRC lyrics into @braccato/parsers Lyric format.
+ */
+export function parseOctaveLyrics(data: any): Lyric[] | null {
+  if (!data) return null;
+
+  if (Array.isArray(data.richSync) && data.richSync.length > 0) {
+    const lines: Lyric[] = data.richSync.map((line: any, idx: number) => {
+      const lineStartMs = Math.round((Number(line.start) || 0) * 1000);
+      const lineEndMs = Math.round((Number(line.end) || Number(line.start) || 0) * 1000);
+      const lineDurationMs = Math.max(0, lineEndMs - lineStartMs);
+
+      const parts: LyricPart[] = Array.isArray(line.words)
+        ? line.words.map((w: any) => {
+            const wStartMs = Math.round((Number(w.start) || 0) * 1000);
+            const wEndMs = Math.round((Number(w.end) || Number(w.start) || 0) * 1000);
+            return {
+              startTimeMs: wStartMs,
+              durationMs: Math.max(0, wEndMs - wStartMs),
+              words: String(w.word ?? ''),
+              isBackground: false,
+              explicit: false,
+            };
+          })
+        : [];
+
+      return {
+        key: `L${idx}`,
+        startTimeMs: lineStartMs,
+        durationMs: lineDurationMs,
+        words: String(line.text || parts.map((p) => p.words).join(' ')),
+        parts,
+      };
+    });
+
+    return lines.length > 0 ? lines : null;
+  }
+
+  if (data.lyrics && typeof data.lyrics === 'string') {
+    const durationMs = (Number(data.duration) || 180) * 1000;
+    const parsed = LRCParser.parse(data.lyrics, durationMs);
+    return parsed && parsed.length > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
+/**
+ * Attempts to fetch lyrics from Octave Streaming API.
+ * Gracefully catches CORS or Cloudflare errors without interrupting the fallback chain.
+ */
+async function fetchOctaveLyrics(
+  song: string,
+  artist: string,
+  album?: string,
+  durationSeconds?: number,
+  signal?: AbortSignal
+): Promise<{ lyrics: Lyric[]; source: string; syncType: 'syllable' | 'line' } | null> {
+  const queryKey = `${song} ${artist}`.trim().toLowerCase();
+  const trackId = deezerTrackIdCache.get(queryKey) || '';
+
+  try {
+    const res = await fetch('https://api.octavestreaming.com/api/lyrics', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: '*/*',
+      },
+      body: JSON.stringify({
+        id: trackId,
+        title: song,
+        artist,
+        album: album || '',
+        duration: durationSeconds || 0,
+      }),
+      signal,
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.success) return null;
+
+    const parsed = parseOctaveLyrics(data);
+    if (!parsed || parsed.length === 0) return null;
+
+    const hasSyllables = parsed.some((l) => l.parts && l.parts.length > 0);
+    return {
+      lyrics: parsed,
+      source: data.source || 'Octave Streaming',
+      syncType: hasSyllables ? 'syllable' : 'line',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves lyrics following the multi-provider hierarchy:
  * Stage 1: Unison by YouTube videoId (?v=...)
- * Stage 2: Metadata enrichment (acquiring all 4 parameters: s, a, al, d)
+ * Stage 2: Metadata enrichment (acquiring all 4 parameters: s, a, al, d via iTunes)
  * Stage 3: Better Lyrics main endpoint (GET /getLyrics?s={s}&a={a}&al={al}&d={d})
  * Stage 4: Unison by song & artist (?song={s}&artist={a})
- * Stage 5: Binimum syllable-synced TTML (free catalog provider)
- * Stage 6: Better Lyrics /qq/getLyrics (QRC) & /kugou/getLyrics (LRC)
- * Stage 7: LRCLib (custom header)
+ * Stage 5: LRC.red syllable/word-synced TTML by ISRC (Credits.fm, Deezer, MusicBrainz, LRC.red search)
+ * Stage 6: Octave Streaming lyrics API (richSync / LRC)
+ * Stage 7: Better Lyrics /qq/getLyrics (QRC) & /kugou/getLyrics (LRC)
+ * Stage 8: LRCLib (custom header)
  */
 export async function resolveLyrics(params: {
   videoId: string;
@@ -277,6 +627,7 @@ export async function resolveLyrics(params: {
               sourceHref: 'https://betterlyrics.org/',
               isFromUnison: false,
               syncType: hasSyllables ? 'syllable' : 'line',
+              rawTtml: json.ttml,
               enrichedMeta,
             };
             lyricsCache.set(cacheKey, resolved);
@@ -305,8 +656,8 @@ export async function resolveLyrics(params: {
     if (unisonRes.ok) {
       const json = await unisonRes.json();
       const data = json?.data;
-      if (data?.format && data?.lyrics && PARSERS[data.format]) {
-        const parser = PARSERS[data.format];
+      if (data?.lyrics) {
+        const parser = detectParser(data.lyrics);
         const parsedLyrics = parser.parse(data.lyrics, (data.duration || durationSeconds || 180) * 1000);
         if (parsedLyrics && parsedLyrics.length > 0) {
           const hasSyllables = parsedLyrics.some((l: any) => l.parts && l.parts.length > 0);
@@ -316,6 +667,7 @@ export async function resolveLyrics(params: {
             sourceHref: 'https://unison.boidu.dev/',
             isFromUnison: true,
             syncType: hasSyllables ? 'syllable' : 'line',
+            rawTtml: data.format === 'ttml' ? data.lyrics : undefined,
             enrichedMeta,
           };
           lyricsCache.set(cacheKey, resolved);
@@ -328,42 +680,24 @@ export async function resolveLyrics(params: {
   }
 
   // ------------------------------------------------------------------------
-  // STAGE 5: Binimum Syllable TTML Provider (free, no API key required)
+  // STAGE 5: LRC.red Syllable/Word TTML by ISRC (Credits.fm, Deezer, MusicBrainz, LRC.red search)
   // ------------------------------------------------------------------------
   try {
-    const binimumUrl = new URL('https://lyrics-api.binimum.org/');
-    binimumUrl.searchParams.set('track', song);
-    binimumUrl.searchParams.set('artist', artist);
-    if (durationSeconds > 0) {
-      binimumUrl.searchParams.set('duration', String(durationSeconds));
-    }
-    if (album) {
-      binimumUrl.searchParams.set('album', album);
-    }
-
-    const binimumRes = await fetch(binimumUrl.toString(), { signal });
-    if (binimumRes.ok) {
-      const json = await binimumRes.json();
-      const match = json?.results?.[0];
-      if (match?.lyricsUrl) {
-        const ttmlRes = await fetch(match.lyricsUrl, { signal });
-        if (ttmlRes.ok) {
-          const ttmlText = await ttmlRes.text();
-          const parsedLyrics = TTMLParser.parse(ttmlText);
-          if (parsedLyrics && parsedLyrics.length > 0) {
-            const hasSyllables = parsedLyrics.some((l) => l.parts && l.parts.length > 0);
-            const resolved: ResolvedLyricsData = {
-              lyrics: parsedLyrics,
-              source: 'BiniLyrics',
-              sourceHref: 'https://lyrics-api.binimum.org/',
-              isFromUnison: false,
-              syncType: hasSyllables ? 'syllable' : 'line',
-              enrichedMeta,
-            };
-            lyricsCache.set(cacheKey, resolved);
-            return resolved;
-          }
-        }
+    const candidateIsrcs = await fetchIsrcsFromPublicApis(song, artist, durationSeconds, album, signal);
+    for (const isrc of candidateIsrcs.slice(0, 5)) {
+      const lrcResult = await fetchLrcRedLyrics(isrc, signal);
+      if (lrcResult) {
+        const resolved: ResolvedLyricsData = {
+          lyrics: lrcResult.lyrics,
+          source: 'LRC.red',
+          sourceHref: `https://lrc.red/s/${isrc}.ttml`,
+          isFromUnison: false,
+          syncType: lrcResult.syncType,
+          rawTtml: lrcResult.rawTtml,
+          enrichedMeta,
+        };
+        lyricsCache.set(cacheKey, resolved);
+        return resolved;
       }
     }
   } catch (err: any) {
@@ -371,7 +705,28 @@ export async function resolveLyrics(params: {
   }
 
   // ------------------------------------------------------------------------
-  // STAGE 6: Better Lyrics Alternative Providers (/qq/getLyrics & /kugou/getLyrics)
+  // STAGE 6: Octave Streaming Lyrics (richSync syllable & line synced)
+  // ------------------------------------------------------------------------
+  try {
+    const octaveResult = await fetchOctaveLyrics(song, artist, album, durationSeconds, signal);
+    if (octaveResult) {
+      const resolved: ResolvedLyricsData = {
+        lyrics: octaveResult.lyrics,
+        source: octaveResult.source,
+        sourceHref: 'https://octavestreaming.com/',
+        isFromUnison: false,
+        syncType: octaveResult.syncType,
+        enrichedMeta,
+      };
+      lyricsCache.set(cacheKey, resolved);
+      return resolved;
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') return null;
+  }
+
+  // ------------------------------------------------------------------------
+  // STAGE 7: Better Lyrics Alternative Providers (/qq/getLyrics & /kugou/getLyrics)
   // ------------------------------------------------------------------------
   if (durationSeconds > 0) {
     // 6A. QQ Music QRC
@@ -386,7 +741,8 @@ export async function resolveLyrics(params: {
       if (qqRes.ok) {
         const json = await qqRes.json();
         if (json?.lyrics) {
-          const parsedLyrics = parseQRC(json.lyrics, durationSeconds * 1000, { title: song, artist });
+          const parser = detectParser(json.lyrics);
+          const parsedLyrics = parser.parse(json.lyrics, durationSeconds * 1000);
           if (parsedLyrics && parsedLyrics.length > 0) {
             const hasSyllables = parsedLyrics.some((l) => l.parts && l.parts.length > 0);
             const resolved: ResolvedLyricsData = {
@@ -439,7 +795,7 @@ export async function resolveLyrics(params: {
   }
 
   // ------------------------------------------------------------------------
-  // STAGE 7: LRCLib (with custom User-Agent / Lrclib-Client header)
+  // STAGE 8: LRCLib (with custom User-Agent / Lrclib-Client header)
   // ------------------------------------------------------------------------
   try {
     const lrclibUrl = new URL('https://lrclib.net/api/get');

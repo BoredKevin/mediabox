@@ -19,12 +19,13 @@ import {
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState } from '@/lib/roomUtils';
 import { saveLyricsOffset } from '@/lib/lyricsOffsetStore';
+import { RemoteActions } from '../hooks/useRemoteRoom';
 
 interface HostSettingsRoomTabProps {
   roomCode: string;
   roomState: RoomState | null;
   queueLength: number;
-  sendCommand: (type: any, payload?: any) => Promise<void>;
+  actions: RemoteActions;
   handleClearQueueAdmin: () => void;
   handleToggleRoomLockAdmin: () => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -34,7 +35,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
   roomCode,
   roomState,
   queueLength,
-  sendCommand,
+  actions,
   handleClearQueueAdmin,
   handleToggleRoomLockAdmin,
   showToast,
@@ -118,7 +119,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
           <Button
             variant={roomState?.isCountdownEnabled ? 'default' : 'outline'}
             size="sm"
-            onClick={() => sendCommand('toggleCountdown')}
+            onClick={() => actions.toggleCountdown()}
             className="text-xs font-mono uppercase h-7 cursor-pointer"
           >
             {roomState?.isCountdownEnabled ? t('remote.countdownOn') : t('remote.countdownOff')}
@@ -141,7 +142,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
           <Button
             variant={roomState?.isAutoplay ? 'default' : 'outline'}
             size="sm"
-            onClick={() => sendCommand('toggleAutoplay')}
+            onClick={() => actions.toggleAutoplay()}
             className="text-xs font-mono uppercase h-7 cursor-pointer"
           >
             {roomState?.isAutoplay ? t('remote.autoplayOn') : t('remote.autoplayOff')}
@@ -164,7 +165,11 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
           <Button
             variant={roomState?.searchSettings?.preferMusicVideos ? 'default' : 'outline'}
             size="sm"
-            onClick={() => sendCommand('togglePreferMusicVideos')}
+            onClick={() =>
+              actions.updateSettings({
+                preferMusicVideos: !(roomState?.searchSettings?.preferMusicVideos ?? true),
+              })
+            }
             className="text-xs font-mono uppercase h-7 cursor-pointer"
           >
             {roomState?.searchSettings?.preferMusicVideos ? t('remote.autoplayOn') : t('remote.autoplayOff')}
@@ -194,7 +199,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
             size="sm"
             onClick={() => {
               const current = roomState?.lyricsWordSync ?? false;
-              sendCommand('setLyricsWordSync', { enabled: !current });
+              actions.updateSettings({ lyricsWordSync: !current });
             }}
             className="text-xs font-mono uppercase h-7 cursor-pointer"
           >
@@ -232,7 +237,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
                 const current = roomState?.lyricsOffsetMs ?? 0;
                 const next = Math.max(-5000, current - 500);
                 saveLyricsOffset(next);
-                sendCommand('setLyricsOffset', { offsetMs: next });
+                actions.updateSettings({ lyricsOffsetMs: next });
               }}
               className="text-[11px] font-mono h-7 px-1 cursor-pointer"
             >
@@ -245,7 +250,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
                 const current = roomState?.lyricsOffsetMs ?? 0;
                 const next = Math.max(-5000, current - 100);
                 saveLyricsOffset(next);
-                sendCommand('setLyricsOffset', { offsetMs: next });
+                actions.updateSettings({ lyricsOffsetMs: next });
               }}
               className="text-[11px] font-mono h-7 px-1 cursor-pointer"
             >
@@ -256,7 +261,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
               size="sm"
               onClick={() => {
                 saveLyricsOffset(0);
-                sendCommand('setLyricsOffset', { offsetMs: 0 });
+                actions.updateSettings({ lyricsOffsetMs: 0 });
               }}
               className="text-[11px] font-mono h-7 px-1 flex items-center justify-center gap-0.5 cursor-pointer"
             >
@@ -270,7 +275,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
                 const current = roomState?.lyricsOffsetMs ?? 0;
                 const next = Math.min(5000, current + 100);
                 saveLyricsOffset(next);
-                sendCommand('setLyricsOffset', { offsetMs: next });
+                actions.updateSettings({ lyricsOffsetMs: next });
               }}
               className="text-[11px] font-mono h-7 px-1 cursor-pointer"
             >
@@ -283,7 +288,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
                 const current = roomState?.lyricsOffsetMs ?? 0;
                 const next = Math.min(5000, current + 500);
                 saveLyricsOffset(next);
-                sendCommand('setLyricsOffset', { offsetMs: next });
+                actions.updateSettings({ lyricsOffsetMs: next });
               }}
               className="text-[11px] font-mono h-7 px-1 cursor-pointer"
             >
@@ -299,7 +304,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
               step={50}
               onValueChange={(val) => {
                 saveLyricsOffset(val[0]);
-                sendCommand('setLyricsOffset', { offsetMs: val[0] });
+                actions.updateSettings({ lyricsOffsetMs: val[0] });
               }}
               className="w-full cursor-pointer py-1"
             />
@@ -323,33 +328,33 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
             )}
             <div>
               <p className="text-xs font-semibold text-foreground">
-                {roomState?.isLocked ? t('remote.unlockRoomBtn') : t('remote.lockRoomBtn')}
+                {roomState?.isLocked ? t('watchParty.unlockBtn') : t('watchParty.lockBtn')}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                Restrict queue and player controls to host/admins.
+                {t('remote.lockRoomDesc')}
               </p>
             </div>
           </div>
           <Button
-            variant={roomState?.isLocked ? 'default' : 'outline'}
+            variant={roomState?.isLocked ? 'destructive' : 'outline'}
             size="sm"
             onClick={handleToggleRoomLockAdmin}
             className="text-xs font-mono uppercase h-7 cursor-pointer"
           >
-            {roomState?.isLocked ? t('remote.unlockRoomBtn') : t('remote.lockRoomBtn')}
+            {roomState?.isLocked ? t('remote.roomLocked') : t('remote.roomUnlocked')}
           </Button>
         </div>
 
-        {/* Clear Queue */}
+        {/* Clear Queue Button */}
         <div className="flex items-center justify-between p-3 bg-destructive/5 border border-destructive/20">
           <div className="flex items-center gap-2.5">
             <Trash2 className="w-4 h-4 text-destructive" />
             <div>
               <p className="text-xs font-semibold text-foreground">
-                {t('remote.clearQueueBtn')} ({queueLength})
+                {t('remote.clearQueueBtn')}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                {t('remote.clearQueueConfirm')}
+                {t('remote.clearQueueWarning')}
               </p>
             </div>
           </div>

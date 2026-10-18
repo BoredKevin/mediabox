@@ -1,10 +1,7 @@
-import { ref, runTransaction, get } from 'firebase/database';
-import { database } from './firebase';
-import { getSavedLyricsOffset, getSavedLyricsWordSync } from './lyricsOffsetStore';
-
 export interface PlaybackState {
-  status: 'playing' | 'paused';
+  status: 'playing' | 'paused' | 'loading';
   positionMs: number;
+  durationMs?: number;
   volume: number;
   updatedAt: number;
 }
@@ -14,11 +11,10 @@ export interface SearchSettings {
   rateLimitCount: number;
   rateLimitWindowMs: number;
   preferMusicVideos?: boolean;
-  isProxyConfigured?: boolean;
-  proxyUrl?: string;
 }
 
 export interface RoomState {
+  roomId?: string;
   currentlyPlaying: string;
   currentlyPlayingTitle?: string;
   playback: PlaybackState;
@@ -30,73 +26,17 @@ export interface RoomState {
   searchSettings?: SearchSettings;
   lyricsOffsetMs?: number;
   lyricsWordSync?: boolean;
+  preferMusicVideos?: boolean;
+  tvOnline?: boolean;
 }
 
 export interface QueueItem {
   id: string;
   url: string;
   addedBy: string;
+  addedByName?: string;
   addedAt: number;
   title?: string;
-}
-
-export interface MemberCommand {
-  type:
-    | 'play'
-    | 'pause'
-    | 'addToQueue'
-    | 'removeFromQueue'
-    | 'adjustVolume'
-    | 'forceSkip'
-    | 'forcePrevious'
-    | 'previousTrack'
-    | 'reorderQueue'
-    | 'forceRemoveFromQueue'
-    | 'kickMember'
-    | 'toggleFullscreen'
-    | 'clearQueue'
-    | 'toggleRoomLock'
-    | 'toggleAutoplay'
-    | 'startRadio'
-    | 'startRadioFromCurrent'
-    | 'toggleCountdown'
-    | 'togglePreferMusicVideos'
-    | 'searchYouTube'
-    | 'manageApiKeys'
-    | 'setYtProxy'
-    | 'setProxy'
-    | 'setLyricsOffset'
-    | 'setLyricsWordSync'
-    | 'seek';
-  createdAt: number;
-  payload?: {
-    url?: string;
-    title?: string;
-    volume?: number;
-    positionMs?: number;
-    itemId?: string;
-    queueOrder?: string[];
-    targetUid?: string;
-    purgeQueue?: boolean;
-    query?: string;
-    offsetMs?: number;
-    enabled?: boolean;
-    // For setYtProxy:
-    proxyUrl?: string;
-    proxyToken?: string;
-    // For manageApiKeys (settings only, no key CRUD):
-    action?: 'setMaxResults' | 'setRateLimit' | 'setPreferMusicVideos' | 'clearRateLimits' | 'setYtProxy';
-    maxResults?: number;
-    rateLimitCount?: number;
-    rateLimitWindowMs?: number;
-    preferMusicVideos?: boolean;
-  };
-}
-
-export interface SearchRequest {
-  requestedBy: string;
-  query: string;
-  createdAt: number;
 }
 
 export interface SearchResultItem {
@@ -108,110 +48,8 @@ export interface SearchResultItem {
   durationSeconds?: number;
 }
 
-export interface SearchResult {
-  results: SearchResultItem[];
-  error: string | null;
-  respondedAt: number;
-}
-
-export interface MemberRecord {
-  uid: string;
-  joinedAt: number;
-  nickname?: string;
-  command?: MemberCommand | null;
-  online?: boolean;
-  lastSeen?: number;
-}
-
-export interface RoomData {
-  tv: {
-    uid: string;
-    createdAt: number;
-    online?: boolean;
-    lastSeen?: number;
-  };
-  state: RoomState;
-  queue: Record<string, QueueItem>;
-  members: Record<string, MemberRecord>;
-}
-
 export const generateRoomCode = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
-export const removeUndefinedFields = <T>(val: T): T => {
-  if (val === null || val === undefined) {
-    return val;
-  }
-  if (Array.isArray(val)) {
-    return val.map(removeUndefinedFields) as unknown as T;
-  }
-  if (typeof val === 'object') {
-    const cleaned: Record<string, any> = {};
-    for (const [key, value] of Object.entries(val)) {
-      if (value !== undefined) {
-        cleaned[key] = removeUndefinedFields(value);
-      }
-    }
-    return cleaned as T;
-  }
-  return val;
-};
-
-export const createRoomAtomic = async (
-  tvUid: string,
-  initialSearchSettings?: SearchSettings
-): Promise<string> => {
-  let attempts = 0;
-  const maxAttempts = 5;
-
-  while (attempts < maxAttempts) {
-    attempts++;
-    const code = generateRoomCode();
-    const roomRef = ref(database, `rooms/${code}`);
-
-    const result = await runTransaction(roomRef, (currentData) => {
-      if (currentData !== null) {
-        // Room code already exists; abort transaction so it returns committed: false
-        return;
-      }
-      return removeUndefinedFields({
-        tv: {
-          uid: tvUid,
-          createdAt: Date.now(),
-          online: true,
-          lastSeen: Date.now(),
-        },
-        state: {
-          currentlyPlaying: '',
-          lyricsOffsetMs: getSavedLyricsOffset(),
-          lyricsWordSync: getSavedLyricsWordSync(),
-          playback: {
-            status: 'playing',
-            positionMs: 0,
-            volume: 80,
-            updatedAt: Date.now(),
-          },
-          ...(initialSearchSettings ? { searchSettings: initialSearchSettings } : {}),
-        },
-        queue: {},
-        members: {},
-      });
-    });
-
-    if (result.committed) {
-      return code;
-    }
-  }
-
-  throw new Error('Failed to generate a unique room code after multiple attempts.');
-};
-
-export const checkRoomExists = async (roomCode: string): Promise<boolean> => {
-  if (!roomCode || roomCode.length !== 6) return false;
-  const roomRef = ref(database, `rooms/${roomCode}/tv/uid`);
-  const snapshot = await get(roomRef);
-  return snapshot.exists();
 };
 
 export const parseYouTubeVideoId = (url: string): string | null => {
@@ -224,3 +62,24 @@ export const parseYouTubeVideoId = (url: string): string | null => {
   const match = trimmed.match(regExp);
   return match ? match[1] : null;
 };
+
+/**
+ * Calculates current playback position in seconds via dead-reckoning.
+ * When playing: (positionMs + elapsed since updatedAt) / 1000
+ * When paused: positionMs / 1000
+ */
+export const calculatePlaybackCurrentTimeSec = (playback?: PlaybackState | null): number => {
+  if (!playback) return 0;
+  const baseSec = (playback.positionMs || 0) / 1000;
+  if (playback.status === 'playing') {
+    const now = Date.now();
+    const elapsedSec = Math.max(0, (now - (playback.updatedAt || now)) / 1000);
+    const totalSec = baseSec + elapsedSec;
+    if (typeof playback.durationMs === 'number' && playback.durationMs > 0) {
+      return Math.min(totalSec, playback.durationMs / 1000);
+    }
+    return totalSec;
+  }
+  return baseSec;
+};
+

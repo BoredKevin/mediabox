@@ -1,5 +1,4 @@
 import { SearchSettings } from './roomUtils';
-import { loadProxyConfig, isProxyConfigured } from './proxyConfig';
 
 const CONFIG_KEY = 'mediabox_search_config';
 
@@ -47,17 +46,14 @@ export const saveSearchConfig = (config: Partial<SearchConfig>): SearchConfig =>
 };
 
 /**
- * Derives current SearchSettings for publishing to Firebase RTDB.
+ * Derives current SearchSettings.
  */
 export const getEffectiveSearchSettings = (): SearchSettings => {
   const config = loadSearchConfig();
-  const proxyCfg = loadProxyConfig();
   return {
     maxResults: config.maxResults,
     rateLimitCount: config.rateLimitCount,
     rateLimitWindowMs: config.rateLimitWindowMs,
     preferMusicVideos: config.preferMusicVideos ?? true,
-    isProxyConfigured: isProxyConfigured(proxyCfg),
-    ...(proxyCfg.proxyUrl ? { proxyUrl: proxyCfg.proxyUrl } : {}),
   };
 };

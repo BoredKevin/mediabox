@@ -1,7 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ref, onValue, off } from 'firebase/database';
-import { User as FirebaseUser } from 'firebase/auth';
-import { database } from '@/lib/firebase';
 import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,12 +7,12 @@ import {
   Search,
   Plus,
   Loader2,
-  AlertCircle,
-  Key,
   X,
+  ShieldCheck,
 } from 'lucide-react';
 import { RoomState, SearchResultItem } from '@/lib/roomUtils';
 import { fetchVideoTitle, parseYouTubeVideoId, VideoInfo } from '@/lib/youtube';
+import { TurnstileWidget, TurnstileRef } from '@/components/common/TurnstileWidget';
 
 import { useYouTubeSearch } from './search/useYouTubeSearch';
 import { LinkPreviewCard } from './search/LinkPreviewCard';
@@ -24,12 +21,13 @@ import { SearchResultsGrid } from './search/SearchResultsGrid';
 interface SearchPanelProps {
   roomCode: string;
   roomState: RoomState | null;
-  user: FirebaseUser | null;
+  user: any;
   isHostOrAdmin: boolean;
-  sendCommand: (type: any, payload?: any) => Promise<void>;
+  onAddToQueue: (url: string, title?: string) => Promise<void>;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   embedded?: boolean;
   onOpenHostSettings?: () => void;
+  queue?: any[];
 }
 
 export const SearchPanel: React.FC<SearchPanelProps> = ({
@@ -37,58 +35,54 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   roomState,
   user,
   isHostOrAdmin,
-  sendCommand,
+  onAddToQueue,
   showToast,
   embedded = false,
-  onOpenHostSettings,
+  queue = [],
 }) => {
   const { t } = useTranslation();
-  const searchSettings = roomState?.searchSettings;
   const isLocked = Boolean(roomState?.isLocked) && !isHostOrAdmin;
 
   const [inputValue, setInputValue] = useState('');
   const [isSubmittingLink, setIsSubmittingLink] = useState(false);
   const [addedVideoIds, setAddedVideoIds] = useState<Set<string>>(new Set());
+  const turnstileRef = useRef<TurnstileRef>(null);
 
-  // Search query lifecycle
+  // Search query lifecycle via Convex action with clearance check & Turnstile
   const {
     isSearching,
     searchError,
     searchResults,
     performSearch,
     setSearchError,
+    isCleared,
   } = useYouTubeSearch({
     roomCode,
     user,
-    isProxyConfigured: Boolean(searchSettings?.isProxyConfigured),
+    preferMusicVideos: roomState?.preferMusicVideos ?? true,
+    turnstileRef,
   });
 
   // Keep addedVideoIds synchronized with current room queue
   useEffect(() => {
-    if (!roomCode) return;
-    const queueRefNode = ref(database, `rooms/${roomCode}/queue`);
-    const unsub = onValue(queueRefNode, (snapshot) => {
-      if (!snapshot.exists()) return;
-      const val = snapshot.val();
-      const ids = new Set<string>();
-      Object.values(val).forEach((item: any) => {
-        if (item?.url) {
-          ids.add(item.url);
-          const ytId = parseYouTubeVideoId(item.url);
-          if (ytId) ids.add(ytId);
-        }
-        if (item?.id) {
-          ids.add(item.id);
-        }
-      });
-      setAddedVideoIds((prev) => {
-        const next = new Set(prev);
-        ids.forEach((id) => next.add(id));
-        return next;
-      });
+    if (!queue || !Array.isArray(queue)) return;
+    const ids = new Set<string>();
+    queue.forEach((item: any) => {
+      if (item?.url) {
+        ids.add(item.url);
+        const ytId = parseYouTubeVideoId(item.url);
+        if (ytId) ids.add(ytId);
+      }
+      if (item?.id) {
+        ids.add(item.id);
+      }
     });
-    return () => off(queueRefNode);
-  }, [roomCode]);
+    setAddedVideoIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }, [queue]);
 
   // Detected link preview state
   const [previewInfo, setPreviewInfo] = useState<{
@@ -168,7 +162,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     if (currentValue !== inputValue) {
       setInputValue(currentValue);
     }
-    if (!cleanInput || !user || !roomCode || isLocked) return;
+    if (!cleanInput || !roomCode || isLocked) return;
 
     const currentYtId = parseYouTubeVideoId(cleanInput);
 
@@ -178,7 +172,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       try {
         const fullUrl = `https://www.youtube.com/watch?v=${currentYtId}`;
         const title = previewInfo?.info?.title || (await fetchVideoTitle(fullUrl)).title;
-        await sendCommand('addToQueue', { url: fullUrl, title });
+        await onAddToQueue(fullUrl, title);
         setInputValue('');
         if (inputRef.current) inputRef.current.value = '';
         setPreviewInfo(null);
@@ -211,17 +205,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       if (result.url) next.add(result.url);
       return next;
     });
-    sendCommand('addToQueue', { url: result.url, title: result.title });
+    onAddToQueue(result.url, result.title);
   };
 
   const handleAddDirectPreview = async () => {
     if (!previewInfo || isLocked) return;
     setIsSubmittingLink(true);
     try {
-      await sendCommand('addToQueue', {
-        url: previewInfo.url,
-        title: previewInfo.info?.title,
-      });
+      await onAddToQueue(previewInfo.url, previewInfo.info?.title);
       setInputValue('');
       if (inputRef.current) inputRef.current.value = '';
       setPreviewInfo(null);
@@ -235,6 +226,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   const content = (
     <div className="flex flex-col gap-4">
+      {/* Invisible Cloudflare Turnstile Verification Widget */}
+      <TurnstileWidget ref={turnstileRef} />
+
       {/* Search / Paste URL Form */}
       <form onSubmit={handleFormSubmit} className="flex flex-col sm:flex-row items-stretch gap-2">
         <div className="relative flex-1 min-w-0">
@@ -256,7 +250,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             placeholder={
               isLocked
                 ? t('remote.searchQueueLocked')
-                : 'Search YouTube or paste video link / URL...'
+                : 'Search YouTube Music or paste video link / URL...'
             }
             className="pl-10 pr-9 text-xs sm:text-sm h-11 w-full"
           />
@@ -269,7 +263,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 setPreviewInfo(null);
                 setSearchError(null);
               }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors cursor-pointer"
               title="Clear"
             >
               <X className="w-4 h-4" />
@@ -303,6 +297,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         </Button>
       </form>
 
+      {/* TV Clearance Active indicator */}
+      {isCleared && (
+        <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-mono text-primary bg-primary/10 border border-primary/30 rounded-[var(--radius)]">
+          <ShieldCheck className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+          <span>Clearance Active</span>
+        </div>
+      )}
+
       {/* Detected Link Preview */}
       {previewInfo && (
         <LinkPreviewCard
@@ -311,33 +313,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           isSubmittingLink={isSubmittingLink}
           onAdd={handleAddDirectPreview}
         />
-      )}
-
-      {/* No Key / Proxy Contextual Banner */}
-      {!searchSettings?.isProxyConfigured && (
-        <div className="p-3 bg-muted/20 border border-amber-800/60 text-xs flex flex-col gap-2 rounded-[var(--radius)]">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-bold flex items-center gap-1.5 text-amber-400">
-              <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-              <span>{t('remote.noTvConnected')}</span>
-            </span>
-            {isHostOrAdmin && onOpenHostSettings && (
-              <Button
-                variant="outline"
-                size="sm"
-                chamfer="top-right"
-                onClick={onOpenHostSettings}
-                className="h-6 px-2 text-[10px] font-bold uppercase tracking-wider text-amber-400 border-amber-500/50 hover:bg-amber-950/40"
-              >
-                <Key className="w-3 h-3 mr-1" />
-                {t('remote.pairTvKey')}
-              </Button>
-            )}
-          </div>
-          <p className="text-[11px] text-amber-300/80 leading-relaxed">
-            {t('remote.noTvConnectedDesc')}
-          </p>
-        </div>
       )}
 
       {/* Search Error Message */}

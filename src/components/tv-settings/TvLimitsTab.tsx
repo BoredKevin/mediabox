@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ref, onValue, off } from 'firebase/database';
-import { database } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Gauge, Check, RotateCcw } from 'lucide-react';
+import { Gauge, Check, ShieldCheck } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { SearchSettings } from '@/lib/roomUtils';
 
@@ -14,17 +12,9 @@ interface TvLimitsTabProps {
   onClearAllRateLimits: () => Promise<void>;
 }
 
-interface RateLimitEntry {
-  uid: string;
-  count: number;
-  windowStart: number;
-}
-
 export const TvLimitsTab: React.FC<TvLimitsTabProps> = ({
-  roomCode,
   searchSettings,
   onUpdateSearchSettings,
-  onClearAllRateLimits,
 }) => {
   const { t } = useTranslation();
 
@@ -38,37 +28,12 @@ export const TvLimitsTab: React.FC<TvLimitsTabProps> = ({
     searchSettings.maxResults || 25
   );
   const [rateLimitSaved, setRateLimitSaved] = useState(false);
-  const [activeRateLimits, setActiveRateLimits] = useState<RateLimitEntry[]>([]);
 
   useEffect(() => {
     setRateLimitCountInput(searchSettings.rateLimitCount || 10);
     setRateLimitWindowInput(searchSettings.rateLimitWindowMs || 300000);
     setMaxResultsInput(searchSettings.maxResults || 25);
   }, [searchSettings]);
-
-  // Subscribe to RTDB searchRateLimits
-  useEffect(() => {
-    if (!roomCode) return;
-
-    const rateLimitsRef = ref(database, `rooms/${roomCode}/searchRateLimits`);
-    const unsub = onValue(rateLimitsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        const entries: RateLimitEntry[] = Object.entries(val).map(
-          ([uid, item]: [string, any]) => ({
-            uid,
-            count: item?.count || 0,
-            windowStart: item?.windowStart || Date.now(),
-          })
-        );
-        setActiveRateLimits(entries);
-      } else {
-        setActiveRateLimits([]);
-      }
-    });
-
-    return () => off(rateLimitsRef);
-  }, [roomCode]);
 
   const handleSaveRateLimits = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,10 +63,9 @@ export const TvLimitsTab: React.FC<TvLimitsTabProps> = ({
               className="text-xs font-mono h-9"
             />
           </div>
-
           <div>
             <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground block mb-1">
-              Max Searches
+              Max Requests / Window
             </label>
             <Input
               type="number"
@@ -116,7 +80,7 @@ export const TvLimitsTab: React.FC<TvLimitsTabProps> = ({
 
         <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground block mb-1">
-            {t('tvSettings.maxResults')} (1 - 50)
+            Max Search Results
           </label>
           <Input
             type="number"
@@ -148,46 +112,15 @@ export const TvLimitsTab: React.FC<TvLimitsTabProps> = ({
         </Button>
       </form>
 
-      {/* Active Rate Limits List */}
-      <div className="space-y-2 pt-2 border-t border-border">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            {t('tvSettings.activeRateLimits')} ({activeRateLimits.length})
-          </span>
-          {activeRateLimits.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClearAllRateLimits}
-              className="text-[10px] font-mono uppercase tracking-wider h-6 px-2 text-destructive border-destructive/40 hover:bg-destructive/10 cursor-pointer"
-            >
-              <RotateCcw className="w-3 h-3 mr-1" />
-              <span>{t('tvSettings.clearRateLimits')}</span>
-            </Button>
-          )}
-        </div>
-
-        {activeRateLimits.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60 italic py-2">
-            {t('tvSettings.noRateLimits')}
+      {/* Cloudflare Turnstile & Convex Verification Status */}
+      <div className="p-3 bg-muted/20 border border-border flex items-start gap-2.5 rounded-md text-xs">
+        <ShieldCheck className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+        <div className="space-y-1">
+          <p className="font-semibold text-foreground">Convex & Cloudflare Turnstile Verification</p>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Guest YouTube Music searches are validated via Cloudflare Turnstile and rate-limited securely by Convex backend actions. Approved TV screens bypass verification automatically.
           </p>
-        ) : (
-          <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
-            {activeRateLimits.map((entry) => (
-              <div
-                key={entry.uid}
-                className="flex items-center justify-between p-2 bg-muted/20 border border-border text-xs font-mono"
-              >
-                <span className="truncate text-muted-foreground max-w-[160px]">
-                  {entry.uid}
-                </span>
-                <span className="text-primary font-bold">
-                  {entry.count} / {rateLimitCountInput}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
