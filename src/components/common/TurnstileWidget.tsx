@@ -7,14 +7,20 @@ declare global {
         container: HTMLElement | string,
         params: {
           sitekey: string;
-          size?: 'normal' | 'compact' | 'invisible';
+          action?: string;
+          cData?: string;
+          execution?: 'render' | 'execute';
+          appearance?: 'always' | 'execute' | 'interaction-only';
+          theme?: 'auto' | 'light' | 'dark';
+          size?: 'normal' | 'compact' | 'flexible';
           callback?: (token: string) => void;
           'error-callback'?: (code?: string) => void;
           'expired-callback'?: () => void;
+          'timeout-callback'?: () => void;
         }
       ) => string;
       reset: (widgetId: string) => void;
-      execute: (widgetId: string) => void;
+      execute: (container?: HTMLElement | string | null, params?: any) => void;
       remove: (widgetId: string) => void;
     };
     onloadTurnstileCallback?: () => void;
@@ -54,7 +60,10 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
         try {
           const id = window.turnstile.render(containerRef.current, {
             sitekey: effectiveSiteKey,
-            size: 'invisible',
+            action: 'mediabox-search',
+            appearance: 'interaction-only',
+            theme: 'dark',
+            size: 'flexible',
             callback: (token: string) => {
               if (onToken) onToken(token);
               if (pendingResolversRef.current.length > 0) {
