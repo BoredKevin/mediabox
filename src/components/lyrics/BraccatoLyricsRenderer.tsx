@@ -6,9 +6,12 @@ import '@braccato/core/styles/lyrics.css';
 import '@braccato/core/styles/instrumental.css';
 import { BraccatoLyricsElement } from '@/types/braccato';
 import { coalesceSyllablesToWords } from '@/lib/lyricsService';
+import { LyricsLoadingSequence } from './LyricsLoadingSequence';
 
 interface BraccatoLyricsRendererProps {
   lyrics: Lyric[] | null;
+  isLoading?: boolean;
+  status?: 'idle' | 'fetching' | 'ready' | 'error';
   getCurrentTime: () => number;
   isPlaying: boolean;
   onSeek?: (timeS: number) => void;
@@ -22,6 +25,8 @@ interface BraccatoLyricsRendererProps {
 
 export const BraccatoLyricsRenderer: React.FC<BraccatoLyricsRendererProps> = ({
   lyrics,
+  isLoading = false,
+  status,
   getCurrentTime,
   isPlaying,
   onSeek,
@@ -313,6 +318,10 @@ export const BraccatoLyricsRenderer: React.FC<BraccatoLyricsRendererProps> = ({
       el.removeEventListener('scroll', handleUserScroll);
     };
   }, []);
+
+  if ((isLoading || status === 'fetching') && (!renderedLyrics || renderedLyrics.length === 0)) {
+    return <LyricsLoadingSequence isFullscreen={isFullscreen} className={className} />;
+  }
 
   return (
     <braccato-lyrics

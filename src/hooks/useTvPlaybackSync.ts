@@ -1,149 +1,181 @@
 import { useEffect, useRef } from 'react';
-import { ref, update } from 'firebase/database';
-import { database } from '@/lib/firebase';
-import { getServerTime } from '@/lib/serverTime';
 
 interface UseTvPlaybackSyncOptions {
   roomCode: string | null;
   playerInstance: any;
   isPlaying: boolean;
   currentlyPlaying?: string | null;
+  playbackPositionMs?: number;
+  playbackUpdatedAt?: number;
+  onSyncCheckpoint?: (positionMs: number, durationMs?: number) => void;
 }
 
 /**
  * TV Host Playback Synchronizer.
- * Broadcasts the YouTube player's real-time playback position and timestamp to Firebase RTDB.
+ * Broadcasts the YouTube player's playback timestamp to Convex ONLY when seeked or changed.
  * Features:
- * 1. Normalized server-time timestamps to eliminate multi-device clock skew.
- * 2. Scheduled periodic heartbeat every 1.5s while playing (works even in background/hidden tab).
- * 3. High-frequency micro-drift detection: catches buffering, stutter, or lag > 300ms within 500ms.
- * 4. Buffering awareness: prevents remote dead-reckoning from advancing when YouTube is buffering.
+ * 1. Only writes to Convex on track change, play/pause state change, or manual TV seeks (> 2s drift).
+ * 2. Zero database writes during normal linear playback: clients sync via dead-reckoning from positionMs + (now - updatedAt).
+ * 3. Bidirectional loop prevention: tracks remote seek timestamps to avoid echo-back writes.
  */
 export function useTvPlaybackSync({
   roomCode,
   playerInstance,
   isPlaying,
   currentlyPlaying,
+  playbackPositionMs,
+  playbackUpdatedAt,
+  onSyncCheckpoint,
 }: UseTvPlaybackSyncOptions) {
-  const lastUpdatedRef = useRef<{ positionMs: number; updatedAt: number }>({
+  const lastReportedRef = useRef<{ positionMs: number; updatedAt: number }>({
     positionMs: 0,
     updatedAt: 0,
+  });
+  const localAnchorRef = useRef<{ positionMs: number; localTime: number }>({
+    positionMs: 0,
+    localTime: performance.now(),
   });
   const prevPlayingRef = useRef<boolean>(isPlaying);
   const prevVideoRef = useRef<string | null | undefined>(currentlyPlaying);
 
-  const syncPlaybackState = (status: 'playing' | 'paused', forcedPositionMs?: number) => {
+  // Sync internal reference when Convex updatedAt updates from a remote seek or server event
+  useEffect(() => {
+    if (playbackUpdatedAt && playbackUpdatedAt !== lastReportedRef.current.updatedAt) {
+      lastReportedRef.current = {
+        positionMs: playbackPositionMs ?? 0,
+        updatedAt: playbackUpdatedAt,
+      };
+      localAnchorRef.current = {
+        positionMs: playbackPositionMs ?? 0,
+        localTime: performance.now(),
+      };
+    }
+  }, [playbackPositionMs, playbackUpdatedAt]);
+
+  const syncPlaybackState = (forcedPositionMs?: number) => {
     if (!roomCode || !playerInstance) return;
 
     let posMs = 0;
+    let durMs = 0;
     if (typeof forcedPositionMs === 'number') {
       posMs = Math.max(0, forcedPositionMs);
     } else if (typeof playerInstance.getCurrentTime === 'function') {
       try {
         const sec = playerInstance.getCurrentTime();
         posMs = Math.max(0, Math.round(sec * 1000));
+        if (typeof playerInstance.getDuration === 'function') {
+          durMs = Math.max(0, Math.round(playerInstance.getDuration() * 1000));
+        }
       } catch (e) {
         console.warn('[PlaybackSync] Failed to getCurrentTime:', e);
       }
     }
 
-    const now = getServerTime();
-    lastUpdatedRef.current = { positionMs: posMs, updatedAt: now };
+    const now = Date.now();
+    lastReportedRef.current = { positionMs: posMs, updatedAt: now };
+    localAnchorRef.current = { positionMs: posMs, localTime: performance.now() };
 
-    update(ref(database, `rooms/${roomCode}/state/playback`), {
-      status,
-      positionMs: posMs,
-      updatedAt: now,
-    }).catch((err) => {
-      console.warn('[PlaybackSync] Firebase update error:', err);
-    });
+    if (onSyncCheckpoint) {
+      onSyncCheckpoint(posMs, durMs);
+    }
   };
 
-  // Immediate sync on play / pause transition
+  // Immediate sync on play / pause transition:
+  // When pausing (!isPlaying): immediately freeze current position into Convex.
+  // When resuming (isPlaying): do NOT emit immediate checkpoint because the YouTube iframe
+  // is still unpausing/buffering and reporting a stale/lagging time.
   useEffect(() => {
     if (prevPlayingRef.current !== isPlaying) {
       prevPlayingRef.current = isPlaying;
-      if (isPlaying) {
-        syncPlaybackState('playing');
+      if (!isPlaying) {
+        syncPlaybackState();
       } else {
-        syncPlaybackState('paused');
+        localAnchorRef.current = {
+          positionMs: playbackPositionMs ?? 0,
+          localTime: performance.now(),
+        };
       }
     }
-  }, [isPlaying, roomCode, playerInstance]);
+  }, [isPlaying, roomCode, playerInstance, playbackPositionMs]);
 
-  // Reset when currentlyPlaying changes
+  // Reset & broadcast initial state when currentlyPlaying changes
   useEffect(() => {
     if (currentlyPlaying && currentlyPlaying !== prevVideoRef.current) {
       prevVideoRef.current = currentlyPlaying;
-      lastUpdatedRef.current = { positionMs: 0, updatedAt: getServerTime() };
+      const now = Date.now();
+      lastReportedRef.current = { positionMs: 0, updatedAt: now };
+      localAnchorRef.current = { positionMs: 0, localTime: performance.now() };
+
+      // Allow the player time to cue / load the new video, then sync duration and actual time
+      const timer = setTimeout(() => {
+        if (playerInstance && typeof playerInstance.getDuration === 'function') {
+          const durMs = Math.max(0, Math.round(playerInstance.getDuration() * 1000));
+          const curSec = typeof playerInstance.getCurrentTime === 'function' ? playerInstance.getCurrentTime() : 0;
+          const curMs = Math.max(0, Math.round(curSec * 1000));
+          if (durMs > 0 && onSyncCheckpoint) {
+            onSyncCheckpoint(curMs, durMs);
+          }
+        }
+      }, 1500);
+
+      return () => clearTimeout(timer);
     }
-  }, [currentlyPlaying]);
+  }, [currentlyPlaying, playerInstance, onSyncCheckpoint]);
 
-  // Scheduled periodic resyncs & continuous drift detection while playing
+  // TV manual seek detection: checks whether player jumped relative to expected linear playback
   useEffect(() => {
-    if (!roomCode || !playerInstance || !isPlaying) return;
+    if (!roomCode || !playerInstance) return;
 
-    let lastHeartbeatTime = Date.now();
-
-    const checkAndResync = () => {
+    const checkSeekDiscontinuity = () => {
       if (typeof playerInstance.getCurrentTime !== 'function') return;
 
       try {
         const currentSec = playerInstance.getCurrentTime();
         const currentMs = Math.max(0, Math.round(currentSec * 1000));
-        const now = getServerTime();
-        const nowLocal = Date.now();
+        const durSec = typeof playerInstance.getDuration === 'function' ? playerInstance.getDuration() : 0;
+        const durMs = Math.max(0, Math.round(durSec * 1000));
+        const now = Date.now();
 
-        // Check if player is buffering (YT.PlayerState.BUFFERING === 3)
-        let isBuffering = false;
-        if (typeof playerInstance.getPlayerState === 'function') {
-          try {
-            isBuffering = playerInstance.getPlayerState() === 3;
-          } catch (_) {}
-        }
+        const last = lastReportedRef.current;
+        const anchor = localAnchorRef.current;
 
-        const last = lastUpdatedRef.current;
-        // Expected position assuming linear playback from last broadcast
-        const expectedMs = last.positionMs + Math.max(0, now - (last.updatedAt || now));
-        const driftMs = Math.abs(currentMs - expectedMs);
+        if (isPlaying) {
+          // Expected position assuming linear playback from local monotonic anchor
+          const localElapsedMs = Math.max(0, performance.now() - anchor.localTime);
+          const expectedMs = anchor.positionMs + localElapsedMs;
+          const driftMs = Math.abs(currentMs - expectedMs);
 
-        const timeSinceLastHeartbeat = nowLocal - lastHeartbeatTime;
-        const needsHeartbeat = timeSinceLastHeartbeat >= 1500;
-        const hasDrift = driftMs >= 300 && last.positionMs > 0;
-
-        if (needsHeartbeat || hasDrift || isBuffering) {
-          lastHeartbeatTime = nowLocal;
-          lastUpdatedRef.current = { positionMs: currentMs, updatedAt: now };
-
-          update(ref(database, `rooms/${roomCode}/state/playback`), {
-            status: 'playing',
-            positionMs: currentMs,
-            updatedAt: now,
-          }).catch((err) => console.warn('[PlaybackSync] Resync error:', err));
+          // Significant jump (> 2000ms): manual seek on TV controls / scrub bar
+          if (driftMs >= 2000) {
+            lastReportedRef.current = { positionMs: currentMs, updatedAt: now };
+            localAnchorRef.current = { positionMs: currentMs, localTime: performance.now() };
+            if (onSyncCheckpoint) {
+              onSyncCheckpoint(currentMs, durMs);
+            }
+          }
+        } else {
+          // Paused state: if player time changed by > 500ms (user scrubbed while paused)
+          const pausedDiff = Math.abs(currentMs - last.positionMs);
+          if (pausedDiff >= 500) {
+            lastReportedRef.current = { positionMs: currentMs, updatedAt: now };
+            localAnchorRef.current = { positionMs: currentMs, localTime: performance.now() };
+            if (onSyncCheckpoint) {
+              onSyncCheckpoint(currentMs, durMs);
+            }
+          }
         }
       } catch (e) {
-        console.warn('[PlaybackSync] checkAndResync error:', e);
+        console.warn('[PlaybackSync] checkSeekDiscontinuity error:', e);
       }
     };
 
-    // Fast check every 500ms to immediately catch drifts or buffer events
-    const driftCheckInterval = setInterval(checkAndResync, 500);
-
-    // Immediate sync on tab/window visibility return
-    const handleVisibility = () => {
-      if (!document.hidden && isPlaying) {
-        checkAndResync();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', handleVisibility);
+    // Fast check every 500ms for manual seeks (NO writes unless seek discontinuity is detected)
+    const checkInterval = setInterval(checkSeekDiscontinuity, 500);
 
     return () => {
-      clearInterval(driftCheckInterval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('focus', handleVisibility);
+      clearInterval(checkInterval);
     };
-  }, [roomCode, playerInstance, isPlaying]);
+  }, [roomCode, playerInstance, isPlaying, onSyncCheckpoint]);
 
   return { syncPlaybackState };
 }

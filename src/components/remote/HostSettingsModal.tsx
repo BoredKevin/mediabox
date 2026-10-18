@@ -16,7 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { ShieldAlert, CogIcon, Key, Gauge } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState } from '@/lib/roomUtils';
-import { isProxyConfigured, loadProxyConfig } from '@/lib/proxyConfig';
+import { loadApiToken } from '@/lib/apiTokenStore';
+import { RemoteActions } from './hooks/useRemoteRoom';
 
 import { HostSettingsRoomTab } from './settings/HostSettingsRoomTab';
 import { HostSettingsApiTab } from './settings/HostSettingsApiTab';
@@ -29,7 +30,7 @@ interface HostSettingsModalProps {
   roomState: RoomState | null;
   isAdmin: boolean;
   queueLength: number;
-  sendCommand: (type: any, payload?: any) => Promise<void>;
+  actions: RemoteActions;
   handleClearQueueAdmin: () => void;
   handleToggleRoomLockAdmin: () => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -42,7 +43,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
   roomState,
   isAdmin,
   queueLength,
-  sendCommand,
+  actions,
   handleClearQueueAdmin,
   handleToggleRoomLockAdmin,
   showToast,
@@ -50,9 +51,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>('room');
 
-  const pCfg = loadProxyConfig();
-  const isConfigured =
-    isProxyConfigured(pCfg) || Boolean(roomState?.searchSettings?.isProxyConfigured);
+  const hasToken = Boolean(loadApiToken());
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,10 +89,10 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
               <Key className="w-3.5 h-3.5" />
               <span>{t('tvSettings.tabApiKeys')}</span>
               <Badge
-                variant={isConfigured ? 'default' : 'outline'}
+                variant={hasToken ? 'default' : 'outline'}
                 className="ml-1 px-1.5 py-0 text-[9px] font-mono"
               >
-                {isConfigured ? 'Active' : 'Missing'}
+                {hasToken ? 'Active' : 'Missing'}
               </Badge>
             </TabsTrigger>
             <TabsTrigger
@@ -111,7 +110,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
                 roomCode={roomCode}
                 roomState={roomState}
                 queueLength={queueLength}
-                sendCommand={sendCommand}
+                actions={actions}
                 handleClearQueueAdmin={handleClearQueueAdmin}
                 handleToggleRoomLockAdmin={handleToggleRoomLockAdmin}
                 showToast={showToast}
@@ -121,7 +120,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
             <TabsContent value="api" className="mt-0">
               <HostSettingsApiTab
                 roomState={roomState}
-                sendCommand={sendCommand}
+                actions={actions}
                 showToast={showToast}
               />
             </TabsContent>
@@ -130,7 +129,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
               <HostSettingsRateLimitsTab
                 roomCode={roomCode}
                 roomState={roomState}
-                sendCommand={sendCommand}
+                actions={actions}
                 showToast={showToast}
               />
             </TabsContent>

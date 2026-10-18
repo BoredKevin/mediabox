@@ -1,103 +1,97 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { ref, set, onValue, off, remove } from 'firebase/database';
-import { User as FirebaseUser } from 'firebase/auth';
-import { database } from '@/lib/firebase';
+import { useState, useCallback, useMemo } from 'react';
+import { useAction, useQuery } from 'convex/react';
+import { api } from '../../../../../convex/_generated/api';
 import { SearchResultItem } from '@/lib/roomUtils';
+import { TurnstileRef } from '@/components/common/TurnstileWidget';
+import { loadApiToken } from '@/lib/apiTokenStore';
 
 interface UseYouTubeSearchProps {
-  roomCode: string;
-  user: FirebaseUser | null;
-  isProxyConfigured: boolean;
+  roomCode?: string;
+  user?: any;
+  isProxyConfigured?: boolean;
+  preferMusicVideos?: boolean;
+  turnstileRef?: React.RefObject<TurnstileRef | null>;
 }
 
 export function useYouTubeSearch({
-  roomCode,
-  user,
-  isProxyConfigured,
-}: UseYouTubeSearchProps) {
+  preferMusicVideos = true,
+  turnstileRef,
+}: UseYouTubeSearchProps = {}) {
   const [isSearching, setIsSearching] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
 
-  const activeReqRef = useRef<{ reqId: string; timeoutId: any; nodeRef: any } | null>(null);
+  const searchAction = useAction(api.youtube.search);
+  const apiToken = useMemo(() => loadApiToken(), []);
 
-  // Clean up any pending search listeners on unmount
-  useEffect(() => {
-    return () => {
-      if (activeReqRef.current) {
-        clearTimeout(activeReqRef.current.timeoutId);
-        off(activeReqRef.current.nodeRef);
-      }
-    };
-  }, []);
+  const tokenVerification = useQuery(
+    api.admins.verifyApiToken,
+    apiToken ? { token: apiToken } : 'skip'
+  );
+
+  const isCleared = Boolean(tokenVerification?.valid);
 
   const performSearch = useCallback(
     async (cleanQuery: string) => {
-      if (!cleanQuery || !user || !roomCode) return;
+      const q = cleanQuery.trim();
+      if (!q) return;
 
-      if (!isProxyConfigured) {
-        setSearchError(
-          'Keyword search requires the MediaBox YouTube API proxy to be configured on the TV. You can paste any direct YouTube link above to queue videos with zero setup.'
-        );
-        return;
-      }
-
-      setIsSearching(true);
       setSearchError(null);
-      setSearchResults([]);
-
-      if (activeReqRef.current) {
-        clearTimeout(activeReqRef.current.timeoutId);
-        off(activeReqRef.current.nodeRef);
-      }
-
-      const reqId = `${user.uid}_${Date.now()}`;
-      const searchReqRef = ref(database, `rooms/${roomCode}/searchRequests/${reqId}`);
-      const searchResRef = ref(database, `rooms/${roomCode}/searchResults/${reqId}`);
-
-      const timeoutId = setTimeout(() => {
-        off(searchResRef);
-        setIsSearching(false);
-        setSearchError('TV not responding (timeout after 25s). Please check TV connection.');
-        activeReqRef.current = null;
-      }, 25000);
-
-      activeReqRef.current = { reqId, timeoutId, nodeRef: searchResRef };
-
-      onValue(searchResRef, (snapshot) => {
-        if (!snapshot.exists()) return;
-
-        const data = snapshot.val();
-        clearTimeout(timeoutId);
-        off(searchResRef);
-        setIsSearching(false);
-        activeReqRef.current = null;
-
-        if (data.error) {
-          setSearchError(data.error);
-          setSearchResults([]);
-        } else if (Array.isArray(data.results)) {
-          setSearchResults(data.results);
-        }
-
-        remove(searchResRef).catch(() => {});
-      });
 
       try {
-        await set(searchReqRef, {
-          requestedBy: user.uid,
-          query: cleanQuery,
-          createdAt: Date.now(),
+        let turnstileToken: string | undefined = undefined;
+
+        // If client does not have a verified API token, acquire Turnstile token
+        if (!isCleared && turnstileRef?.current) {
+          const hasCached =
+            typeof turnstileRef.current.hasToken === 'function'
+              ? turnstileRef.current.hasToken()
+              : false;
+
+          if (!hasCached) {
+            setIsVerifying(true);
+          }
+          try {
+            turnstileToken = await turnstileRef.current.getToken();
+          } finally {
+            setIsVerifying(false);
+          }
+        }
+
+        setIsSearching(true);
+
+        const results = await searchAction({
+          query: q,
+          apiToken: apiToken || undefined,
+          turnstileToken: turnstileToken || undefined,
+          preferMusicVideos,
+          maxResults: 25,
         });
+
+        const formattedResults: SearchResultItem[] = ((results as any[]) || []).map((item) => ({
+          id: item.id,
+          url: item.url,
+          title: item.title,
+          channelTitle: item.channelTitle,
+          thumbnail:
+            item.thumbnail ||
+            item.thumbnailUrl ||
+            (item.id ? `https://i.ytimg.com/vi/${item.id}/mqdefault.jpg` : ''),
+          durationSeconds: item.durationSeconds,
+        }));
+
+        setSearchResults(formattedResults);
       } catch (err: any) {
-        clearTimeout(timeoutId);
-        off(searchResRef);
+        console.error('[YouTube Search] Failed:', err);
+        setSearchError(err.message || 'Search failed. Please try again.');
+        setSearchResults([]);
+      } finally {
         setIsSearching(false);
-        setSearchError(err.message || 'Failed to submit search request to TV.');
-        activeReqRef.current = null;
+        setIsVerifying(false);
       }
     },
-    [roomCode, user, isProxyConfigured]
+    [searchAction, isCleared, turnstileRef, apiToken, preferMusicVideos]
   );
 
   const clearSearch = useCallback(() => {
@@ -107,10 +101,12 @@ export function useYouTubeSearch({
 
   return {
     isSearching,
+    isVerifying,
     searchError,
     searchResults,
     performSearch,
     clearSearch,
     setSearchError,
+    isCleared,
   };
 }

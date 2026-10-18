@@ -1,24 +1,29 @@
 import React from 'react';
-import { RoomState } from '@/lib/roomUtils';
+import { RoomState, calculatePlaybackCurrentTimeSec } from '@/lib/roomUtils';
 import { useLyrics } from '@/hooks/useLyrics';
+import { useCurrentMediaMeta } from '@/hooks/useCurrentMediaMeta';
 import { BraccatoLyricsRenderer } from '@/components/lyrics/BraccatoLyricsRenderer';
+import { LyricsLoadingSequence } from '@/components/lyrics/LyricsLoadingSequence';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Search, Disc, Music, Mic2 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
-import { getServerTime } from '@/lib/serverTime';
+
+import type { Id } from '../../../convex/_generated/dataModel';
 
 interface RemoteLyricsViewProps {
+  roomId?: Id<'rooms'> | null;
   roomState: RoomState | null;
   isHostOrAdmin: boolean;
-  sendCommand: (type: any, payload?: any) => Promise<void>;
+  onSeek: (positionMs: number) => Promise<void>;
   onClose?: () => void;
 }
 
 export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
+  roomId,
   roomState,
   isHostOrAdmin,
-  sendCommand,
+  onSeek,
   onClose,
 }) => {
   const { t } = useTranslation();
@@ -28,24 +33,21 @@ export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
   const isWordSync = roomState?.lyricsWordSync ?? false;
 
   // Dead-reckoning high precision remote time provider:
-  // Base timestamp x + elapsed time since last update (getServerTime() - y)
-  // Uses Firebase normalized server time to eliminate multi-device clock skew.
+  // Base timestamp positionMs + elapsed time since last update (Date.now() - updatedAt)
   const getCurrentTime = React.useCallback((): number => {
-    if (!playback) return 0;
-    const baseSec = (playback.positionMs || 0) / 1000;
-    if (playback.status === 'playing') {
-      const now = getServerTime();
-      const elapsedSec = Math.max(0, (now - (playback.updatedAt || now)) / 1000);
-      return baseSec + elapsedSec;
-    }
-    return baseSec;
+    return calculatePlaybackCurrentTimeSec(playback);
   }, [playback]);
 
   const handleSeek = React.useCallback(
     (seconds: number) => {
-      sendCommand('seek', { positionMs: Math.round(seconds * 1000) });
+      onSeek(Math.round(seconds * 1000));
     },
-    [sendCommand]
+    [onSeek]
+  );
+
+  const currentVideoMeta = useCurrentMediaMeta(
+    roomState?.currentlyPlaying,
+    roomState?.currentlyPlayingTitle
   );
 
   const lyricsData = useLyrics(
@@ -53,7 +55,10 @@ export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
     roomState?.currentlyPlayingTitle,
     null,
     getCurrentTime,
-    handleSeek
+    handleSeek,
+    roomId,
+    false,
+    currentVideoMeta.author
   );
 
   const hasLyrics = Boolean(lyricsData.lyrics && lyricsData.lyrics.length > 0);
@@ -141,6 +146,7 @@ export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
           </div>
         ) : hasLyrics ? (
           <BraccatoLyricsRenderer
+            key={lyricsData.currentVideoId || 'remote-lyrics'}
             lyrics={lyricsData.lyrics}
             getCurrentTime={lyricsData.getCurrentTime}
             isPlaying={isPlaying}
@@ -152,12 +158,8 @@ export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
             isWordSync={isWordSync}
             className="px-1 sm:px-2 py-1"
           />
-        ) : lyricsData.isLoading ? (
-          <div className="flex flex-col items-center justify-center gap-3 p-8 animate-pulse text-white/30 h-full">
-            <div className="h-7 bg-white/15 rounded-lg w-3/4 mb-2" />
-            <div className="h-9 bg-white/25 rounded-lg w-5/6 mb-2" />
-            <div className="h-7 bg-white/15 rounded-lg w-2/3" />
-          </div>
+        ) : (lyricsData.isLoading || lyricsData.status === 'fetching') ? (
+          <LyricsLoadingSequence />
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 p-6 text-center text-white/50 h-full font-sans">
             <Mic2 className="w-10 h-10 text-white/30" />

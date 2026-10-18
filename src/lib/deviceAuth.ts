@@ -1,15 +1,3 @@
-import {
-  User,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signInAnonymously,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-} from 'firebase/auth';
-import { auth } from './firebase';
-
 export const STORAGE_KEYS = {
   DEVICE_CREDENTIALS: 'mediabox_device_credentials',
   USER_NICKNAME: 'mediabox_user_nickname',
@@ -21,6 +9,12 @@ export interface DeviceCredentials {
   uuid: string;
   secret: string;
   createdAt: number;
+}
+
+export interface DeviceUser {
+  uid: string;
+  displayName: string;
+  photoURL?: string;
 }
 
 /**
@@ -41,7 +35,7 @@ export const getStoredDeviceCredentials = (): DeviceCredentials | null => {
 };
 
 /**
- * Generates a cryptographically strong random alphanumeric/symbol secret.
+ * Generates a cryptographically strong random secret.
  */
 const generateRandomSecret = (): string => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
@@ -86,36 +80,29 @@ export const getOrCreateDeviceCredentials = (): DeviceCredentials => {
 };
 
 /**
- * Formats a valid internal email address derived deterministically from the device UUID.
+ * Returns the current DeviceUser representation for the browser session.
  */
-export const credentialsToEmail = (uuid: string): string => {
-  const cleanUuid = uuid.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  return `dev_${cleanUuid}@mediabox.tv`;
+export const getDeviceUser = (): DeviceUser => {
+  const creds = getOrCreateDeviceCredentials();
+  return {
+    uid: creds.uuid,
+    displayName: getStoredNickname() || 'Guest',
+  };
 };
 
 /**
- * Formats a compliant password derived deterministically from the device secret.
+ * Resolves persistent device user session.
  */
-export const credentialsToPassword = (secret: string): string => {
-  return `Mbx!${secret}#9`;
+export const ensureDeviceAuth = async (): Promise<DeviceUser> => {
+  return getDeviceUser();
 };
 
-/**
- * Checks whether a user is authenticated through Google Sign-In.
- */
-export const isGoogleUser = (user: User | null): boolean => {
-  if (!user) return false;
-  return Boolean(
-    user.providerData && user.providerData.some((p) => p.providerId === 'google.com')
-  );
-};
+export const isGoogleUser = (_user: DeviceUser | null): boolean => false;
 
-/**
- * Checks whether a user is authenticated using the system-managed device account.
- */
-export const isDeviceUser = (user: User | null): boolean => {
-  if (!user) return false;
-  return Boolean(user.email && user.email.endsWith('@mediabox.tv'));
+export const isDeviceUser = (user: DeviceUser | null): boolean => Boolean(user?.uid);
+
+export const logoutUser = async (): Promise<DeviceUser> => {
+  return getDeviceUser();
 };
 
 /**
@@ -197,109 +184,4 @@ export const saveStoredRemoteRoomCode = (code: string | null): void => {
   } catch (e) {
     console.warn('[deviceAuth] Failed to save remote room code to localStorage:', e);
   }
-};
-
-// Singleton in-flight promise to prevent race conditions during auth initialization
-let authInitPromise: Promise<User> | null = null;
-
-/**
- * Ensures the browser is authenticated with its persistent system-managed device account.
- * If user is already signed in (e.g. Google user or restored device user), returns that user.
- * Otherwise, signs in with the browser's device UUID credentials (or creates the user if new).
- * Gracefully falls back to anonymous auth if email/password auth encounters an unexpected issue.
- */
-export const ensureDeviceAuth = (): Promise<User> => {
-  if (authInitPromise) {
-    return authInitPromise;
-  }
-
-  authInitPromise = (async () => {
-    try {
-      // 1. If currentUser is already available in memory
-      if (auth.currentUser) {
-        return auth.currentUser;
-      }
-
-      // 2. Wait briefly for Firebase Auth SDK to rehydrate existing persisted session
-      const rehydratedUser = await new Promise<User | null>((resolve) => {
-        const unsubscribe = onAuthStateChanged(
-          auth,
-          (user) => {
-            unsubscribe();
-            resolve(user);
-          },
-          () => {
-            unsubscribe();
-            resolve(null);
-          }
-        );
-        setTimeout(() => {
-          unsubscribe();
-          resolve(auth.currentUser);
-        }, 1200);
-      });
-
-      if (rehydratedUser) {
-        return rehydratedUser;
-      }
-
-      // 3. No active user: authenticate with browser's persistent device UUID and secret
-      const creds = getOrCreateDeviceCredentials();
-      const email = credentialsToEmail(creds.uuid);
-      const password = credentialsToPassword(creds.secret);
-
-      try {
-        const userCred = await signInWithEmailAndPassword(auth, email, password);
-        return userCred.user;
-      } catch (err: any) {
-        // If user does not exist yet on Firebase Auth, create it
-        if (
-          err.code === 'auth/user-not-found' ||
-          err.code === 'auth/invalid-credential' ||
-          err.code === 'auth/invalid-login-credentials'
-        ) {
-          try {
-            const newCred = await createUserWithEmailAndPassword(auth, email, password);
-            return newCred.user;
-          } catch (createErr: any) {
-            if (createErr.code === 'auth/email-already-in-use') {
-              const retryCred = await signInWithEmailAndPassword(auth, email, password);
-              return retryCred.user;
-            }
-            throw createErr;
-          }
-        }
-        throw err;
-      }
-    } catch (err) {
-      console.warn(
-        '[deviceAuth] Device credential auth failed, falling back to anonymous auth:',
-        err
-      );
-      // Graceful fallback to Firebase Anonymous Auth
-      const anonCred = await signInAnonymously(auth);
-      return anonCred.user;
-    } finally {
-      authInitPromise = null;
-    }
-  })();
-
-  return authInitPromise;
-};
-
-/**
- * Sign in with Google. The Google user overrides the system-managed user for the remote session.
- */
-export const signInWithGoogle = async (): Promise<User> => {
-  const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(auth, provider);
-  return result.user;
-};
-
-/**
- * Sign out of Google and automatically return to the browser's persistent device account.
- */
-export const logoutUser = async (): Promise<User> => {
-  await signOut(auth);
-  return await ensureDeviceAuth();
 };

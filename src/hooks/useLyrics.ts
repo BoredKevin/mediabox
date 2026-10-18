@@ -1,15 +1,20 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Lyric } from '@braccato/parsers';
+import { useState, useEffect, useRef } from 'react';
+import { useQuery, useAction } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
+import { detectParser, type Lyric } from '@braccato/parsers';
 import { parseYouTubeVideoId } from '@/lib/roomUtils';
-import { fetchVideoTitle } from '@/lib/youtube';
-import { parseTrackAndArtist } from '@/lib/trackParser';
+import { parseTrackAndArtist, cleanArtistName } from '@/lib/trackParser';
 import { isYouTubeMusicTrack } from '@/lib/ytmusicDetector';
-import { resolveLyrics, fetchUnisonByVideoId, ResolvedLyricsData } from '@/lib/lyricsService';
-import { extractDominantColor } from '@/lib/colorExtractor';
+import { loadApiToken } from '@/lib/apiTokenStore';
+import { useLyricsColor } from './lyrics/useLyricsColor';
+import { useLyricsPlayerTime } from './lyrics/useLyricsPlayerTime';
 
 export interface LyricsState {
+  currentVideoId: string | null;
   lyrics: Lyric[] | null;
   isLoading: boolean;
+  status: 'idle' | 'fetching' | 'ready' | 'error';
   isYTMusic: boolean;
   isFromUnison: boolean;
   shouldShowLyrics: boolean;
@@ -18,6 +23,7 @@ export interface LyricsState {
   trackTitle: string;
   artistName: string;
   sourceLabel: string;
+  syncType: 'word' | 'line' | 'none';
 }
 
 export function useLyrics(
@@ -25,201 +31,194 @@ export function useLyrics(
   videoTitle?: string | null,
   playerInstance?: any,
   customGetCurrentTime?: () => number,
-  customSeekTo?: (seconds: number) => void
+  customSeekTo?: (seconds: number) => void,
+  roomId?: Id<'rooms'> | null,
+  isTvMode: boolean = false,
+  channelTitle?: string | null
 ) {
+  const videoId = parseYouTubeVideoId(videoUrl || '');
+  const albumArt = videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '';
+  const dominantColor = useLyricsColor(albumArt);
+
   const [lyricsState, setLyricsState] = useState<LyricsState>({
+    currentVideoId: videoId || null,
     lyrics: null,
-    isLoading: false,
+    isLoading: Boolean(videoId),
+    status: videoId ? 'fetching' : 'idle',
     isYTMusic: false,
     isFromUnison: false,
     shouldShowLyrics: false,
-    albumArt: '',
-    dominantColor: {
-      dominant: '#1a101f',
-      gradient: 'radial-gradient(circle at 70% 35%, #24132b 0%, #0d0612 100%)',
-    },
+    albumArt,
+    dominantColor,
     trackTitle: '',
     artistName: '',
     sourceLabel: '',
+    syncType: 'none',
   });
 
-  const abortRef = useRef<AbortController | null>(null);
+  const isCurrentVideo = lyricsState.currentVideoId === (videoId || null);
 
+  // Synchronize song change via effect rather than synchronous render-body mutation
   useEffect(() => {
-    if (!videoUrl) {
-      setLyricsState({
+    if (lyricsState.currentVideoId === (videoId || null)) return;
+    const isTopic = Boolean(channelTitle && /\s*-\s*Topic$/i.test(channelTitle.trim()));
+    const initialParsed = parseTrackAndArtist(videoTitle || '', channelTitle || '');
+    const cleanArtist = isTopic ? channelTitle!.replace(/\s*-\s*Topic$/i, '').trim() : (initialParsed.artist || '');
+    const cleanTrack = isTopic ? (videoTitle || '').trim() : (initialParsed.track || videoTitle || '');
+    const isEagerYTMusic = Boolean(videoId && (isTopic || isYouTubeMusicTrack(videoUrl, channelTitle, videoTitle || '')));
+
+    setLyricsState({
+      currentVideoId: videoId || null,
+      lyrics: null,
+      isLoading: Boolean(videoId),
+      status: videoId ? 'fetching' : 'idle',
+      isYTMusic: isEagerYTMusic,
+      isFromUnison: false,
+      shouldShowLyrics: isEagerYTMusic,
+      albumArt,
+      dominantColor,
+      trackTitle: cleanTrack,
+      artistName: cleanArtist,
+      sourceLabel: '',
+      syncType: 'none',
+    });
+  }, [videoId, videoTitle, channelTitle, videoUrl, albumArt, dominantColor, lyricsState.currentVideoId]);
+
+  const resolveOrFetchAction = useAction(api.lyricsActions.resolveOrFetch);
+
+  // Subscribe to Convex cachedLyrics for this track
+  const cachedLyricsDoc = useQuery(
+    api.lyrics.get,
+    videoId ? { videoId } : 'skip'
+  );
+
+  const isResolvingRef = useRef<string | null>(null);
+
+  // Parse cached lyrics document when available
+  useEffect(() => {
+    if (!videoId) {
+      setLyricsState((prev) => ({
+        ...prev,
+        currentVideoId: null,
         lyrics: null,
         isLoading: false,
+        status: 'idle',
         isYTMusic: false,
-        isFromUnison: false,
         shouldShowLyrics: false,
-        albumArt: '',
-        dominantColor: {
-          dominant: '#1a101f',
-          gradient: 'radial-gradient(circle at 70% 35%, #24132b 0%, #0d0612 100%)',
-        },
         trackTitle: '',
         artistName: '',
         sourceLabel: '',
-      });
+        syncType: 'none',
+        albumArt: '',
+      }));
       return;
     }
 
-    const videoId = parseYouTubeVideoId(videoUrl);
+    const isTopic = Boolean(channelTitle && /\s*-\s*Topic$/i.test(channelTitle.trim()));
+    const initialParsed = parseTrackAndArtist(videoTitle || '', channelTitle || '');
+    const isEagerYTMusic = isTopic || isYouTubeMusicTrack(videoUrl, channelTitle, videoTitle || '');
+
+    if (cachedLyricsDoc) {
+      if (cachedLyricsDoc.status === 'fetching') {
+        setLyricsState((prev) => ({
+          ...prev,
+          currentVideoId: videoId,
+          isLoading: true,
+          status: 'fetching',
+          isYTMusic: isEagerYTMusic,
+          shouldShowLyrics: isEagerYTMusic,
+          albumArt,
+        }));
+        return;
+      }
+
+      if (cachedLyricsDoc.status === 'ready' || cachedLyricsDoc.status === 'error') {
+        let parsedLyrics: Lyric[] | null = null;
+        let detectedSyncType: 'word' | 'line' | 'none' = (cachedLyricsDoc.syncType as any) || 'none';
+
+        if (cachedLyricsDoc.data && cachedLyricsDoc.data !== '[]') {
+          try {
+            const parser = detectParser(cachedLyricsDoc.data);
+            const duration = typeof playerInstance?.getDuration === 'function' ? playerInstance.getDuration() : 180;
+            parsedLyrics = parser.parse(cachedLyricsDoc.data, duration * 1000);
+
+            if (parsedLyrics && parsedLyrics.length > 0) {
+              const hasWordLevel = parsedLyrics.some((l) => l.parts && l.parts.length > 0);
+              detectedSyncType = hasWordLevel ? 'word' : 'line';
+            }
+          } catch (e) {
+            console.warn('[useLyrics] Failed to parse cached lyrics data:', e);
+          }
+        }
+
+        setLyricsState((prev) => ({
+          ...prev,
+          currentVideoId: videoId,
+          lyrics: parsedLyrics,
+          isLoading: false,
+          status: 'ready',
+          isYTMusic: isEagerYTMusic,
+          isFromUnison: cachedLyricsDoc.sourceLabel === 'Unison',
+          shouldShowLyrics: Boolean(parsedLyrics && parsedLyrics.length > 0) || isEagerYTMusic,
+          trackTitle: cachedLyricsDoc.trackTitle || initialParsed.track || prev.trackTitle,
+          artistName: cachedLyricsDoc.artistName || initialParsed.artist || prev.artistName,
+          sourceLabel: cachedLyricsDoc.sourceLabel,
+          syncType: detectedSyncType,
+          albumArt,
+        }));
+      }
+    }
+  }, [videoId, videoUrl, videoTitle, channelTitle, cachedLyricsDoc, playerInstance, albumArt]);
+
+  // Initiate resolveOrFetch (TV or standalone active player)
+  useEffect(() => {
     if (!videoId) return;
 
-    if (abortRef.current) {
-      abortRef.current.abort();
+    const canInitiateResolution = isTvMode || !roomId;
+    if (!canInitiateResolution) return;
+
+    if (cachedLyricsDoc === undefined || (cachedLyricsDoc && cachedLyricsDoc.videoId !== videoId)) return;
+    if (cachedLyricsDoc && (cachedLyricsDoc.status === 'ready' || cachedLyricsDoc.status === 'error')) return;
+    if (cachedLyricsDoc && cachedLyricsDoc.status === 'fetching' && Date.now() - cachedLyricsDoc.updatedAt < 30_000) {
+      return;
     }
-    const controller = new AbortController();
-    abortRef.current = controller;
 
-    let cancelled = false;
+    if (isResolvingRef.current === videoId) return;
+    isResolvingRef.current = videoId;
 
-    // High quality thumbnail URL
-    const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    const isTopic = Boolean(channelTitle && /\s*-\s*Topic$/i.test(channelTitle.trim()));
+    const initialParsed = parseTrackAndArtist(videoTitle || '', channelTitle || '');
+    const cleanArtist = isTopic ? channelTitle!.replace(/\s*-\s*Topic$/i, '').trim() : (initialParsed.artist || cleanArtistName(channelTitle || ''));
+    const cleanTrack = isTopic ? (videoTitle || '').trim() : (initialParsed.track || videoTitle || '');
+    const duration = typeof playerInstance?.getDuration === 'function' ? playerInstance.getDuration() : undefined;
+    const token = loadApiToken();
 
-    // Fast initial title parse from room state
-    const initialParsed = parseTrackAndArtist(videoTitle || '');
-    const isEagerYTMusic = isYouTubeMusicTrack(videoUrl, '', videoTitle || '');
-
-    // Eagerly switch to lyrics view skeleton if track is from YouTube Music
-    // This eliminates the 2-5s frozen video player deadzone completely!
-    setLyricsState((prev) => ({
-      ...prev,
-      isLoading: true,
-      isYTMusic: isEagerYTMusic,
-      shouldShowLyrics: isEagerYTMusic || prev.shouldShowLyrics,
-      albumArt: thumbnail,
-      trackTitle: initialParsed.track || videoTitle || '',
-      artistName: initialParsed.artist || '',
-    }));
-
-    // Trigger dominant color extraction (non-blocking)
-    extractDominantColor(thumbnail).then((colors) => {
-      if (!cancelled) {
-        setLyricsState((prev) => ({ ...prev, dominantColor: colors }));
-      }
+    resolveOrFetchAction({
+      videoId,
+      trackTitle: cleanTrack || undefined,
+      artistName: cleanArtist || undefined,
+      duration,
+      roomId: roomId || undefined,
+      apiToken: token || undefined,
+    }).catch((err) => {
+      console.warn('[useLyrics] resolveOrFetchAction error:', err);
+      isResolvingRef.current = null;
     });
+  }, [videoId, videoTitle, channelTitle, isTvMode, roomId, cachedLyricsDoc, playerInstance, resolveOrFetchAction]);
 
-    // Resolve full video title & lyrics in parallel
-    (async () => {
-      // 1. Parallel fetch: query Unison by videoId AND fetch full video title concurrently!
-      const [unisonResult, info] = await Promise.all([
-        fetchUnisonByVideoId(videoId, controller.signal),
-        fetchVideoTitle(videoUrl).catch(() => ({})),
-      ]);
-
-      if (cancelled) return;
-
-      const resolvedTitle = (info as any)?.title || videoTitle || '';
-      const channelTitle = (info as any)?.channelTitle || '';
-      const parsed = parseTrackAndArtist(resolvedTitle, channelTitle);
-      const trackTitle = parsed.track || resolvedTitle || initialParsed.track;
-      const artistName = parsed.artist || channelTitle || initialParsed.artist;
-      const isYTMusic = isEagerYTMusic || isYouTubeMusicTrack(videoUrl, channelTitle, resolvedTitle);
-
-      // Fast Path: Direct Unison hit (<200ms)!
-      if (unisonResult && unisonResult.lyrics && unisonResult.lyrics.length > 0) {
-        setLyricsState((prev) => ({
-          ...prev,
-          lyrics: unisonResult.lyrics,
-          isLoading: false,
-          isYTMusic,
-          isFromUnison: true,
-          shouldShowLyrics: true,
-          trackTitle,
-          artistName,
-          sourceLabel: 'Unison',
-        }));
-        return;
-      }
-
-      // If not from YouTube Music and no Unison lyrics, don't show lyrics view
-      if (!isYTMusic) {
-        setLyricsState((prev) => ({
-          ...prev,
-          lyrics: null,
-          isLoading: false,
-          isYTMusic: false,
-          isFromUnison: false,
-          shouldShowLyrics: false,
-        }));
-        return;
-      }
-
-      const duration = typeof playerInstance?.getDuration === 'function' ? playerInstance.getDuration() : 0;
-
-      // Secondary resolution: Better Lyrics, Binimum, QQ, Kugou, LRCLib
-      const result: ResolvedLyricsData | null = await resolveLyrics({
-        videoId,
-        rawTitle: resolvedTitle,
-        channelTitle,
-        url: videoUrl,
-        duration,
-        signal: controller.signal,
-      });
-
-      if (cancelled) return;
-
-      const hasLyrics = Boolean(result && result.lyrics && result.lyrics.length > 0);
-      const shouldShowLyrics = hasLyrics || isYTMusic;
-      const finalTitle = result?.enrichedMeta?.song || trackTitle;
-      const finalArtist = result?.enrichedMeta?.artist || artistName;
-      const finalArtwork = result?.enrichedMeta?.artworkUrl || thumbnail;
-
-      setLyricsState((prev) => ({
-        ...prev,
-        lyrics: result?.lyrics || null,
-        isLoading: false,
-        isYTMusic,
-        isFromUnison: Boolean(result?.isFromUnison),
-        shouldShowLyrics,
-        albumArt: finalArtwork,
-        trackTitle: finalTitle,
-        artistName: finalArtist,
-        sourceLabel: result?.source || '',
-      }));
-
-      // Non-blocking dominant color update for enriched artwork
-      if (result?.enrichedMeta?.artworkUrl && result.enrichedMeta.artworkUrl !== thumbnail) {
-        extractDominantColor(result.enrichedMeta.artworkUrl).then((colors) => {
-          if (!cancelled) {
-            setLyricsState((prev) => ({ ...prev, dominantColor: colors }));
-          }
-        });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [videoUrl, videoTitle, playerInstance]);
-
-  const seekTo = useCallback(
-    (seconds: number) => {
-      if (customSeekTo) {
-        customSeekTo(seconds);
-      } else if (playerInstance && typeof playerInstance.seekTo === 'function') {
-        playerInstance.seekTo(seconds, true);
-      }
-    },
-    [playerInstance, customSeekTo]
-  );
-
-  const getCurrentTime = useCallback((): number => {
-    if (customGetCurrentTime) {
-      return customGetCurrentTime();
-    }
-    if (playerInstance && typeof playerInstance.getCurrentTime === 'function') {
-      return playerInstance.getCurrentTime();
-    }
-    return 0;
-  }, [playerInstance, customGetCurrentTime]);
+  const { seekTo, getCurrentTime } = useLyricsPlayerTime({
+    playerInstance,
+    customGetCurrentTime,
+    customSeekTo,
+  });
 
   return {
     ...lyricsState,
+    currentVideoId: videoId || null,
+    lyrics: isCurrentVideo ? lyricsState.lyrics : null,
+    isLoading: isCurrentVideo ? lyricsState.isLoading : Boolean(videoId),
+    status: isCurrentVideo ? lyricsState.status : (videoId ? 'fetching' : 'idle'),
+    dominantColor,
     seekTo,
     getCurrentTime,
   };

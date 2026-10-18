@@ -50,9 +50,6 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
               {t('tvSettings.title')}
             </DialogTitle>
           </div>
-          <DialogDescription className="text-xs text-muted-foreground">
-            {t('tvSettings.description')}
-          </DialogDescription>
         </DialogHeader>
 
         {/* Tab Navigation */}
@@ -87,10 +84,7 @@ export const TvSettingsModal: React.FC<TvSettingsModalProps> = ({ open, onClose 
 
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
             <TabsContent value="api" className="mt-0">
-              <TvApiTab
-                searchSettings={searchSettings}
-                onUpdateSearchSettings={handleUpdateSearchSettings}
-              />
+              <TvApiTab />
             </TabsContent>
 
             <TabsContent value="limits" className="mt-0">

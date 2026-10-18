@@ -153,8 +153,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
               // Playing
               setNeedsUserInteraction(false);
             }
-            // If YouTube iframe transitions to CUED (5), UNSTARTED (-1), or PAUSED (2) while TV expects playing:
-            if (isPlayingRef.current && (event.data === 5 || event.data === -1 || event.data === 2)) {
+            // If YouTube iframe transitions to CUED (5) or UNSTARTED (-1) while TV expects playing:
+            if (isPlayingRef.current && (event.data === 5 || event.data === -1)) {
               try {
                 const playPromise = event.target.playVideo();
                 if (playPromise && typeof playPromise.catch === 'function') {

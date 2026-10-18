@@ -1,5 +1,4 @@
 import React from 'react';
-import { User as FirebaseUser } from 'firebase/auth';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { X, Layers } from 'lucide-react';
@@ -7,6 +6,7 @@ import { useTranslation } from '@/context/LanguageContext';
 import { QueueItem, SearchResultItem } from '@/lib/roomUtils';
 import { QueuePanel } from '@/components/remote/panels/QueuePanel';
 import { MembersPanel } from '@/components/remote/panels/MembersPanel';
+import type { DeviceUser } from '@/lib/deviceAuth';
 
 interface SideDrawerProps {
   open: boolean;
@@ -14,7 +14,8 @@ interface SideDrawerProps {
   defaultTab?: 'queue' | 'members';
   queue: QueueItem[];
   radioQueue?: SearchResultItem[];
-  user: FirebaseUser | null;
+  user: DeviceUser | null;
+  currentUid?: string;
   isHostOrAdmin: boolean;
   tvUid?: string | null;
   membersList: { uid: string; joinedAt: number; nickname?: string; isTv?: boolean }[];
@@ -33,6 +34,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
   queue,
   radioQueue = [],
   user,
+  currentUid,
   isHostOrAdmin,
   tvUid,
   membersList,
@@ -92,6 +94,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               queue={queue}
               radioQueue={radioQueue}
               user={user}
+              currentUid={currentUid}
               isHostOrAdmin={isHostOrAdmin}
               tvUid={tvUid}
               membersList={membersList}
@@ -112,6 +115,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               hostUid={hostUid}
               tvUid={tvUid}
               user={user}
+              currentUid={currentUid}
               isHostOrAdmin={isHostOrAdmin}
               queue={queue}
               onKickMember={onKickMember}

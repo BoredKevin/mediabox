@@ -1,5 +1,5 @@
 import React from 'react';
-import { User as FirebaseUser } from 'firebase/auth';
+import { DeviceUser } from '@/lib/deviceAuth';
 import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,8 @@ import { QueueItem, SearchResultItem, parseYouTubeVideoId } from '@/lib/roomUtil
 interface QueuePanelProps {
   queue: QueueItem[];
   radioQueue?: SearchResultItem[];
-  user: FirebaseUser | null;
+  user: DeviceUser | null;
+  currentUid?: string;
   isHostOrAdmin: boolean;
   tvUid?: string | null;
   membersList: { uid: string; nickname?: string; isTv?: boolean }[];
@@ -23,6 +24,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   queue,
   radioQueue = [],
   user,
+  currentUid,
   isHostOrAdmin,
   tvUid,
   membersList,
@@ -32,6 +34,8 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   embedded = false,
 }) => {
   const { t } = useTranslation();
+
+  const effectiveCurrentUid = currentUid || user?.uid;
 
   const content = (
     <>
@@ -61,7 +65,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
             ) : (
               queue.map((item, idx) => {
                 const ytId = parseYouTubeVideoId(item.url);
-                const isMyEntry = Boolean(user && item.addedBy === user.uid);
+                const isMyEntry = Boolean(effectiveCurrentUid && item.addedBy === effectiveCurrentUid);
                 const canDelete = isMyEntry || isHostOrAdmin;
                 const addedByMember = membersList.find((m) => m.uid === item.addedBy);
                 const isTvEntry = Boolean(
@@ -73,6 +77,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
                   : isTvEntry
                     ? t('remote.tvBadge')
                     : addedByMember?.nickname ||
+                      item.addedByName ||
                       `User (${item.addedBy?.substring(0, 4) || '?'})`;
 
                 return (

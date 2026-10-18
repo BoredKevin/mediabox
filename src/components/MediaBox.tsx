@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useWatchParty } from '@/context/WatchPartyContext';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import { IdleScheduleTimeline } from '@/components/IdleScheduleTimeline';
 import { Card } from '@/components/ui/card';
+import { saveApiToken } from '@/lib/apiTokenStore';
 
 import { useClockTime } from '@/hooks/useClockTime';
 import { useCurrentMediaMeta } from '@/hooks/useCurrentMediaMeta';
@@ -14,10 +17,12 @@ import { MediaBoxQrModal } from './mediabox/MediaBoxQrModal';
 import { getSavedLyricsOffset, getSavedLyricsWordSync } from '@/lib/lyricsOffsetStore';
 import { useTvNavigation } from '@/hooks/useTvNavigation';
 import { useTvPlaybackSync } from '@/hooks/useTvPlaybackSync';
+import { calculatePlaybackCurrentTimeSec } from '@/lib/roomUtils';
 
 export const MediaBox: React.FC = React.memo(() => {
   const {
     roomCode,
+    roomId,
     roomState,
     muted,
     setMuted,
@@ -31,6 +36,7 @@ export const MediaBox: React.FC = React.memo(() => {
     handleToggleFullscreen,
     handleAdjustVolume,
     registerPlayerInstance,
+    handleSyncPlaybackCheckpoint,
   } = useWatchParty();
 
   const clockTime = useClockTime();
@@ -51,21 +57,65 @@ export const MediaBox: React.FC = React.memo(() => {
     [registerPlayerInstance]
   );
 
+  // Background TV listener for ephemeral beamed API tokens from Host
+  const pendingTvToken = useQuery(
+    api.rooms.getPendingTvToken,
+    roomId ? { roomId } : 'skip'
+  );
+  const acknowledgeTvToken = useMutation(api.rooms.acknowledgeTvToken);
+
+  useEffect(() => {
+    if (pendingTvToken && roomId) {
+      saveApiToken(pendingTvToken);
+      acknowledgeTvToken({ roomId }).catch((err) => {
+        console.warn('[MediaBox] Failed to acknowledge beamed TV token:', err);
+      });
+    }
+  }, [pendingTvToken, roomId, acknowledgeTvToken]);
+
   const isPlaying = roomState?.playback?.status === 'playing';
   const isLocked = Boolean(roomState?.isLocked);
 
-  // Synchronize playback position and wall-clock timestamp to RTDB for remote clients
+  // Synchronize playback position and wall-clock timestamp to Convex ONLY when seeked or changed
   useTvPlaybackSync({
     roomCode,
     playerInstance,
     isPlaying: isPlaying && !isLocked,
     currentlyPlaying: roomState?.currentlyPlaying,
+    playbackPositionMs: roomState?.playback?.positionMs,
+    playbackUpdatedAt: roomState?.playback?.updatedAt,
+    onSyncCheckpoint: handleSyncPlaybackCheckpoint,
   });
+
+  // Catch remote seek operations & ensure tight pause/resume alignment
+  const lastSyncTimestampRef = useRef<number>(0);
+  useEffect(() => {
+    if (!playerInstance || typeof playerInstance.getCurrentTime !== 'function') return;
+    const updatedAt = roomState?.playback?.updatedAt || 0;
+    if (updatedAt && updatedAt !== lastSyncTimestampRef.current) {
+      lastSyncTimestampRef.current = updatedAt;
+      const targetSec = calculatePlaybackCurrentTimeSec(roomState?.playback);
+      const currentSec = playerInstance.getCurrentTime() || 0;
+      const threshold = isPlaying ? 0.5 : 0.3;
+      if (Math.abs(currentSec - targetSec) > threshold) {
+        try {
+          playerInstance.seekTo(targetSec, true);
+        } catch (e) {
+          console.warn('[MediaBox] seekTo error:', e);
+        }
+      }
+    }
+  }, [playerInstance, isPlaying, roomState?.playback?.positionMs, roomState?.playback?.updatedAt, roomState?.playback?.status]);
 
   const lyricsData = useLyrics(
     roomState?.currentlyPlaying,
     roomState?.currentlyPlayingTitle,
-    playerInstance
+    playerInstance,
+    undefined,
+    undefined,
+    roomId,
+    true,
+    currentVideoMeta.author
   );
 
   const [localFullscreen, setLocalFullscreen] = useState<boolean>(false);
@@ -234,8 +284,10 @@ export const MediaBox: React.FC = React.memo(() => {
               {lyricsData.shouldShowLyrics && (
                 isFullscreen ? (
                   <FullscreenLyricsView
+                    key={lyricsData.currentVideoId || 'lyrics-fs'}
                     lyrics={lyricsData.lyrics}
                     isLoading={lyricsData.isLoading}
+                    status={lyricsData.status}
                     albumArt={lyricsData.albumArt}
                     trackTitle={lyricsData.trackTitle}
                     artistName={lyricsData.artistName}
@@ -251,8 +303,10 @@ export const MediaBox: React.FC = React.memo(() => {
                   />
                 ) : (
                   <MediaBoxLyricsView
+                    key={lyricsData.currentVideoId || 'lyrics-box'}
                     lyrics={lyricsData.lyrics}
                     isLoading={lyricsData.isLoading}
+                    status={lyricsData.status}
                     albumArt={lyricsData.albumArt}
                     trackTitle={lyricsData.trackTitle}
                     artistName={lyricsData.artistName}

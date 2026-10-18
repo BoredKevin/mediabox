@@ -1,5 +1,5 @@
 import React from 'react';
-import { User as FirebaseUser } from 'firebase/auth';
+import { DeviceUser } from '@/lib/deviceAuth';
 import { RoomState } from '@/lib/roomUtils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { ProfileDropdown } from './ProfileDropdown';
 
 interface RoomHeaderProps {
   activeRoomCode: string;
-  user: FirebaseUser | null;
+  user: DeviceUser | null;
   roomState: RoomState | null;
   isAdmin: boolean;
   isHost: boolean;
@@ -19,7 +19,6 @@ interface RoomHeaderProps {
   memberCount: number;
   myNickname: string;
   onLeaveRoom: () => void;
-  onGoogleSignIn: () => Promise<void>;
   onLogout: () => Promise<void>;
   onSaveNickname: (name: string) => Promise<void>;
   onOpenHostSettings: () => void;
@@ -38,7 +37,6 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
   memberCount,
   myNickname,
   onLeaveRoom,
-  onGoogleSignIn,
   onLogout,
   onSaveNickname,
   onOpenHostSettings,
@@ -58,11 +56,11 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
             {activeRoomCode}
           </span>
 
-          {/* Role badge */}
           {isAdmin ? (
             <Badge
               variant="outline"
               className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md bg-purple-950/60 text-purple-300 border-purple-800/80"
+              title="Global Application Administrator"
             >
               <Shield className="w-2.5 h-2.5 text-purple-400" />
               <span>{t('remote.adminBadge')}</span>
@@ -71,6 +69,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
             <Badge
               variant="default"
               className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md"
+              title={t('remote.hostBadge')}
             >
               <Crown className="w-2.5 h-2.5" />
               <span>{t('remote.hostBadge')}</span>
@@ -79,16 +78,17 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
             <Badge
               variant="outline"
               className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md text-muted-foreground border-border"
+              title={t('remote.memberBadge')}
             >
               <span>{t('remote.memberBadge')}</span>
             </Badge>
           )}
 
-          {/* TV Online / Offline status badge */}
+          {/* TV online status */}
           {isTvOnline ? (
             <Badge
-              variant="success"
-              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md"
+              variant="outline"
+              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
               title={t('remote.tvOnlineBadge')}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -130,7 +130,6 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
 
       {/* Mobile Line 2 / Desktop Right: Profile, Settings, i18n & Logout */}
       <div className="flex items-center justify-between w-full lg:w-auto border-t border-border/40 lg:border-t-0 pt-2.5 lg:pt-0 gap-2">
-        {/* Left: User Profile & Host/Admin Room Settings */}
         <div className="flex items-center gap-2">
           <ProfileDropdown
             user={user}
@@ -138,7 +137,6 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
             isHost={isHost}
             isAdmin={isAdmin}
             onLogout={onLogout}
-            onGoogleSignIn={onGoogleSignIn}
             onSaveNickname={onSaveNickname}
           />
 
@@ -161,10 +159,10 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
                 onClick={onToggleRoomLock}
                 title={roomState?.isLocked ? t('remote.unlockRoomBtn') : t('remote.lockRoomBtn')}
                 aria-label={roomState?.isLocked ? t('remote.unlockRoomBtn') : t('remote.lockRoomBtn')}
-                className={`h-11 w-11 cursor-pointer transition-colors ${
+                className={`h-11 w-11 cursor-pointer ${
                   roomState?.isLocked
-                    ? 'text-amber-400 border-amber-500/60 bg-amber-500/10 hover:border-amber-400 hover:text-amber-300'
-                    : 'text-muted-foreground hover:text-primary hover:border-primary/60'
+                    ? 'border-amber-500/60 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
+                    : 'text-muted-foreground hover:text-primary'
                 }`}
               >
                 {roomState?.isLocked ? (
@@ -177,21 +175,16 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           )}
         </div>
 
-        {/* Right: Language Switcher, Desktop Member Count & Logout */}
         <div className="flex items-center gap-2">
-          <div className="hidden lg:flex items-center gap-1.5 px-3 h-11 text-xs font-mono bg-muted/20 border border-border text-foreground">
-            <Users className="w-3.5 h-3.5 text-primary" />
-            <span>{memberCount}</span>
-          </div>
-
-          <LanguageSwitcher className="relative static" hideOnFullscreen={false} />
+          <LanguageSwitcher />
 
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
             onClick={onLeaveRoom}
+            className="h-11 w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
             title={t('remote.leaveRoomBtn')}
-            className="h-11 w-11 text-muted-foreground hover:text-destructive hover:border-destructive transition-colors cursor-pointer"
+            aria-label={t('remote.leaveRoomBtn')}
           >
             <LogOut className="w-4 h-4" />
           </Button>
