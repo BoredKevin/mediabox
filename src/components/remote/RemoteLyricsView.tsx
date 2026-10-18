@@ -3,6 +3,7 @@ import { RoomState, calculatePlaybackCurrentTimeSec } from '@/lib/roomUtils';
 import { useLyrics } from '@/hooks/useLyrics';
 import { useCurrentMediaMeta } from '@/hooks/useCurrentMediaMeta';
 import { BraccatoLyricsRenderer } from '@/components/lyrics/BraccatoLyricsRenderer';
+import { LyricsLoadingSequence } from '@/components/lyrics/LyricsLoadingSequence';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Search, Disc, Music, Mic2 } from 'lucide-react';
@@ -156,12 +157,8 @@ export const RemoteLyricsView: React.FC<RemoteLyricsViewProps> = ({
             isWordSync={isWordSync}
             className="px-1 sm:px-2 py-1"
           />
-        ) : lyricsData.isLoading ? (
-          <div className="flex flex-col items-center justify-center gap-3 p-8 animate-pulse text-white/30 h-full">
-            <div className="h-7 bg-white/15 rounded-lg w-3/4 mb-2" />
-            <div className="h-9 bg-white/25 rounded-lg w-5/6 mb-2" />
-            <div className="h-7 bg-white/15 rounded-lg w-2/3" />
-          </div>
+        ) : (lyricsData.isLoading || lyricsData.status === 'fetching') ? (
+          <LyricsLoadingSequence />
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 p-6 text-center text-white/50 h-full font-sans">
             <Mic2 className="w-10 h-10 text-white/30" />

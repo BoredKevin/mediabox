@@ -1,11 +1,13 @@
 import React from 'react';
 import type { Lyric } from '@braccato/parsers';
 import { BraccatoLyricsRenderer } from './BraccatoLyricsRenderer';
+import { LyricsLoadingSequence } from './LyricsLoadingSequence';
 import { Music, Disc } from 'lucide-react';
 
 interface MediaBoxLyricsViewProps {
   lyrics: Lyric[] | null;
   isLoading: boolean;
+  status?: 'idle' | 'fetching' | 'ready' | 'error';
   albumArt: string;
   trackTitle: string;
   artistName: string;
@@ -21,6 +23,7 @@ interface MediaBoxLyricsViewProps {
 export const MediaBoxLyricsView: React.FC<MediaBoxLyricsViewProps> = ({
   lyrics,
   isLoading,
+  status,
   albumArt,
   trackTitle,
   artistName,
@@ -32,6 +35,7 @@ export const MediaBoxLyricsView: React.FC<MediaBoxLyricsViewProps> = ({
   isWordSync = false,
 }) => {
   const hasLyrics = Boolean(lyrics && lyrics.length > 0);
+  const isFetching = isLoading || status === 'fetching';
 
   return (
     <div
@@ -52,12 +56,8 @@ export const MediaBoxLyricsView: React.FC<MediaBoxLyricsViewProps> = ({
             lyricsOffsetMs={lyricsOffsetMs}
             isWordSync={isWordSync}
           />
-        ) : isLoading ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2.5 animate-pulse text-white/40">
-            <div className="h-6 bg-white/10 rounded w-1/2" />
-            <div className="h-8 bg-white/20 rounded w-2/3" />
-            <div className="h-6 bg-white/10 rounded w-1/2" />
-          </div>
+        ) : isFetching ? (
+          <LyricsLoadingSequence />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-white/50 text-center px-4">
             <Music className="w-8 h-8 text-white/40" />
@@ -95,7 +95,7 @@ export const MediaBoxLyricsView: React.FC<MediaBoxLyricsViewProps> = ({
               {trackTitle || 'Unknown Track'}
             </p>
             <p className="text-[9px] sm:text-[10px] text-white/70 truncate mt-0.5 leading-tight">
-              {artistName || 'Unknown Artist'}
+              {artistName || 'Loading...'}
             </p>
           </div>
         </div>

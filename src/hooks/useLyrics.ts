@@ -12,6 +12,7 @@ import { loadApiToken } from '@/lib/apiTokenStore';
 export interface LyricsState {
   lyrics: Lyric[] | null;
   isLoading: boolean;
+  status: 'idle' | 'fetching' | 'ready' | 'error';
   isYTMusic: boolean;
   isFromUnison: boolean;
   shouldShowLyrics: boolean;
@@ -36,6 +37,7 @@ export function useLyrics(
   const [lyricsState, setLyricsState] = useState<LyricsState>({
     lyrics: null,
     isLoading: false,
+    status: 'idle',
     isYTMusic: false,
     isFromUnison: false,
     shouldShowLyrics: false,
@@ -67,6 +69,7 @@ export function useLyrics(
       setLyricsState({
         lyrics: null,
         isLoading: false,
+        status: 'idle',
         isYTMusic: false,
         isFromUnison: false,
         shouldShowLyrics: false,
@@ -95,6 +98,7 @@ export function useLyrics(
       setLyricsState((prev) => ({
         ...prev,
         isLoading: true,
+        status: 'fetching',
         isYTMusic: isEagerYTMusic,
         shouldShowLyrics: isEagerYTMusic || prev.shouldShowLyrics,
         albumArt: thumbnail,
@@ -111,6 +115,7 @@ export function useLyrics(
         setLyricsState((prev) => ({
           ...prev,
           isLoading: true,
+          status: 'fetching',
           isYTMusic: isEagerYTMusic,
           shouldShowLyrics: isEagerYTMusic || prev.shouldShowLyrics,
           albumArt: thumbnail,
@@ -129,6 +134,7 @@ export function useLyrics(
           ...prev,
           lyrics: null,
           isLoading: false,
+          status: cachedLyricsDoc.status === 'error' ? 'error' : 'ready',
           isYTMusic: isEagerYTMusic,
           isFromUnison: false,
           shouldShowLyrics: false,
@@ -179,6 +185,7 @@ export function useLyrics(
           ...prev,
           lyrics: parsedLyrics,
           isLoading: false,
+          status: 'ready',
           isYTMusic: isEagerYTMusic,
           isFromUnison: cachedLyricsDoc.sourceLabel === 'Unison',
           shouldShowLyrics: Boolean(parsedLyrics && parsedLyrics.length > 0) || isEagerYTMusic,

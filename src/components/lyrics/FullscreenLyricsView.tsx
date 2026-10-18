@@ -1,11 +1,13 @@
 import React from 'react';
 import type { Lyric } from '@braccato/parsers';
 import { BraccatoLyricsRenderer } from './BraccatoLyricsRenderer';
+import { LyricsLoadingSequence } from './LyricsLoadingSequence';
 import { Music, Disc } from 'lucide-react';
 
 interface FullscreenLyricsViewProps {
   lyrics: Lyric[] | null;
   isLoading: boolean;
+  status?: 'idle' | 'fetching' | 'ready' | 'error';
   albumArt: string;
   trackTitle: string;
   artistName: string;
@@ -23,6 +25,7 @@ interface FullscreenLyricsViewProps {
 export const FullscreenLyricsView: React.FC<FullscreenLyricsViewProps> = ({
   lyrics,
   isLoading,
+  status,
   albumArt,
   trackTitle,
   artistName,
@@ -37,6 +40,7 @@ export const FullscreenLyricsView: React.FC<FullscreenLyricsViewProps> = ({
   isWordSync = false,
 }) => {
   const hasLyrics = Boolean(lyrics && lyrics.length > 0);
+  const isFetching = isLoading || status === 'fetching';
 
   // Temporary OSD toast when lyricsOffsetMs changes
   const [showOsd, setShowOsd] = React.useState(false);
@@ -98,12 +102,8 @@ export const FullscreenLyricsView: React.FC<FullscreenLyricsViewProps> = ({
             lyricsOffsetMs={lyricsOffsetMs}
             isWordSync={isWordSync}
           />
-        ) : isLoading ? (
-          <div className="flex flex-col items-start justify-center gap-3 animate-pulse text-white/40">
-            <div className="h-10 bg-white/10 rounded-lg w-3/4 mb-3" />
-            <div className="h-12 bg-white/20 rounded-lg w-5/6 mb-3" />
-            <div className="h-10 bg-white/10 rounded-lg w-2/3" />
-          </div>
+        ) : isFetching ? (
+          <LyricsLoadingSequence isFullscreen />
         ) : (
           <div className="flex flex-col items-start justify-center gap-4 text-white/50">
             <div>
@@ -162,7 +162,7 @@ export const FullscreenLyricsView: React.FC<FullscreenLyricsViewProps> = ({
 
           {/* Artist Name */}
           <p className="mt-2 text-base sm:text-lg md:text-xl font-medium text-white/75 line-clamp-1">
-            {artistName || 'Unknown Artist'}
+            {artistName || 'Loading...'}
           </p>
 
           {/* Optional Source Tag (e.g. Unison / Better Lyrics / TTML) */}

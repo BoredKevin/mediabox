@@ -295,4 +295,51 @@ braccato-lyrics[data-word-sync="true"] .blyrics-word-highlight[data-word-state="
   opacity: 1 !important;
 }
 
+/* 10. Syllable/Word-Synced Lyrics Loading Sequence */
+@keyframes lyricWave {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scaleX(0.98);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes lyricEqBar1 {
+  0%, 100% { height: 35%; opacity: 0.4; }
+  50% { height: 100%; opacity: 0.95; }
+}
+
+@keyframes lyricEqBar2 {
+  0%, 100% { height: 85%; opacity: 0.75; }
+  50% { height: 30%; opacity: 0.35; }
+}
+
+@keyframes lyricEqBar3 {
+  0%, 100% { height: 45%; opacity: 0.5; }
+  50% { height: 90%; opacity: 0.9; }
+}
+
+.animate-lyric-wave {
+  animation: lyricWave 2.2s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.animate-lyric-eq-1 {
+  animation: lyricEqBar1 0.95s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+.animate-lyric-eq-2 {
+  animation: lyricEqBar2 1.15s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+.animate-lyric-eq-3 {
+  animation: lyricEqBar3 0.85s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
 

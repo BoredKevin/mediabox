@@ -286,6 +286,7 @@ export const MediaBox: React.FC = React.memo(() => {
                   <FullscreenLyricsView
                     lyrics={lyricsData.lyrics}
                     isLoading={lyricsData.isLoading}
+                    status={lyricsData.status}
                     albumArt={lyricsData.albumArt}
                     trackTitle={lyricsData.trackTitle}
                     artistName={lyricsData.artistName}
@@ -303,6 +304,7 @@ export const MediaBox: React.FC = React.memo(() => {
                   <MediaBoxLyricsView
                     lyrics={lyricsData.lyrics}
                     isLoading={lyricsData.isLoading}
+                    status={lyricsData.status}
                     albumArt={lyricsData.albumArt}
                     trackTitle={lyricsData.trackTitle}
                     artistName={lyricsData.artistName}
