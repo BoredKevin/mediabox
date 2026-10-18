@@ -1,19 +1,18 @@
 import React from 'react';
-import { User as FirebaseUser } from 'firebase/auth';
 import { useTranslation } from '@/context/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tv, Loader2 } from 'lucide-react';
+import type { DeviceUser } from '@/lib/deviceAuth';
 
 interface JoinScreenProps {
   inputCode: string;
   setInputCode: (val: string) => void;
   onJoin: (code: string) => Promise<void>;
   loading: boolean;
-  user?: FirebaseUser | null;
-  onGoogleSignIn?: (roomCode?: string) => Promise<void>;
+  user?: DeviceUser | null;
 }
 
 export const JoinScreen: React.FC<JoinScreenProps> = ({

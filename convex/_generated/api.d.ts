@@ -11,11 +11,17 @@
 import type * as admins from "../admins.js";
 import type * as http from "../http.js";
 import type * as lyrics from "../lyrics.js";
+import type * as lyrics_meta from "../lyrics/meta.js";
+import type * as lyrics_providers from "../lyrics/providers.js";
+import type * as lyrics_types from "../lyrics/types.js";
 import type * as lyricsActions from "../lyricsActions.js";
 import type * as playback from "../playback.js";
+import type * as playback_transitions from "../playback/transitions.js";
 import type * as presence from "../presence.js";
 import type * as queue from "../queue.js";
 import type * as rooms from "../rooms.js";
+import type * as rooms_auth from "../rooms/auth.js";
+import type * as rooms_tokens from "../rooms/tokens.js";
 import type * as youtube from "../youtube.js";
 
 import type {
@@ -28,11 +34,17 @@ declare const fullApi: ApiFromModules<{
   admins: typeof admins;
   http: typeof http;
   lyrics: typeof lyrics;
+  "lyrics/meta": typeof lyrics_meta;
+  "lyrics/providers": typeof lyrics_providers;
+  "lyrics/types": typeof lyrics_types;
   lyricsActions: typeof lyricsActions;
   playback: typeof playback;
+  "playback/transitions": typeof playback_transitions;
   presence: typeof presence;
   queue: typeof queue;
   rooms: typeof rooms;
+  "rooms/auth": typeof rooms_auth;
+  "rooms/tokens": typeof rooms_tokens;
   youtube: typeof youtube;
 }>;
 

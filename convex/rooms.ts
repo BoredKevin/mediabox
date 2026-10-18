@@ -1,26 +1,14 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { presence } from "./presence";
+import { isAuthorized } from "./rooms/auth";
+import {
+  handleBeamTokenToTv,
+  handleGetPendingTvToken,
+  handleAcknowledgeTvToken,
+} from "./rooms/tokens";
 
-async function isAuthorized(
-  ctx: any,
-  room: { hostUid: string; tvUid: string; tvUuid?: string },
-  callerUid: string
-): Promise<boolean> {
-  if (
-    room.hostUid === callerUid ||
-    room.tvUid === callerUid ||
-    (room.tvUuid && room.tvUuid === callerUid)
-  ) {
-    return true;
-  }
-
-  const admin = await ctx.db
-    .query("admins")
-    .withIndex("by_uid", (q: any) => q.eq("uid", callerUid))
-    .first();
-  return !!admin;
-}
+export { isAuthorized };
 
 /**
  * Creates a new Watch Together room with a unique 6-digit PIN.
@@ -35,7 +23,6 @@ export const create = mutation({
     lyricsWordSync: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Generate unique 6-digit room PIN
     let code = Math.floor(100000 + Math.random() * 900000).toString();
     const existing = await ctx.db
       .query("rooms")
@@ -70,7 +57,6 @@ export const create = mutation({
       preferMusicVideos: args.preferMusicVideos,
     });
 
-    // Initialize radio automix queue document
     await ctx.db.insert("radioQueue", {
       roomId,
       items: [],
@@ -82,7 +68,6 @@ export const create = mutation({
 
 /**
  * Queries room state by 6-digit code.
- * tvOnline is derived dynamically from real-time presence data.
  */
 export const getRoom = query({
   args: { code: v.string() },
@@ -101,10 +86,7 @@ export const getRoom = query({
       tvOnline = true;
     }
 
-    return {
-      ...room,
-      tvOnline,
-    };
+    return { ...room, tvOnline };
   },
 });
 
@@ -125,10 +107,7 @@ export const getRoomById = query({
       tvOnline = true;
     }
 
-    return {
-      ...room,
-      tvOnline,
-    };
+    return { ...room, tvOnline };
   },
 });
 
@@ -152,11 +131,7 @@ export const toggleLock = mutation({
     await ctx.db.patch(args.roomId, {
       isLocked: nextLock,
       playback: nextLock
-        ? {
-            ...room.playback,
-            status: "paused",
-            updatedAt: now,
-          }
+        ? { ...room.playback, status: "paused", updatedAt: now }
         : room.playback,
     });
   },
@@ -294,7 +269,6 @@ export const toggleFullscreen = mutation({
 
 /**
  * Joins a room as a client.
- * Auto-assigns the first joining remote member as the room Host if the room was only held by the TV display.
  */
 export const joinRoom = mutation({
   args: {
@@ -305,27 +279,20 @@ export const joinRoom = mutation({
     const room = await ctx.db.get(args.roomId);
     if (!room) throw new Error("Room not found");
 
-    // 1. If room's host is still set to the TV itself and a remote client joins:
-    // Grant the first remote member host privileges!
     if (room.hostUid === room.tvUid && args.callerUid !== room.tvUid) {
-      await ctx.db.patch(args.roomId, {
-        hostUid: args.callerUid,
-      });
+      await ctx.db.patch(args.roomId, { hostUid: args.callerUid });
       return { isHost: true };
     }
 
-    // 2. If current host is offline in presence, auto-promote joining member:
     try {
       const activePresence = await presence.listRoom(ctx, room.code, true);
       const isCurrentHostOnline = activePresence.some((p) => p.userId === room.hostUid);
       if (!isCurrentHostOnline && args.callerUid !== room.tvUid) {
-        await ctx.db.patch(args.roomId, {
-          hostUid: args.callerUid,
-        });
+        await ctx.db.patch(args.roomId, { hostUid: args.callerUid });
         return { isHost: true };
       }
     } catch {
-      // Ignore presence lookup errors
+      // Ignore
     }
 
     return { isHost: room.hostUid === args.callerUid };
@@ -333,7 +300,7 @@ export const joinRoom = mutation({
 });
 
 /**
- * Claims host privileges for a room if the current host is offline or if room.hostUid === room.tvUid.
+ * Claims host privileges for a room if current host is offline.
  */
 export const claimHost = mutation({
   args: {
@@ -345,9 +312,7 @@ export const claimHost = mutation({
     if (!room) throw new Error("Room not found");
 
     if (room.hostUid === room.tvUid || room.hostUid === args.callerUid) {
-      await ctx.db.patch(args.roomId, {
-        hostUid: args.callerUid,
-      });
+      await ctx.db.patch(args.roomId, { hostUid: args.callerUid });
       return { isHost: true };
     }
 
@@ -355,9 +320,7 @@ export const claimHost = mutation({
       const activePresence = await presence.listRoom(ctx, room.code, true);
       const isCurrentHostOnline = activePresence.some((p) => p.userId === room.hostUid);
       if (!isCurrentHostOnline) {
-        await ctx.db.patch(args.roomId, {
-          hostUid: args.callerUid,
-        });
+        await ctx.db.patch(args.roomId, { hostUid: args.callerUid });
         return { isHost: true };
       }
     } catch {
@@ -370,7 +333,6 @@ export const claimHost = mutation({
 
 /**
  * Beams an API token from the Host to the TV screen.
- * The token is stored temporarily in roomSecrets and NEVER returned in standard room subscriptions.
  */
 export const beamTokenToTv = mutation({
   args: {
@@ -379,61 +341,12 @@ export const beamTokenToTv = mutation({
     token: v.string(),
   },
   handler: async (ctx, args) => {
-    const room = await ctx.db.get(args.roomId);
-    if (!room) throw new Error("Room not found");
-
-    if (room.hostUid !== args.callerUid) {
-      const admin = await ctx.db
-        .query("admins")
-        .withIndex("by_uid", (q) => q.eq("uid", args.callerUid))
-        .first();
-      if (!admin) {
-        throw new Error("Unauthorized to beam token to TV");
-      }
-    }
-
-    const trimmed = args.token.trim();
-    if (!trimmed) throw new Error("Token cannot be empty");
-
-    // Validate token against env var or apiTokens table
-    const envToken = process.env.APP_API_TOKEN || process.env.MEDIABOX_API_TOKEN;
-    let isValid = Boolean(envToken && trimmed === envToken.trim());
-    if (!isValid) {
-      const dbToken = await ctx.db
-        .query("apiTokens")
-        .withIndex("by_token", (q) => q.eq("token", trimmed))
-        .first();
-      isValid = !!dbToken;
-    }
-
-    if (!isValid) {
-      throw new Error("Invalid API token. Please ensure the token is configured on the backend.");
-    }
-
-    const existingSecret = await ctx.db
-      .query("roomSecrets")
-      .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
-      .first();
-
-    const now = Date.now();
-    if (existingSecret) {
-      await ctx.db.patch(existingSecret._id, {
-        pendingTvToken: trimmed,
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("roomSecrets", {
-        roomId: args.roomId,
-        pendingTvToken: trimmed,
-        updatedAt: now,
-      });
-    }
+    await handleBeamTokenToTv(ctx, args.roomId, args.callerUid, args.token);
   },
 });
 
 /**
- * Dedicated query for TV devices to check for incoming beamed API tokens.
- * Only the TV display queries this endpoint.
+ * TV queries incoming beamed API tokens.
  */
 export const getPendingTvToken = query({
   args: {
@@ -441,42 +354,18 @@ export const getPendingTvToken = query({
     tvUuid: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const room = await ctx.db.get(args.roomId);
-    if (!room) return null;
-
-    if (room.tvUuid && args.tvUuid && room.tvUuid !== args.tvUuid) {
-      return null;
-    }
-
-    const secret = await ctx.db
-      .query("roomSecrets")
-      .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
-      .first();
-
-    return secret?.pendingTvToken || null;
+    return await handleGetPendingTvToken(ctx, args.roomId, args.tvUuid);
   },
 });
 
 /**
- * TV acknowledges and immediately wipes the pending token from roomSecrets.
+ * TV acknowledges and wipes pending token.
  */
 export const acknowledgeTvToken = mutation({
   args: {
     roomId: v.id("rooms"),
   },
   handler: async (ctx, args) => {
-    const secret = await ctx.db
-      .query("roomSecrets")
-      .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
-      .first();
-
-    if (secret && secret.pendingTvToken) {
-      await ctx.db.patch(secret._id, {
-        pendingTvToken: undefined,
-        updatedAt: Date.now(),
-      });
-    }
+    await handleAcknowledgeTvToken(ctx, args.roomId);
   },
 });
-
-

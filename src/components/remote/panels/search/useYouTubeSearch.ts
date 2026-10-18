@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAction, useQuery } from 'convex/react';
 import { api } from '../../../../../convex/_generated/api';
 import { SearchResultItem } from '@/lib/roomUtils';
@@ -18,11 +18,12 @@ export function useYouTubeSearch({
   turnstileRef,
 }: UseYouTubeSearchProps = {}) {
   const [isSearching, setIsSearching] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
 
   const searchAction = useAction(api.youtube.search);
-  const apiToken = loadApiToken();
+  const apiToken = useMemo(() => loadApiToken(), []);
 
   const tokenVerification = useQuery(
     api.admins.verifyApiToken,
@@ -36,7 +37,6 @@ export function useYouTubeSearch({
       const q = cleanQuery.trim();
       if (!q) return;
 
-      setIsSearching(true);
       setSearchError(null);
 
       try {
@@ -44,8 +44,22 @@ export function useYouTubeSearch({
 
         // If client does not have a verified API token, acquire Turnstile token
         if (!isCleared && turnstileRef?.current) {
-          turnstileToken = await turnstileRef.current.getToken();
+          const hasCached =
+            typeof turnstileRef.current.hasToken === 'function'
+              ? turnstileRef.current.hasToken()
+              : false;
+
+          if (!hasCached) {
+            setIsVerifying(true);
+          }
+          try {
+            turnstileToken = await turnstileRef.current.getToken();
+          } finally {
+            setIsVerifying(false);
+          }
         }
+
+        setIsSearching(true);
 
         const results = await searchAction({
           query: q,
@@ -63,7 +77,7 @@ export function useYouTubeSearch({
           thumbnail:
             item.thumbnail ||
             item.thumbnailUrl ||
-            (item.id ? `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg` : ''),
+            (item.id ? `https://i.ytimg.com/vi/${item.id}/mqdefault.jpg` : ''),
           durationSeconds: item.durationSeconds,
         }));
 
@@ -74,6 +88,7 @@ export function useYouTubeSearch({
         setSearchResults([]);
       } finally {
         setIsSearching(false);
+        setIsVerifying(false);
       }
     },
     [searchAction, isCleared, turnstileRef, apiToken, preferMusicVideos]
@@ -86,6 +101,7 @@ export function useYouTubeSearch({
 
   return {
     isSearching,
+    isVerifying,
     searchError,
     searchResults,
     performSearch,

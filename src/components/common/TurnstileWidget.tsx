@@ -23,6 +23,7 @@ declare global {
 
 export interface TurnstileRef {
   getToken: () => Promise<string>;
+  hasToken: () => boolean;
   reset: () => void;
 }
 
@@ -36,7 +37,7 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<string | null>(null);
     const tokenRef = useRef<string | null>(null);
-    const pendingResolveRef = useRef<((token: string) => void) | null>(null);
+    const pendingResolversRef = useRef<Array<(token: string) => void>>([]);
     const [isReady, setIsReady] = useState(false);
 
     const effectiveSiteKey =
@@ -55,31 +56,52 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
             sitekey: effectiveSiteKey,
             size: 'invisible',
             callback: (token: string) => {
-              tokenRef.current = token;
               if (onToken) onToken(token);
-              if (pendingResolveRef.current) {
-                const resolve = pendingResolveRef.current;
-                pendingResolveRef.current = null;
-                resolve(token);
+              if (pendingResolversRef.current.length > 0) {
+                const resolvers = [...pendingResolversRef.current];
+                pendingResolversRef.current = [];
+                tokenRef.current = null;
+                resolvers.forEach((resolve) => resolve(token));
+                if (widgetIdRef.current && window.turnstile) {
+                  try {
+                    window.turnstile.reset(widgetIdRef.current);
+                  } catch (_) {}
+                }
+              } else {
+                tokenRef.current = token;
               }
             },
             'error-callback': (code) => {
               console.warn('[Turnstile] Challenge error code:', code);
-              if (pendingResolveRef.current) {
-                const resolve = pendingResolveRef.current;
-                pendingResolveRef.current = null;
-                // Fallback to empty string on error so development doesn't block completely
-                resolve('');
+              if (pendingResolversRef.current.length > 0) {
+                const resolvers = [...pendingResolversRef.current];
+                pendingResolversRef.current = [];
+                resolvers.forEach((resolve) => resolve(''));
               }
             },
             'expired-callback': () => {
               tokenRef.current = null;
+              if (widgetIdRef.current && window.turnstile) {
+                try {
+                  window.turnstile.reset(widgetIdRef.current);
+                } catch (_) {}
+              }
             },
           });
           widgetIdRef.current = id;
           if (isMounted) setIsReady(true);
+          if (pendingResolversRef.current.length > 0) {
+            try {
+              window.turnstile.execute(id);
+            } catch (_) {}
+          }
         } catch (err) {
           console.warn('[Turnstile] Render error:', err);
+          if (pendingResolversRef.current.length > 0) {
+            const resolvers = [...pendingResolversRef.current];
+            pendingResolversRef.current = [];
+            resolvers.forEach((resolve) => resolve(''));
+          }
         }
       };
 
@@ -104,6 +126,11 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
 
       return () => {
         isMounted = false;
+        if (pendingResolversRef.current.length > 0) {
+          const resolvers = [...pendingResolversRef.current];
+          pendingResolversRef.current = [];
+          resolvers.forEach((resolve) => resolve(''));
+        }
         if (widgetIdRef.current && window.turnstile) {
           try {
             window.turnstile.remove(widgetIdRef.current);
@@ -114,6 +141,7 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
     }, [effectiveSiteKey, onToken]);
 
     useImperativeHandle(ref, () => ({
+      hasToken: () => Boolean(tokenRef.current),
       getToken: async (): Promise<string> => {
         // If we already have a cached token, consume it and trigger background renewal
         if (tokenRef.current) {
@@ -129,26 +157,31 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
 
         // Otherwise execute invisible challenge and wait for token
         return new Promise<string>((resolve) => {
-          pendingResolveRef.current = resolve;
+          let timer: any = null;
+
+          const wrappedResolve = (token: string) => {
+            if (timer) clearTimeout(timer);
+            resolve(token);
+          };
+
+          pendingResolversRef.current.push(wrappedResolve);
+
           if (widgetIdRef.current && window.turnstile) {
             try {
               window.turnstile.execute(widgetIdRef.current);
             } catch (err) {
               console.warn('[Turnstile] Execute error:', err);
-              resolve('');
             }
-          } else {
-            // Widget not initialized yet or script blocked
-            resolve('');
           }
 
-          // Safety timeout after 4s
-          setTimeout(() => {
-            if (pendingResolveRef.current === resolve) {
-              pendingResolveRef.current = null;
+          // Safety timeout after 15s to allow for challenge completion
+          timer = setTimeout(() => {
+            const index = pendingResolversRef.current.indexOf(wrappedResolve);
+            if (index !== -1) {
+              pendingResolversRef.current.splice(index, 1);
               resolve('');
             }
-          }, 4000);
+          }, 15000);
         });
       },
       reset: () => {
@@ -166,12 +199,10 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
         ref={containerRef}
         aria-hidden="true"
         style={{
-          position: 'absolute',
-          width: 0,
-          height: 0,
-          overflow: 'hidden',
-          opacity: 0,
-          pointerEvents: 'none',
+          position: 'fixed',
+          bottom: 10,
+          right: 10,
+          zIndex: 9999,
         }}
       />
     );

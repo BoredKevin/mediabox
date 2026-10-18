@@ -64,9 +64,18 @@ export const SearchResultsGrid: React.FC<SearchResultsGridProps> = ({
             return (
               <div
                 key={res.id}
+                tabIndex={0}
+                data-tv-nav="true"
+                data-tv-zone="E"
                 onClick={() => onAddResult(res)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault();
+                    onAddResult(res);
+                  }
+                }}
                 className={cn(
-                  'group/card flex flex-col transition-all duration-200 overflow-hidden select-none rounded-md',
+                  'group/card flex flex-col transition-all duration-200 overflow-hidden select-none rounded-md tv-focus-target focus:outline-none',
                   isAdded
                     ? 'border-2 border-emerald-500/90 bg-emerald-950/30 hover:bg-emerald-950/40 cursor-default'
                     : 'bg-card hover:bg-muted/40 border border-border hover:border-foreground/60 shadow-sm cursor-pointer'
@@ -82,6 +91,7 @@ export const SearchResultsGrid: React.FC<SearchResultsGridProps> = ({
                       !isAdded && 'group-hover/card:scale-105'
                     )}
                     loading="lazy"
+                    decoding="async"
                   />
 
                   {/* Added Corner Check Badge */}
@@ -91,12 +101,20 @@ export const SearchResultsGrid: React.FC<SearchResultsGridProps> = ({
                     </div>
                   )}
 
+                  {/* TV Shortcut Hint Badge */}
+                  {!isAdded && (
+                    <div className="absolute bottom-2 left-2 z-10 bg-black/80 border border-white/20 text-white/90 text-[10px] font-mono px-1.5 py-0.5 rounded opacity-0 group-focus/card:opacity-100 group-hover/card:opacity-100 transition-opacity">
+                      [OK] Tambah
+                    </div>
+                  )}
+
                   {/* Hover Overlay with Add / Added Button */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 flex items-center justify-center p-2">
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 group-focus/card:opacity-100 transition-opacity duration-200 flex items-center justify-center p-2">
                     <Button
                       variant="cyber"
                       size="sm"
                       chamfer="dual"
+                      tabIndex={-1}
                       onClick={(e) => {
                         e.stopPropagation();
                         onAddResult(res);
@@ -132,7 +150,7 @@ export const SearchResultsGrid: React.FC<SearchResultsGridProps> = ({
                         'text-xs sm:text-sm font-semibold line-clamp-2 leading-snug transition-colors',
                         isAdded
                           ? 'text-emerald-300'
-                          : 'text-foreground group-hover/card:text-primary'
+                          : 'text-foreground group-hover/card:text-primary group-focus/card:text-primary'
                       )}
                       title={res.title}
                     >

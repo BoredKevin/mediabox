@@ -1,21 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { convex } from '@/lib/convex';
 import { api } from '../../../convex/_generated/api';
 import {
-  ensureDeviceAuth,
+  DeviceUser,
+  getDeviceUser,
   getOrCreateDeviceCredentials,
-  signInWithGoogle,
   logoutUser,
   getStoredNickname,
-  saveStoredNickname,
   getStoredRemoteRoomCode,
   saveStoredRemoteRoomCode,
 } from '@/lib/deviceAuth';
 import { useTranslation } from '@/context/LanguageContext';
-
 import { JoinScreen } from './JoinScreen';
 import { RoomScreen } from './RoomScreen';
 
@@ -24,13 +20,7 @@ export const RemoteView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRoom = searchParams.get('room') || getStoredRemoteRoomCode() || '';
 
-  const [user, setUser] = useState<FirebaseUser | null>(() => {
-    const creds = getOrCreateDeviceCredentials();
-    return (auth.currentUser || {
-      uid: creds.uuid,
-      displayName: getStoredNickname() || 'Guest',
-    }) as any;
-  });
+  const [user, setUser] = useState<DeviceUser | null>(() => getDeviceUser());
   const [inputCode, setInputCode] = useState(initialRoom);
   const [activeRoomCode, setActiveRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,31 +33,10 @@ export const RemoteView: React.FC = () => {
   const userRef = useRef(user);
   userRef.current = user;
 
-  // Track room codes that have already been auto-joined to prevent infinite rejoin loops on exit
   const lastAutoJoinedRoomRef = useRef<string | null>(null);
 
-  // Background non-blocking auth sync
-  useEffect(() => {
-    let isCancelled = false;
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (isCancelled) return;
-      if (currentUser) {
-        setUser(currentUser);
-      }
-    });
-    ensureDeviceAuth()
-      .then((u) => {
-        if (!isCancelled && u) setUser(u);
-      })
-      .catch(() => {});
-    return () => {
-      isCancelled = true;
-      unsubscribe();
-    };
-  }, []);
-
   const handleJoinRoom = useCallback(
-    async (codeToJoin: string, authUser?: FirebaseUser) => {
+    async (codeToJoin: string, authUser?: DeviceUser) => {
       const cleanCode = codeToJoin.trim();
       if (cleanCode.length !== 6) return;
 
@@ -78,7 +47,7 @@ export const RemoteView: React.FC = () => {
           uid: getOrCreateDeviceCredentials().uuid,
           displayName: getStoredNickname() || 'Guest',
         };
-        setUser(u as any);
+        setUser(u);
 
         const room = await convex.query(api.rooms.getRoom, { code: cleanCode });
         if (!room) {
@@ -100,7 +69,7 @@ export const RemoteView: React.FC = () => {
     [setSearchParams, user]
   );
 
-  // Auto-join if room code parameter present in URL (only once per unique room code)
+  // Auto-join if room code parameter present in URL
   useEffect(() => {
     const roomParam = searchParams.get('room');
     if (roomParam && roomParam !== lastAutoJoinedRoomRef.current && !activeRoomCode) {
@@ -108,31 +77,6 @@ export const RemoteView: React.FC = () => {
       handleJoinRoom(roomParam, user || undefined);
     }
   }, [user, searchParams, activeRoomCode, handleJoinRoom]);
-
-  const handleGoogleSignIn = async (codeOverride?: string) => {
-    setLoading(true);
-    try {
-      const u = await signInWithGoogle();
-      setUser(u);
-
-      const code = (
-        codeOverride ||
-        inputCodeRef.current ||
-        initialRoom ||
-        activeRoomCodeRef.current ||
-        searchParams.get('room') ||
-        ''
-      ).trim();
-
-      if (code.length === 6) {
-        await handleJoinRoom(code, u);
-      }
-    } catch (err: any) {
-      console.error('Google Sign In Error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -153,9 +97,6 @@ export const RemoteView: React.FC = () => {
 
   const handleLeaveRoom = useCallback(async () => {
     const currentRoom = activeRoomCodeRef.current;
-    const currentUser = userRef.current;
-
-    // Prevent auto-join effect from immediately re-entering the room just exited
     lastAutoJoinedRoomRef.current = currentRoom;
 
     saveStoredRemoteRoomCode(null);
@@ -166,7 +107,6 @@ export const RemoteView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans relative">
-      {/* Background Ambience */}
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
 
       {!activeRoomCode ? (
@@ -181,7 +121,6 @@ export const RemoteView: React.FC = () => {
           activeRoomCode={activeRoomCode}
           user={user}
           onLeaveRoom={handleLeaveRoom}
-          onGoogleSignIn={handleGoogleSignIn}
           onLogout={handleLogout}
         />
       )}

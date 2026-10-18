@@ -106,6 +106,7 @@
     "searchBtn": "Cari",
     "submitBtn": "Kirim",
     "searching": "Mencari...",
+    "verifying": "Memverifikasi...",
     "ytKeyNeededTitle": "MediaBox YouTube API Dibutuhkan untuk Pencarian",
     "ytKeyNeededDesc": "Konfigurasikan proxy MediaBox YouTube API di Pengaturan TV untuk mengaktifkan pencarian kata kunci. Anda juga dapat menempelkan URL YouTube langsung di tab Tempel Tautan tanpa pengaturan tambahan!",
     "addBtn": "Tambah",
@@ -146,7 +147,7 @@
     "tvOfflineBadge": "Offline"
   },
   "toasts": {
-    "authFailed": "Gagal melakukan autentikasi dengan Firebase.",
+    "authFailed": "Gagal menginisialisasi sesi perangkat.",
     "roomClosedByHost": "Ruang telah ditutup oleh TV host.",
     "kickedByHost": "Anda telah dikeluarkan dari ruang oleh host.",
     "roomCleared": "Ruang telah ditutup atau daftar anggota dikosongkan.",

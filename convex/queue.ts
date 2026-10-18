@@ -67,7 +67,7 @@ export const add = mutation({
         currentlyPlayingTitle: args.title,
         playback: {
           ...room.playback,
-          status: "playing",
+          status: "loading",
           positionMs: 0,
           updatedAt: now,
         },

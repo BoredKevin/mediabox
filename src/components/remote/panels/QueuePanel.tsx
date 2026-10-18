@@ -1,5 +1,5 @@
 import React from 'react';
-import { User as FirebaseUser } from 'firebase/auth';
+import { DeviceUser } from '@/lib/deviceAuth';
 import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,7 @@ import { QueueItem, SearchResultItem, parseYouTubeVideoId } from '@/lib/roomUtil
 interface QueuePanelProps {
   queue: QueueItem[];
   radioQueue?: SearchResultItem[];
-  user: FirebaseUser | null;
+  user: DeviceUser | null;
   currentUid?: string;
   isHostOrAdmin: boolean;
   tvUid?: string | null;

@@ -106,6 +106,7 @@
     "searchBtn": "Search",
     "submitBtn": "Submit",
     "searching": "Searching...",
+    "verifying": "Verifying...",
     "ytKeyNeededTitle": "MediaBox YouTube API Needed for Keyword Search",
     "ytKeyNeededDesc": "Configure the MediaBox YouTube API proxy in TV Room Settings to enable keyword search. You can also paste any direct YouTube link under the Paste Link tab with zero setup!",
     "addBtn": "Add",
@@ -146,7 +147,7 @@
     "tvOfflineBadge": "Offline"
   },
   "toasts": {
-    "authFailed": "Failed to authenticate with Firebase.",
+    "authFailed": "Failed to initialize device session.",
     "roomClosedByHost": "The room has been closed by the host TV.",
     "kickedByHost": "You have been kicked from the room by the host.",
     "roomCleared": "The room was closed or member list cleared.",
