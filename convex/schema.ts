@@ -80,7 +80,6 @@ export default defineSchema({
     isrc: v.optional(v.string()),
     status: v.union(v.literal("fetching"), v.literal("ready"), v.literal("error")),
     updatedAt: v.number(),
-    errorLog: v.optional(v.string()),
     logs: v.optional(v.array(v.string())),
   }).index("by_video", ["videoId"]),
 

@@ -100,7 +100,6 @@ export const storeCached = internalMutation({
     syncType: v.optional(v.string()),
     isrc: v.optional(v.string()),
     status: v.union(v.literal("ready"), v.literal("error")),
-    errorLog: v.optional(v.string()),
     logs: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
@@ -123,7 +122,6 @@ export const storeCached = internalMutation({
     if (args.format !== undefined) docFields.format = args.format;
     if (args.syncType !== undefined) docFields.syncType = args.syncType;
     if (args.isrc !== undefined) docFields.isrc = args.isrc;
-    if (args.errorLog !== undefined) docFields.errorLog = args.errorLog;
     if (args.logs !== undefined) docFields.logs = args.logs;
 
     if (existing) {

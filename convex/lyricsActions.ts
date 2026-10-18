@@ -459,7 +459,6 @@ export const resolveOrFetch = action({
         data: "[]",
         status: "ready",
         syncType: "none",
-        errorLog: logs.join("\n"),
         logs,
       });
 
@@ -471,7 +470,6 @@ export const resolveOrFetch = action({
         data: "[]",
         status: "ready",
         syncType: "none",
-        errorLog: logs.join("\n"),
         logs,
       };
     }
@@ -498,7 +496,6 @@ export const resolveOrFetch = action({
         status: "ready",
         syncType: res.syncType,
         isrc: res.isrc,
-        errorLog: logs.join("\n"),
         logs,
       });
       return {
@@ -510,7 +507,6 @@ export const resolveOrFetch = action({
         status: "ready",
         syncType: res.syncType,
         isrc: res.isrc,
-        errorLog: logs.join("\n"),
         logs,
       };
     };
@@ -587,7 +583,6 @@ export const resolveOrFetch = action({
       data: "[]",
       status: "ready",
       syncType: "none",
-      errorLog: logs.join("\n"),
       logs,
     });
 
@@ -599,7 +594,6 @@ export const resolveOrFetch = action({
       data: "[]",
       status: "ready",
       syncType: "none",
-      errorLog: logs.join("\n"),
       logs,
     };
   },

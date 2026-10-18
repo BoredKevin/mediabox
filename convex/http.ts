@@ -150,7 +150,6 @@ http.route({
         format: cached.format,
         syncType: cached.syncType,
         isrc: cached.isrc,
-        errorLog: cached.errorLog,
         logs: cached.logs,
         cached: true,
       });
@@ -196,7 +195,6 @@ http.route({
         format: resolved?.format || "none",
         syncType: resolved?.syncType || "none",
         isrc: resolved?.isrc,
-        errorLog: resolved?.errorLog,
         logs: resolved?.logs,
         cached: false,
       });
@@ -242,7 +240,6 @@ http.route({
         format: cached.format,
         syncType: cached.syncType,
         isrc: cached.isrc,
-        errorLog: cached.errorLog,
         logs: cached.logs,
         cached: true,
       });
@@ -287,7 +284,6 @@ http.route({
         format: resolved?.format || "none",
         syncType: resolved?.syncType || "none",
         isrc: resolved?.isrc,
-        errorLog: resolved?.errorLog,
         logs: resolved?.logs,
         cached: false,
       });
