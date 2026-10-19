@@ -18,12 +18,14 @@ import {
   Minimize,
   Sparkles,
   Mic2,
+  Loader2,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { cn } from '@/lib/utils';
 
 interface NowPlayingMobileControlsProps {
   isPlaying: boolean;
+  isLoading?: boolean;
   isLocked: boolean;
   isHostOrAdmin: boolean;
   isAutoplay?: boolean;
@@ -45,6 +47,7 @@ interface NowPlayingMobileControlsProps {
 
 export const NowPlayingMobileControls: React.FC<NowPlayingMobileControlsProps> = ({
   isPlaying,
+  isLoading = false,
   isLocked,
   isHostOrAdmin,
   isAutoplay,
@@ -198,6 +201,7 @@ export const NowPlayingMobileControls: React.FC<NowPlayingMobileControlsProps> =
             variant="outline"
             chamfer="top-left"
             onClick={onPreviousTrack}
+            disabled={isLocked || isLoading}
             className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
             title={t('watchParty.previousBtn')}
             aria-label={t('watchParty.previousBtn')}
@@ -210,20 +214,28 @@ export const NowPlayingMobileControls: React.FC<NowPlayingMobileControlsProps> =
           variant="cyber"
           chamfer="dual"
           onClick={onTogglePlayPause}
-          disabled={isLocked}
+          disabled={isLocked || isLoading}
           className="h-11 px-3 sm:px-4 font-bold text-xs uppercase flex items-center gap-1.5 flex-shrink-0"
-          title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-          aria-label={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
+          title={isLoading ? t('watchParty.loadingBtn') : isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
+          aria-label={isLoading ? t('watchParty.loadingBtn') : isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
         >
-          {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-          <span className="hidden min-[420px]:inline">{isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}</span>
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-current" />
+          ) : isPlaying ? (
+            <Pause className="w-4 h-4 fill-current" />
+          ) : (
+            <Play className="w-4 h-4 fill-current ml-0.5" />
+          )}
+          <span className="hidden min-[420px]:inline">
+            {isLoading ? t('watchParty.loadingBtn') : isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
+          </span>
         </Button>
 
         <Button
           variant="outline"
           chamfer="top-right"
           onClick={onNextTrack}
-          disabled={isLocked}
+          disabled={isLocked || isLoading}
           className="h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0"
           title={t('watchParty.skipNextBtn')}
           aria-label={t('watchParty.skipNextBtn')}

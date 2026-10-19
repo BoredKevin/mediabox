@@ -119,11 +119,11 @@ export function useWatchPartyActions({
     });
   }, [room?._id, playerInstanceRef, togglePlayPauseMutation]);
 
-  const handlePlayNextInQueue = useCallback(async () => {
+  const handlePlayNextInQueue = useCallback(async (expectedUrl?: string) => {
     if (!room?._id || isTransitioningRef.current) return;
     isTransitioningRef.current = true;
     try {
-      await nextTrackMutation({ roomId: room._id });
+      await nextTrackMutation({ roomId: room._id, expectedUrl });
     } catch (err) {
       console.error('[WatchParty] Error transitioning to next track:', err);
     } finally {

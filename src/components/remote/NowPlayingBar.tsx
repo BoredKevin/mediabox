@@ -39,6 +39,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
 }) => {
   const [volumeTooltipOpen, setVolumeTooltipOpen] = useState<boolean>(false);
   const isPlaying = roomState?.playback?.status === 'playing';
+  const isLoading = roomState?.playback?.status === 'loading';
   const isLocked = Boolean(roomState?.isLocked) && !isHostOrAdmin;
   const currentVideo = roomState?.currentlyPlaying;
   const videoId = currentVideo ? parseYouTubeVideoId(currentVideo) : null;
@@ -59,14 +60,17 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
           videoUrl={videoUrl}
           currentVideo={currentVideo}
           isLocked={isLocked}
+          isLoading={isLoading}
           isLyricsActive={isLyricsActive}
           onToggleLyrics={onToggleLyrics}
           onStartRadio={onStartRadio}
+          onForceSkip={onNextTrack}
         />
 
         <div className="w-full">
           <NowPlayingMobileControls
             isPlaying={isPlaying}
+            isLoading={isLoading}
             isLocked={isLocked}
             isHostOrAdmin={isHostOrAdmin}
             isAutoplay={roomState?.isAutoplay}
@@ -88,6 +92,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
 
           <NowPlayingDesktopControls
             isPlaying={isPlaying}
+            isLoading={isLoading}
             isLocked={isLocked}
             isHostOrAdmin={isHostOrAdmin}
             isAutoplay={roomState?.isAutoplay}

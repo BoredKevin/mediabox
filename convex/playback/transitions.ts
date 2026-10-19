@@ -11,10 +11,17 @@ import { api, internal } from "../_generated/api";
  */
 export async function handleNextTrackTransition(
   ctx: MutationCtx,
-  roomId: Id<"rooms">
+  roomId: Id<"rooms">,
+  expectedUrl?: string
 ): Promise<{ source: string; url?: string }> {
   const room = await ctx.db.get(roomId);
   if (!room) throw new Error("Room not found");
+
+  // Idempotency guard: if caller expected a specific track to be playing (e.g. natural song completion),
+  // but it already changed (e.g. remote skip or concurrent call), ignore this transition.
+  if (expectedUrl && room.currentlyPlaying !== expectedUrl) {
+    return { source: "alreadyAdvanced" };
+  }
 
   const now = Date.now();
   const currentTrack = room.currentlyPlaying

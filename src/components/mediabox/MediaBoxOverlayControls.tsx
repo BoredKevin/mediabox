@@ -11,12 +11,14 @@ import {
   VolumeX,
   Maximize,
   Minimize,
+  Loader2,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 
 interface MediaBoxOverlayControlsProps {
   hasActiveMedia: boolean;
   isPlaying: boolean;
+  isLoading?: boolean;
   isLocked: boolean;
   isFullscreen: boolean;
   isOverlayVisible: boolean;
@@ -39,6 +41,7 @@ interface MediaBoxOverlayControlsProps {
 export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = ({
   hasActiveMedia,
   isPlaying,
+  isLoading = false,
   isLocked,
   isFullscreen,
   isOverlayVisible,
@@ -129,7 +132,7 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
             e.stopPropagation();
             onPreviousTrack?.();
           }}
-          disabled={isLocked || !canGoPrevious}
+          disabled={isLocked || !canGoPrevious || isLoading}
           aria-label={t('watchParty.previousBtn')}
           className="h-11 w-11 sm:h-14 sm:w-14 text-foreground bg-neutral-900/95 hover:bg-neutral-800 border border-border rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
           title={t('watchParty.previousBtn')}
@@ -145,12 +148,14 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
             e.stopPropagation();
             onTogglePlayPause();
           }}
-          disabled={isLocked}
-          aria-label={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
-          className="h-16 w-16 sm:h-20 sm:w-20 text-foreground bg-neutral-900/95 hover:bg-neutral-800 border border-border rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-95 cursor-pointer"
-          title={isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
+          disabled={isLocked || isLoading}
+          aria-label={isLoading ? t('watchParty.loadingBtn') : isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
+          className="h-16 w-16 sm:h-20 sm:w-20 text-foreground bg-neutral-900/95 hover:bg-neutral-800 border border-border rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+          title={isLoading ? t('watchParty.loadingBtn') : isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
         >
-          {isPlaying ? (
+          {isLoading ? (
+            <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 animate-spin text-primary" />
+          ) : isPlaying ? (
             <Pause className="w-8 h-8 sm:w-10 sm:h-10 fill-current" />
           ) : (
             <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-current ml-1" />
@@ -165,9 +170,9 @@ export const MediaBoxOverlayControls: React.FC<MediaBoxOverlayControlsProps> = (
             e.stopPropagation();
             onSkipNextTrack?.();
           }}
-          disabled={isLocked}
+          disabled={isLocked || isLoading}
           aria-label={t('watchParty.skipNextBtn')}
-          className="h-11 w-11 sm:h-14 sm:w-14 text-foreground bg-neutral-900/95 hover:bg-neutral-800 border border-border rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-95 cursor-pointer"
+          className="h-11 w-11 sm:h-14 sm:w-14 text-foreground bg-neutral-900/95 hover:bg-neutral-800 border border-border rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
           title={t('watchParty.skipNextBtn')}
         >
           <SkipForward className="w-5 h-5 sm:w-7 sm:h-7 fill-current" />

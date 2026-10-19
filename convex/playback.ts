@@ -15,9 +15,10 @@ import {
 export const nextTrack = mutation({
   args: {
     roomId: v.id("rooms"),
+    expectedUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await handleNextTrackTransition(ctx, args.roomId);
+    return await handleNextTrackTransition(ctx, args.roomId, args.expectedUrl);
   },
 });
 
@@ -132,11 +133,13 @@ export const seek = mutation({
     const room = await ctx.db.get(args.roomId);
     if (!room) return;
 
+    const currentSeq = room.playback.seekSeq ?? 0;
     await ctx.db.patch(args.roomId, {
       playback: {
         ...room.playback,
         positionMs: Math.max(0, args.positionMs),
         updatedAt: Date.now(),
+        seekSeq: currentSeq + 1,
       },
     });
   },

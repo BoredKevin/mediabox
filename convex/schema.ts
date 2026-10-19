@@ -20,6 +20,7 @@ export default defineSchema({
       durationMs: v.number(),
       volume: v.number(),
       updatedAt: v.number(),
+      seekSeq: v.optional(v.number()),
     }),
     playedHistory: v.array(
       v.object({

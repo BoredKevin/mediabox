@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 interface UseTvPlaybackSyncOptions {
   roomCode: string | null;
@@ -7,18 +7,19 @@ interface UseTvPlaybackSyncOptions {
   currentlyPlaying?: string | null;
   playbackPositionMs?: number;
   playbackUpdatedAt?: number;
+  seekSeq?: number;
   onSyncCheckpoint?: (positionMs: number, durationMs?: number) => void;
-  onTrackEnded?: () => void;
 }
 
 /**
- * TV Host Playback Synchronizer.
- * Broadcasts the YouTube player's playback timestamp to Convex ONLY when seeked or changed.
- * Features:
- * 1. Only writes to Convex on track change, play/pause state change, or manual TV seeks (> 2s drift).
- * 2. Zero database writes during normal linear playback: clients sync via dead-reckoning from positionMs + (now - updatedAt).
- * 3. Bidirectional loop prevention: tracks remote seek timestamps to avoid echo-back writes.
- * 4. End-of-track watchdog: guarantees advance to next track if YouTube player misses state 0 (ENDED).
+ * TV Host Playback Synchronizer (Master-Observer).
+ *
+ * Key Principles:
+ * 1. The TV is the physical player and single source of truth for audio/video playback.
+ * 2. The TV NEVER seeks to match server dead-reckoned time (eliminates self-seek echo loops).
+ * 3. The TV ONLY seeks when a remote user scrubs, identified by a monotonic seekSeq change (Trap 1 safe).
+ * 4. Normal linear playback uses dead-reckoning on remotes with a light 5000ms background heartbeat.
+ * 5. Track completion is handled 100% by native YT.PlayerState.ENDED (0) without fragile polling watchdogs.
  */
 export function useTvPlaybackSync({
   roomCode,
@@ -26,162 +27,106 @@ export function useTvPlaybackSync({
   isPlaying,
   currentlyPlaying,
   playbackPositionMs,
-  playbackUpdatedAt,
+  seekSeq,
   onSyncCheckpoint,
-  onTrackEnded,
 }: UseTvPlaybackSyncOptions) {
-  const lastReportedRef = useRef<{ positionMs: number; updatedAt: number }>({
-    positionMs: 0,
-    updatedAt: 0,
-  });
-  const localAnchorRef = useRef<{ positionMs: number; localTime: number }>({
-    positionMs: 0,
-    localTime: performance.now(),
-  });
-  const prevPlayingRef = useRef<boolean>(isPlaying);
+  // Trap 1: Latch the first defined seekSeq on mount/resolution without seeking
+  const lastHandledSeekSeqRef = useRef<number | null>(null);
   const prevVideoRef = useRef<string | null | undefined>(currentlyPlaying);
-  const lastEndedUrlRef = useRef<string | null>(null);
 
-  // Sync internal reference when Convex updatedAt updates from a remote seek or server event
+  // Reset seekSeq latch when currentlyPlaying changes (new song)
   useEffect(() => {
-    if (playbackUpdatedAt && playbackUpdatedAt !== lastReportedRef.current.updatedAt) {
-      lastReportedRef.current = {
-        positionMs: playbackPositionMs ?? 0,
-        updatedAt: playbackUpdatedAt,
-      };
-      localAnchorRef.current = {
-        positionMs: playbackPositionMs ?? 0,
-        localTime: performance.now(),
-      };
+    if (currentlyPlaying && currentlyPlaying !== prevVideoRef.current) {
+      prevVideoRef.current = currentlyPlaying;
+      // Re-latch seekSeq for new song
+      lastHandledSeekSeqRef.current = seekSeq ?? null;
     }
-  }, [playbackPositionMs, playbackUpdatedAt]);
+  }, [currentlyPlaying, seekSeq]);
 
-  const syncPlaybackState = (forcedPositionMs?: number) => {
-    if (!roomCode || !playerInstance) return;
+  // Handle explicit remote user seeks via monotonic seekSeq
+  useEffect(() => {
+    if (seekSeq === undefined) return;
 
-    let posMs = 0;
-    let durMs = 0;
-    if (typeof forcedPositionMs === 'number') {
-      posMs = Math.max(0, forcedPositionMs);
-    } else if (typeof playerInstance.getCurrentTime === 'function') {
-      try {
-        const sec = playerInstance.getCurrentTime();
-        posMs = Math.max(0, Math.round(sec * 1000));
-        if (typeof playerInstance.getDuration === 'function') {
-          durMs = Math.max(0, Math.round(playerInstance.getDuration() * 1000));
+    // First time receiving roomState from Convex: latch the value, do NOT seek
+    if (lastHandledSeekSeqRef.current === null) {
+      lastHandledSeekSeqRef.current = seekSeq;
+      return;
+    }
+
+    // Subsequent increments from explicit remote scrub: execute seek on TV player
+    if (seekSeq !== lastHandledSeekSeqRef.current) {
+      lastHandledSeekSeqRef.current = seekSeq;
+      if (playerInstance && typeof playerInstance.seekTo === 'function') {
+        const targetSec = Math.max(0, (playbackPositionMs || 0) / 1000);
+        try {
+          playerInstance.seekTo(targetSec, true);
+        } catch (e) {
+          console.warn('[PlaybackSync] seekTo error:', e);
         }
-      } catch (e) {
-        console.warn('[PlaybackSync] Failed to getCurrentTime:', e);
       }
     }
+  }, [seekSeq, playbackPositionMs, playerInstance]);
 
-    const now = Date.now();
-    lastReportedRef.current = { positionMs: posMs, updatedAt: now };
-    localAnchorRef.current = { positionMs: posMs, localTime: performance.now() };
+  const syncPlaybackState = useCallback(
+    (forcedPositionMs?: number) => {
+      if (!roomCode || !playerInstance || typeof onSyncCheckpoint !== 'function') return;
 
-    if (onSyncCheckpoint) {
-      onSyncCheckpoint(posMs, durMs);
-    }
-  };
+      let posMs = 0;
+      let durMs = 0;
+      if (typeof forcedPositionMs === 'number') {
+        posMs = Math.max(0, forcedPositionMs);
+      } else if (typeof playerInstance.getCurrentTime === 'function') {
+        try {
+          const sec = playerInstance.getCurrentTime();
+          posMs = Math.max(0, Math.round(sec * 1000));
+          if (typeof playerInstance.getDuration === 'function') {
+            durMs = Math.max(0, Math.round(playerInstance.getDuration() * 1000));
+          }
+        } catch (e) {
+          console.warn('[PlaybackSync] Failed to getCurrentTime:', e);
+        }
+      }
 
-  // Immediate sync on play / pause transition:
-  // When pausing (!isPlaying): immediately freeze current position into Convex.
-  // When resuming (isPlaying): do NOT emit immediate checkpoint because the YouTube iframe
-  // is still unpausing/buffering and reporting a stale/lagging time.
+      onSyncCheckpoint(posMs, durMs > 0 ? durMs : undefined);
+    },
+    [roomCode, playerInstance, onSyncCheckpoint]
+  );
+
+  // Sync state on pause transition to immediately freeze server dead-reckoning
+  const prevPlayingRef = useRef<boolean>(isPlaying);
   useEffect(() => {
     if (prevPlayingRef.current !== isPlaying) {
       prevPlayingRef.current = isPlaying;
       if (!isPlaying) {
         syncPlaybackState();
-      } else {
-        localAnchorRef.current = {
-          positionMs: playbackPositionMs ?? 0,
-          localTime: performance.now(),
-        };
       }
     }
-  }, [isPlaying, roomCode, playerInstance, playbackPositionMs]);
+  }, [isPlaying, syncPlaybackState]);
 
-  // Reset initial anchor state when currentlyPlaying changes
+  // Light periodic heartbeat (every 5 seconds) during active playback:
+  // Keeps remote clients tightly synced without spamming postMessage IPC or database writes
   useEffect(() => {
-    if (currentlyPlaying && currentlyPlaying !== prevVideoRef.current) {
-      prevVideoRef.current = currentlyPlaying;
-      lastEndedUrlRef.current = null;
-      const now = Date.now();
-      lastReportedRef.current = { positionMs: 0, updatedAt: now };
-      localAnchorRef.current = { positionMs: 0, localTime: performance.now() };
-    }
-  }, [currentlyPlaying]);
+    if (!roomCode || !playerInstance || !isPlaying) return;
 
-  // TV manual seek detection: checks whether player jumped relative to expected linear playback
-  useEffect(() => {
-    if (!roomCode || !playerInstance) return;
-
-    const checkSeekDiscontinuity = () => {
+    const interval = setInterval(() => {
       if (typeof playerInstance.getCurrentTime !== 'function') return;
-
       try {
-        const currentSec = playerInstance.getCurrentTime();
-        const currentMs = Math.max(0, Math.round(currentSec * 1000));
-        const durSec = typeof playerInstance.getDuration === 'function' ? playerInstance.getDuration() : 0;
-        const durMs = Math.max(0, Math.round(durSec * 1000));
-        const now = Date.now();
-
-        const last = lastReportedRef.current;
-        const anchor = localAnchorRef.current;
-
-        if (isPlaying) {
-          // Expected position assuming linear playback from local monotonic anchor
-          const localElapsedMs = Math.max(0, performance.now() - anchor.localTime);
-          const expectedMs = anchor.positionMs + localElapsedMs;
-          const driftMs = Math.abs(currentMs - expectedMs);
-
-          // Significant jump (> 2000ms): manual seek on TV controls / scrub bar
-          if (driftMs >= 2000) {
-            lastReportedRef.current = { positionMs: currentMs, updatedAt: now };
-            localAnchorRef.current = { positionMs: currentMs, localTime: performance.now() };
-            if (onSyncCheckpoint) {
-              onSyncCheckpoint(currentMs, durMs);
-            }
-          }
-        } else {
-          // Paused state: if player time changed by > 500ms (user scrubbed while paused)
-          const pausedDiff = Math.abs(currentMs - last.positionMs);
-          if (pausedDiff >= 500) {
-            lastReportedRef.current = { positionMs: currentMs, updatedAt: now };
-            localAnchorRef.current = { positionMs: currentMs, localTime: performance.now() };
-            if (onSyncCheckpoint) {
-              onSyncCheckpoint(currentMs, durMs);
-            }
-          }
+        const sec = playerInstance.getCurrentTime();
+        const posMs = Math.max(0, Math.round(sec * 1000));
+        let durMs: number | undefined;
+        if (typeof playerInstance.getDuration === 'function') {
+          durMs = Math.max(0, Math.round(playerInstance.getDuration() * 1000));
         }
-
-        // End-of-track watchdog: YouTube iframe occasionally fails to fire YT.PlayerState.ENDED (0),
-        // or stalls at the end of the video (> 10s track, within 600ms of duration).
-        if (
-          durMs > 10000 &&
-          currentMs >= durMs - 600 &&
-          currentlyPlaying &&
-          lastEndedUrlRef.current !== currentlyPlaying
-        ) {
-          lastEndedUrlRef.current = currentlyPlaying;
-          if (onTrackEnded) {
-            console.log('[PlaybackSync] End-of-track watchdog detected song completion. Advancing...');
-            onTrackEnded();
-          }
+        if (onSyncCheckpoint) {
+          onSyncCheckpoint(posMs, durMs);
         }
       } catch (e) {
-        console.warn('[PlaybackSync] checkSeekDiscontinuity error:', e);
+        // Ignore transient IPC error
       }
-    };
+    }, 5000);
 
-    // Fast check every 500ms for manual seeks (NO writes unless seek discontinuity is detected)
-    const checkInterval = setInterval(checkSeekDiscontinuity, 500);
-
-    return () => {
-      clearInterval(checkInterval);
-    };
-  }, [roomCode, playerInstance, isPlaying, currentlyPlaying, onSyncCheckpoint, onTrackEnded]);
+    return () => clearInterval(interval);
+  }, [roomCode, playerInstance, isPlaying, onSyncCheckpoint]);
 
   return { syncPlaybackState };
 }

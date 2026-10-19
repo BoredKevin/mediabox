@@ -36,7 +36,7 @@ interface WatchPartyContextType {
   handleCreateRoom: () => Promise<void>;
   handleEndRoom: () => Promise<void>;
   handleTogglePlayPause: () => Promise<void>;
-  handlePlayNextInQueue: () => Promise<void>;
+  handlePlayNextInQueue: (expectedUrl?: string) => Promise<void>;
   handlePlayPreviousTrack: () => Promise<boolean>;
   handlePlayQueueItem: (queueId: string) => Promise<void>;
   canGoPrevious: boolean;

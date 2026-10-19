@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Film, ExternalLink, Radio } from 'lucide-react';
+import { Film, ExternalLink, Radio, SkipForward } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 
 interface NowPlayingTrackInfoProps {
@@ -9,9 +9,11 @@ interface NowPlayingTrackInfoProps {
   videoUrl: string | null;
   currentVideo?: string;
   isLocked: boolean;
+  isLoading?: boolean;
   isLyricsActive?: boolean;
   onToggleLyrics?: () => void;
   onStartRadio: () => Promise<void>;
+  onForceSkip?: () => Promise<void>;
 }
 
 export const NowPlayingTrackInfo: React.FC<NowPlayingTrackInfoProps> = ({
@@ -20,11 +22,25 @@ export const NowPlayingTrackInfo: React.FC<NowPlayingTrackInfoProps> = ({
   videoUrl,
   currentVideo,
   isLocked,
+  isLoading = false,
   isLyricsActive = false,
   onToggleLyrics,
   onStartRadio,
+  onForceSkip,
 }) => {
   const { t } = useTranslation();
+  const [loadingLongerThan12s, setLoadingLongerThan12s] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (!isLoading) {
+      setLoadingLongerThan12s(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setLoadingLongerThan12s(true);
+    }, 12000);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   return (
     <div className="flex items-center justify-between gap-3 min-w-0 border-b border-border/40 pb-2.5">
@@ -53,6 +69,24 @@ export const NowPlayingTrackInfo: React.FC<NowPlayingTrackInfoProps> = ({
           <p className="text-xs sm:text-sm font-bold text-foreground truncate font-sans">
             {videoTitle || t('remote.noVideoSelected')}
           </p>
+          {loadingLongerThan12s && onForceSkip && (
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] font-mono text-amber-400/90">
+                TV is taking a while to respond...
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onForceSkip();
+                }}
+                className="text-[10px] font-mono uppercase font-bold text-destructive hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <SkipForward className="w-2.5 h-2.5" />
+                <span>Force Skip</span>
+              </button>
+            </div>
+          )}
           {videoUrl ? (
             <a
               href={videoUrl}

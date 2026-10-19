@@ -4,6 +4,7 @@ export interface PlaybackState {
   durationMs?: number;
   volume: number;
   updatedAt: number;
+  seekSeq?: number;
 }
 
 export interface SearchSettings {

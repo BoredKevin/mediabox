@@ -17,7 +17,6 @@ import { MediaBoxQrModal } from './mediabox/MediaBoxQrModal';
 import { getSavedLyricsOffset, getSavedLyricsWordSync } from '@/lib/lyricsOffsetStore';
 import { useTvNavigation } from '@/hooks/useTvNavigation';
 import { useTvPlaybackSync } from '@/hooks/useTvPlaybackSync';
-import { calculatePlaybackCurrentTimeSec } from '@/lib/roomUtils';
 
 export const MediaBox: React.FC = React.memo(() => {
   const {
@@ -75,10 +74,29 @@ export const MediaBox: React.FC = React.memo(() => {
   }, [pendingTvToken, roomId, acknowledgeTvToken]);
 
   const isPlaying = roomState?.playback?.status === 'playing';
+  const isPaused = roomState?.playback?.status === 'paused';
   const isLoadingState = roomState?.playback?.status === 'loading';
   const isLocked = Boolean(roomState?.isLocked);
+  const isPlaybackActive = !isPaused && !isLocked && Boolean(roomState?.currentlyPlaying);
 
-  // Synchronize playback position and wall-clock timestamp to Convex ONLY when seeked or changed
+  // Debounce timer for mid-song buffer stalls (ignores normal 100ms streaming chunk buffers)
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // User refinement #2: Clear stallTimerRef when currentlyPlaying changes or on unmount
+  useEffect(() => {
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+    return () => {
+      if (stallTimerRef.current) {
+        clearTimeout(stallTimerRef.current);
+        stallTimerRef.current = null;
+      }
+    };
+  }, [roomState?.currentlyPlaying]);
+
+  // Synchronize playback position and wall-clock timestamp to Convex (Master-Observer)
   useTvPlaybackSync({
     roomCode,
     playerInstance,
@@ -86,41 +104,9 @@ export const MediaBox: React.FC = React.memo(() => {
     currentlyPlaying: roomState?.currentlyPlaying,
     playbackPositionMs: roomState?.playback?.positionMs,
     playbackUpdatedAt: roomState?.playback?.updatedAt,
+    seekSeq: roomState?.playback?.seekSeq,
     onSyncCheckpoint: handleSyncPlaybackCheckpoint,
-    onTrackEnded: handlePlayNextInQueue,
   });
-
-  // Catch remote seek operations & ensure tight pause/resume alignment
-  const lastSyncTimestampRef = useRef<number>(0);
-  const playbackStartGracePeriodUntilRef = useRef<number>(0);
-  useEffect(() => {
-    if (!playerInstance || typeof playerInstance.getCurrentTime !== 'function') return;
-    if (isLoadingState) return;
-
-    const updatedAt = roomState?.playback?.updatedAt || 0;
-    if (updatedAt && updatedAt !== lastSyncTimestampRef.current) {
-      lastSyncTimestampRef.current = updatedAt;
-
-      // Suppress echo-seeking during the first 3s of starting a new track unless user seeked forward (> 3s)
-      if (Date.now() < playbackStartGracePeriodUntilRef.current) {
-        const targetSec = calculatePlaybackCurrentTimeSec(roomState?.playback);
-        if (targetSec < 3) {
-          return;
-        }
-      }
-
-      const targetSec = calculatePlaybackCurrentTimeSec(roomState?.playback);
-      const currentSec = playerInstance.getCurrentTime() || 0;
-      const threshold = isPlaying ? 0.6 : 0.4;
-      if (Math.abs(currentSec - targetSec) > threshold) {
-        try {
-          playerInstance.seekTo(targetSec, true);
-        } catch (e) {
-          console.warn('[MediaBox] seekTo error:', e);
-        }
-      }
-    }
-  }, [playerInstance, isPlaying, isLoadingState, roomState?.playback?.positionMs, roomState?.playback?.updatedAt, roomState?.playback?.status]);
 
   const lyricsData = useLyrics(
     roomState?.currentlyPlaying,
@@ -133,79 +119,73 @@ export const MediaBox: React.FC = React.memo(() => {
     currentVideoMeta.author
   );
 
-  const [isVideoReady, setIsVideoReady] = useState<boolean>(false);
-  const hasTriggeredPlayRef = useRef<string | null>(null);
-
-  // Reset video ready state when currentlyPlaying changes
-  useEffect(() => {
-    setIsVideoReady(false);
-    hasTriggeredPlayRef.current = null;
-  }, [roomState?.currentlyPlaying]);
-
-  // Readiness coordinator: wait for both video player cued/ready AND lyrics resolved
-  useEffect(() => {
-    if (!isLoadingState || !roomState?.currentlyPlaying || !roomId) return;
-    if (hasTriggeredPlayRef.current === roomState.currentlyPlaying) return;
-
-    const isLyricsResolved =
-      !lyricsData.isLoading || lyricsData.status === 'ready' || lyricsData.status === 'error';
-
-    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
-    let maxWaitTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const triggerPlayback = () => {
-      if (hasTriggeredPlayRef.current === roomState.currentlyPlaying) return;
-      hasTriggeredPlayRef.current = roomState.currentlyPlaying;
-      playbackStartGracePeriodUntilRef.current = Date.now() + 3000;
-
-      if (playerInstance && typeof playerInstance.playVideo === 'function') {
-        try {
-          playerInstance.playVideo();
-        } catch (e) {
-          console.warn('[MediaBox] Failed to play video on readiness:', e);
-        }
+  // Decoupled, event-driven player handlers
+  const handlePlayerPlaying = useCallback(
+    (currentSec: number, durationSec: number) => {
+      if (stallTimerRef.current) {
+        clearTimeout(stallTimerRef.current);
+        stallTimerRef.current = null;
       }
-      const dur =
-        playerInstance && typeof playerInstance.getDuration === 'function'
-          ? Math.max(0, Math.round(playerInstance.getDuration() * 1000))
-          : undefined;
+      if (!roomId) return;
+      // Only report to Convex if transitioning out of loading or paused
+      if (roomState?.playback?.status !== 'playing') {
+        reportPlaybackStatusMutation({
+          roomId,
+          status: 'playing',
+          positionMs: Math.round(currentSec * 1000),
+          durationMs: durationSec > 0 ? Math.round(durationSec * 1000) : undefined,
+        }).catch((e) => console.warn('[MediaBox] reportPlaybackStatus error:', e));
+      }
+    },
+    [roomId, roomState?.playback?.status, reportPlaybackStatusMutation]
+  );
 
+  const handlePlayerBuffering = useCallback(
+    (currentSec: number) => {
+      if (!roomId) return;
+      if (stallTimerRef.current) {
+        clearTimeout(stallTimerRef.current);
+        stallTimerRef.current = null;
+      }
+
+      // Debounce: only report mid-song stall if buffering lasts > 1500ms while room is playing
+      if (roomState?.playback?.status === 'playing' && currentSec > 0) {
+        stallTimerRef.current = setTimeout(() => {
+          reportPlaybackStatusMutation({
+            roomId,
+            status: 'loading',
+            positionMs: Math.round(currentSec * 1000),
+          }).catch((e) => console.warn('[MediaBox] reportPlaybackStatus buffering error:', e));
+        }, 1500);
+      }
+    },
+    [roomId, roomState?.playback?.status, reportPlaybackStatusMutation]
+  );
+
+  const handlePlayerPaused = useCallback(
+    (currentSec: number) => {
+      if (stallTimerRef.current) {
+        clearTimeout(stallTimerRef.current);
+        stallTimerRef.current = null;
+      }
+      if (!roomId) return;
       reportPlaybackStatusMutation({
         roomId,
-        status: 'playing',
-        positionMs: 0,
-        durationMs: dur,
-      }).catch((e) => console.warn('[MediaBox] reportPlaybackStatus error:', e));
-    };
+        status: 'paused',
+        positionMs: Math.round(currentSec * 1000),
+      }).catch((e) => console.warn('[MediaBox] reportPlaybackStatus paused error:', e));
+    },
+    [roomId, reportPlaybackStatusMutation]
+  );
 
-    if (isVideoReady && isLyricsResolved) {
-      triggerPlayback();
-    } else if (isVideoReady) {
-      // Safety timeout: wait at most 3.5s for lyrics before proceeding with video playback
-      safetyTimer = setTimeout(() => {
-        triggerPlayback();
-      }, 3500);
-    } else {
-      // Overall fallback: if video player takes too long to report ready, force start after 4s
-      maxWaitTimer = setTimeout(() => {
-        triggerPlayback();
-      }, 4000);
+  const handleTrackEnded = useCallback(() => {
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
     }
-
-    return () => {
-      if (safetyTimer) clearTimeout(safetyTimer);
-      if (maxWaitTimer) clearTimeout(maxWaitTimer);
-    };
-  }, [
-    isLoadingState,
-    isVideoReady,
-    lyricsData.isLoading,
-    lyricsData.status,
-    roomState?.currentlyPlaying,
-    roomId,
-    playerInstance,
-    reportPlaybackStatusMutation,
-  ]);
+    // Trap 4: Pass current video URL to guarantee idempotent advancement
+    handlePlayNextInQueue(roomState?.currentlyPlaying);
+  }, [handlePlayNextInQueue, roomState?.currentlyPlaying]);
 
   const [localFullscreen, setLocalFullscreen] = useState<boolean>(false);
   const isFullscreen = roomCode ? Boolean(roomState?.isFullscreen) : localFullscreen;
@@ -292,15 +272,15 @@ export const MediaBox: React.FC = React.memo(() => {
   useTvNavigation({
     isFullscreen,
     onToggleFullscreen: toggleFullscreen,
-    onTogglePlayPause: hasActiveMedia ? handleTogglePlayPause : undefined,
-    onNextTrack: handlePlayNextInQueue,
-    onPreviousTrack: canGoPrevious ? handlePlayPreviousTrack : undefined,
+    onTogglePlayPause: hasActiveMedia && !isLoadingState ? handleTogglePlayPause : undefined,
+    onNextTrack: !isLoadingState ? handlePlayNextInQueue : undefined,
+    onPreviousTrack: canGoPrevious && !isLoadingState ? handlePlayPreviousTrack : undefined,
     isModalOpen: showQrModal,
     onCloseModal: () => setShowQrModal(false),
   });
 
   const handleVideoAreaClick = (e: React.MouseEvent) => {
-    if (isLocked) return;
+    if (isLocked || isLoadingState) return;
     // Don't toggle play/pause if user clicked on a lyric line or word
     const target = e.target as HTMLElement | null;
     if (target?.closest?.('.blyrics--line') || target?.closest?.('.blyrics--word')) {
@@ -361,13 +341,15 @@ export const MediaBox: React.FC = React.memo(() => {
               {/* YouTube player instance keeps audio playing continuously */}
               <YouTubePlayer
                 url={roomState!.currentlyPlaying!}
-                isPlaying={isPlaying && !isLocked}
+                isPlaying={isPlaybackActive}
                 volume={displayVolume}
                 muted={muted}
-                isLoadingState={isLoadingState}
-                onEnded={handlePlayNextInQueue}
+                startSeconds={Math.max(0, Math.floor((roomState?.playback?.positionMs || 0) / 1000))}
+                onPlaying={handlePlayerPlaying}
+                onBuffering={handlePlayerBuffering}
+                onPaused={handlePlayerPaused}
+                onEnded={handleTrackEnded}
                 onPlayerInstance={handlePlayerInstance}
-                onVideoReady={() => setIsVideoReady(true)}
                 hidden={lyricsData.shouldShowLyrics}
               />
 
@@ -421,6 +403,7 @@ export const MediaBox: React.FC = React.memo(() => {
         <MediaBoxOverlayControls
           hasActiveMedia={hasActiveMedia}
           isPlaying={isPlaying}
+          isLoading={isLoadingState}
           isLocked={isLocked}
           isFullscreen={isFullscreen}
           isOverlayVisible={isOverlayVisible}

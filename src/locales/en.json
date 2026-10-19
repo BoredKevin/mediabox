@@ -10,6 +10,7 @@
     "openRemoteBtn": "Open Remote",
     "playBtn": "Play",
     "pauseBtn": "Pause",
+    "loadingBtn": "Loading...",
     "previousBtn": "Previous",
     "skipNextBtn": "Skip",
     "muteBtn": "Mute",

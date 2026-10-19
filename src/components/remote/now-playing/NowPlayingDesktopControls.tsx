@@ -13,12 +13,14 @@ import {
   Minimize,
   Sparkles,
   Mic2,
+  Loader2,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { cn } from '@/lib/utils';
 
 interface NowPlayingDesktopControlsProps {
   isPlaying: boolean;
+  isLoading?: boolean;
   isLocked: boolean;
   isHostOrAdmin: boolean;
   isAutoplay?: boolean;
@@ -38,6 +40,7 @@ interface NowPlayingDesktopControlsProps {
 
 export const NowPlayingDesktopControls: React.FC<NowPlayingDesktopControlsProps> = ({
   isPlaying,
+  isLoading = false,
   isLocked,
   isHostOrAdmin,
   isAutoplay,
@@ -106,6 +109,7 @@ export const NowPlayingDesktopControls: React.FC<NowPlayingDesktopControlsProps>
             size="sm"
             chamfer="top-left"
             onClick={onPreviousTrack}
+            disabled={isLocked || isLoading}
             className="h-10 w-10 p-0 flex items-center justify-center cursor-pointer"
             title={t('watchParty.previousBtn')}
           >
@@ -117,11 +121,19 @@ export const NowPlayingDesktopControls: React.FC<NowPlayingDesktopControlsProps>
           variant="cyber"
           chamfer="dual"
           onClick={onTogglePlayPause}
-          disabled={isLocked}
+          disabled={isLocked || isLoading}
           className="h-10 px-6 font-bold text-xs uppercase flex items-center gap-2 cursor-pointer min-w-[120px]"
+          title={isLoading ? t('watchParty.loadingBtn') : isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
+          aria-label={isLoading ? t('watchParty.loadingBtn') : isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}
         >
-          {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-          <span>{isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}</span>
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-current" />
+          ) : isPlaying ? (
+            <Pause className="w-4 h-4 fill-current" />
+          ) : (
+            <Play className="w-4 h-4 fill-current ml-0.5" />
+          )}
+          <span>{isLoading ? t('watchParty.loadingBtn') : isPlaying ? t('watchParty.pauseBtn') : t('watchParty.playBtn')}</span>
         </Button>
 
         <Button
@@ -129,7 +141,7 @@ export const NowPlayingDesktopControls: React.FC<NowPlayingDesktopControlsProps>
           size="sm"
           chamfer="top-right"
           onClick={onNextTrack}
-          disabled={isLocked}
+          disabled={isLocked || isLoading}
           className="h-10 w-10 p-0 flex items-center justify-center cursor-pointer"
           title={t('watchParty.skipNextBtn')}
         >
