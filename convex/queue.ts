@@ -1,30 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-
-async function isAuthorized(
-  ctx: any,
-  room: { hostUid: string; tvUid: string; tvUuid?: string },
-  callerUid: string
-): Promise<boolean> {
-  if (
-    room.hostUid === callerUid ||
-    room.tvUid === callerUid ||
-    (room.tvUuid && room.tvUuid === callerUid)
-  ) {
-    return true;
-  }
-  const approvedTv = await ctx.db
-    .query("approvedTvs")
-    .withIndex("by_uuid", (q: any) => q.eq("uuid", callerUid))
-    .first();
-  if (approvedTv) return true;
-
-  const admin = await ctx.db
-    .query("admins")
-    .withIndex("by_uid", (q: any) => q.eq("uid", callerUid))
-    .first();
-  return !!admin;
-}
+import { isAuthorized } from "./rooms/auth";
 
 /**
  * Returns all queued songs for a room, ordered by queue sequence.
@@ -113,9 +89,9 @@ export const remove = mutation({
     if (!room) return;
 
     const isOwner = item.addedBy === args.callerUid;
-    const authorized = await isAuthorized(ctx, room, args.callerUid);
+    const authorized = isOwner || (await isAuthorized(ctx, room, args.callerUid));
 
-    if (!isOwner && !authorized) {
+    if (!authorized) {
       throw new Error("Unauthorized to remove this track");
     }
 

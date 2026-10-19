@@ -15,8 +15,11 @@ interface YouTubePlayerProps {
   isPlaying: boolean;
   volume: number; // 0 to 100
   muted: boolean;
+  isLoadingState?: boolean;
   onEnded?: () => void;
   onPlayerInstance?: (player: any) => void;
+  onVideoReady?: () => void;
+  onPlaybackStarted?: () => void;
   hidden?: boolean;
 }
 
@@ -25,8 +28,11 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   isPlaying,
   volume,
   muted,
+  isLoadingState = false,
   onEnded,
   onPlayerInstance,
+  onVideoReady,
+  onPlaybackStarted,
   hidden = false,
 }) => {
   const { t } = useTranslation();
@@ -34,6 +40,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   const playerRef = useRef<any>(null);
   const onEndedRef = useRef(onEnded);
   const isPlayingRef = useRef(isPlaying);
+  const onVideoReadyRef = useRef(onVideoReady);
+  const onPlaybackStartedRef = useRef(onPlaybackStarted);
   const [embedError, setEmbedError] = useState<string | null>(null);
   const [needsUserInteraction, setNeedsUserInteraction] = useState<boolean>(false);
 
@@ -46,6 +54,14 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  useEffect(() => {
+    onVideoReadyRef.current = onVideoReady;
+  }, [onVideoReady]);
+
+  useEffect(() => {
+    onPlaybackStartedRef.current = onPlaybackStarted;
+  }, [onPlaybackStarted]);
 
   // Load YouTube IFrame API script dynamically if not present
   useEffect(() => {
@@ -71,12 +87,16 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
       try {
         if (onPlayerInstance) onPlayerInstance(playerRef.current);
-        const shouldPlay = isPlayingRef.current ?? isPlaying;
-        if (shouldPlay) {
-          playerRef.current.loadVideoById(videoId);
-          playerRef.current.playVideo();
-        } else {
+        if (isLoadingState) {
           playerRef.current.cueVideoById(videoId);
+        } else {
+          const shouldPlay = isPlayingRef.current ?? isPlaying;
+          if (shouldPlay) {
+            playerRef.current.loadVideoById(videoId);
+            playerRef.current.playVideo();
+          } else {
+            playerRef.current.cueVideoById(videoId);
+          }
         }
         return;
       } catch (e) {
@@ -127,7 +147,10 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
               } else {
                 event.target.unMute();
               }
-              if (isPlayingRef.current) {
+              if (isLoadingState) {
+                event.target.cueVideoById(videoId);
+                if (onVideoReadyRef.current) onVideoReadyRef.current();
+              } else if (isPlayingRef.current) {
                 const playPromise = event.target.playVideo();
                 if (playPromise && typeof playPromise.catch === 'function') {
                   playPromise.catch(() => {
@@ -149,12 +172,22 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
                 onEndedRef.current();
               }
             }
+            // YT.PlayerState.CUED === 5
+            if (event.data === 5) {
+              if (onVideoReadyRef.current) {
+                onVideoReadyRef.current();
+              }
+            }
+            // YT.PlayerState.PLAYING === 1
             if (event.data === 1) {
               // Playing
               setNeedsUserInteraction(false);
+              if (onPlaybackStartedRef.current) {
+                onPlaybackStartedRef.current();
+              }
             }
             // If YouTube iframe transitions to CUED (5) or UNSTARTED (-1) while TV expects playing:
-            if (isPlayingRef.current && (event.data === 5 || event.data === -1)) {
+            if (!isLoadingState && isPlayingRef.current && (event.data === 5 || event.data === -1)) {
               try {
                 const playPromise = event.target.playVideo();
                 if (playPromise && typeof playPromise.catch === 'function') {
@@ -208,6 +241,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
 
   // Sync isPlaying state
   useEffect(() => {
+    if (isLoadingState) return;
     if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
       try {
         if (isPlaying) {
@@ -219,7 +253,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         console.error('Error toggling play/pause:', e);
       }
     }
-  }, [isPlaying]);
+  }, [isPlaying, isLoadingState]);
 
   // Sync volume state
   useEffect(() => {

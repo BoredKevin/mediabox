@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useMemo } from 'react';
 import { useMutation, useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Id } from '../../../convex/_generated/dataModel';
@@ -326,27 +326,52 @@ export function useWatchPartyActions({
     setTimeout(() => setCopiedLink(false), 2000);
   }, [remoteUrl, setCopiedLink]);
 
-  return {
-    handleCreateRoom,
-    handleEndRoom,
-    handleTogglePlayPause,
-    handlePlayNextInQueue,
-    handlePlayPreviousTrack,
-    handlePlayQueueItem,
-    handleRemoveQueueItem,
-    handleAddUrlHost,
-    handleToggleFullscreen,
-    handleToggleRoomLock,
-    handleToggleAutoplay,
-    handleToggleCountdown,
-    handleSetLyricsOffset,
-    handleSetLyricsWordSync,
-    handleAdjustVolume,
-    handleSyncPlaybackCheckpoint,
-    handleStartRadioFromCurrent,
-    handleUpdateSearchSettings,
-    copyRemoteLink,
-    isTransitioningRef,
-    nextTrackMutation,
-  };
+  return useMemo(
+    () => ({
+      handleCreateRoom,
+      handleEndRoom,
+      handleTogglePlayPause,
+      handlePlayNextInQueue,
+      handlePlayPreviousTrack,
+      handlePlayQueueItem,
+      handleRemoveQueueItem,
+      handleAddUrlHost,
+      handleToggleFullscreen,
+      handleToggleRoomLock,
+      handleToggleAutoplay,
+      handleToggleCountdown,
+      handleSetLyricsOffset,
+      handleSetLyricsWordSync,
+      handleAdjustVolume,
+      handleSyncPlaybackCheckpoint,
+      handleStartRadioFromCurrent,
+      handleUpdateSearchSettings,
+      copyRemoteLink,
+      isTransitioningRef,
+      nextTrackMutation,
+    }),
+    [
+      handleCreateRoom,
+      handleEndRoom,
+      handleTogglePlayPause,
+      handlePlayNextInQueue,
+      handlePlayPreviousTrack,
+      handlePlayQueueItem,
+      handleRemoveQueueItem,
+      handleAddUrlHost,
+      handleToggleFullscreen,
+      handleToggleRoomLock,
+      handleToggleAutoplay,
+      handleToggleCountdown,
+      handleSetLyricsOffset,
+      handleSetLyricsWordSync,
+      handleAdjustVolume,
+      handleSyncPlaybackCheckpoint,
+      handleStartRadioFromCurrent,
+      handleUpdateSearchSettings,
+      copyRemoteLink,
+      isTransitioningRef,
+      nextTrackMutation,
+    ]
+  );
 }

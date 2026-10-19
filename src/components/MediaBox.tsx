@@ -63,6 +63,7 @@ export const MediaBox: React.FC = React.memo(() => {
     roomId ? { roomId } : 'skip'
   );
   const acknowledgeTvToken = useMutation(api.rooms.acknowledgeTvToken);
+  const reportPlaybackStatusMutation = useMutation(api.playback.reportPlaybackStatus);
 
   useEffect(() => {
     if (pendingTvToken && roomId) {
@@ -74,6 +75,7 @@ export const MediaBox: React.FC = React.memo(() => {
   }, [pendingTvToken, roomId, acknowledgeTvToken]);
 
   const isPlaying = roomState?.playback?.status === 'playing';
+  const isLoadingState = roomState?.playback?.status === 'loading';
   const isLocked = Boolean(roomState?.isLocked);
 
   // Synchronize playback position and wall-clock timestamp to Convex ONLY when seeked or changed
@@ -85,6 +87,7 @@ export const MediaBox: React.FC = React.memo(() => {
     playbackPositionMs: roomState?.playback?.positionMs,
     playbackUpdatedAt: roomState?.playback?.updatedAt,
     onSyncCheckpoint: handleSyncPlaybackCheckpoint,
+    onTrackEnded: handlePlayNextInQueue,
   });
 
   // Catch remote seek operations & ensure tight pause/resume alignment
@@ -117,6 +120,86 @@ export const MediaBox: React.FC = React.memo(() => {
     true,
     currentVideoMeta.author
   );
+
+  const [isVideoReady, setIsVideoReady] = useState<boolean>(false);
+  const hasTriggeredPlayRef = useRef<string | null>(null);
+
+  // Reset video ready state when currentlyPlaying changes
+  useEffect(() => {
+    setIsVideoReady(false);
+    hasTriggeredPlayRef.current = null;
+  }, [roomState?.currentlyPlaying]);
+
+  // Readiness coordinator: wait for both video player cued/ready AND lyrics resolved
+  useEffect(() => {
+    if (!isLoadingState || !roomState?.currentlyPlaying || !roomId) return;
+    if (hasTriggeredPlayRef.current === roomState.currentlyPlaying) return;
+
+    const isLyricsResolved =
+      !lyricsData.isLoading || lyricsData.status === 'ready' || lyricsData.status === 'error';
+
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const triggerPlayback = () => {
+      if (hasTriggeredPlayRef.current === roomState.currentlyPlaying) return;
+      hasTriggeredPlayRef.current = roomState.currentlyPlaying;
+      if (playerInstance && typeof playerInstance.playVideo === 'function') {
+        try {
+          playerInstance.playVideo();
+        } catch (e) {
+          console.warn('[MediaBox] Failed to play video on readiness:', e);
+        }
+      }
+      const dur =
+        playerInstance && typeof playerInstance.getDuration === 'function'
+          ? Math.max(0, Math.round(playerInstance.getDuration() * 1000))
+          : undefined;
+
+      reportPlaybackStatusMutation({
+        roomId,
+        status: 'playing',
+        positionMs: 0,
+        durationMs: dur,
+      }).catch((e) => console.warn('[MediaBox] reportPlaybackStatus error:', e));
+    };
+
+    if (isVideoReady && isLyricsResolved) {
+      triggerPlayback();
+    } else if (isVideoReady) {
+      // Safety timeout: wait at most 3.5s for lyrics before proceeding with video playback
+      safetyTimer = setTimeout(() => {
+        triggerPlayback();
+      }, 3500);
+    }
+
+    return () => {
+      if (safetyTimer) clearTimeout(safetyTimer);
+    };
+  }, [
+    isLoadingState,
+    isVideoReady,
+    lyricsData.isLoading,
+    lyricsData.status,
+    roomState?.currentlyPlaying,
+    roomId,
+    playerInstance,
+    reportPlaybackStatusMutation,
+  ]);
+
+  const handlePlaybackStarted = useCallback(() => {
+    if (isLoadingState && roomId) {
+      const dur =
+        playerInstance && typeof playerInstance.getDuration === 'function'
+          ? Math.max(0, Math.round(playerInstance.getDuration() * 1000))
+          : undefined;
+      reportPlaybackStatusMutation({
+        roomId,
+        status: 'playing',
+        positionMs: 0,
+        durationMs: dur,
+      }).catch((e) => console.warn('[MediaBox] reportPlaybackStatus on start error:', e));
+    }
+  }, [isLoadingState, roomId, playerInstance, reportPlaybackStatusMutation]);
 
   const [localFullscreen, setLocalFullscreen] = useState<boolean>(false);
   const isFullscreen = roomCode ? Boolean(roomState?.isFullscreen) : localFullscreen;
@@ -275,8 +358,11 @@ export const MediaBox: React.FC = React.memo(() => {
                 isPlaying={isPlaying && !isLocked}
                 volume={displayVolume}
                 muted={muted}
+                isLoadingState={isLoadingState}
                 onEnded={handlePlayNextInQueue}
                 onPlayerInstance={handlePlayerInstance}
+                onVideoReady={() => setIsVideoReady(true)}
+                onPlaybackStarted={handlePlaybackStarted}
                 hidden={lyricsData.shouldShowLyrics}
               />
 

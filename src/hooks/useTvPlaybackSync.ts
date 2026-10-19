@@ -8,6 +8,7 @@ interface UseTvPlaybackSyncOptions {
   playbackPositionMs?: number;
   playbackUpdatedAt?: number;
   onSyncCheckpoint?: (positionMs: number, durationMs?: number) => void;
+  onTrackEnded?: () => void;
 }
 
 /**
@@ -17,6 +18,7 @@ interface UseTvPlaybackSyncOptions {
  * 1. Only writes to Convex on track change, play/pause state change, or manual TV seeks (> 2s drift).
  * 2. Zero database writes during normal linear playback: clients sync via dead-reckoning from positionMs + (now - updatedAt).
  * 3. Bidirectional loop prevention: tracks remote seek timestamps to avoid echo-back writes.
+ * 4. End-of-track watchdog: guarantees advance to next track if YouTube player misses state 0 (ENDED).
  */
 export function useTvPlaybackSync({
   roomCode,
@@ -26,6 +28,7 @@ export function useTvPlaybackSync({
   playbackPositionMs,
   playbackUpdatedAt,
   onSyncCheckpoint,
+  onTrackEnded,
 }: UseTvPlaybackSyncOptions) {
   const lastReportedRef = useRef<{ positionMs: number; updatedAt: number }>({
     positionMs: 0,
@@ -37,6 +40,7 @@ export function useTvPlaybackSync({
   });
   const prevPlayingRef = useRef<boolean>(isPlaying);
   const prevVideoRef = useRef<string | null | undefined>(currentlyPlaying);
+  const lastEndedUrlRef = useRef<string | null>(null);
 
   // Sync internal reference when Convex updatedAt updates from a remote seek or server event
   useEffect(() => {
@@ -102,6 +106,7 @@ export function useTvPlaybackSync({
   useEffect(() => {
     if (currentlyPlaying && currentlyPlaying !== prevVideoRef.current) {
       prevVideoRef.current = currentlyPlaying;
+      lastEndedUrlRef.current = null;
       const now = Date.now();
       lastReportedRef.current = { positionMs: 0, updatedAt: now };
       localAnchorRef.current = { positionMs: 0, localTime: performance.now() };
@@ -164,6 +169,21 @@ export function useTvPlaybackSync({
             }
           }
         }
+
+        // End-of-track watchdog: YouTube iframe occasionally fails to fire YT.PlayerState.ENDED (0),
+        // or stalls at the end of the video (> 10s track, within 600ms of duration).
+        if (
+          durMs > 10000 &&
+          currentMs >= durMs - 600 &&
+          currentlyPlaying &&
+          lastEndedUrlRef.current !== currentlyPlaying
+        ) {
+          lastEndedUrlRef.current = currentlyPlaying;
+          if (onTrackEnded) {
+            console.log('[PlaybackSync] End-of-track watchdog detected song completion. Advancing...');
+            onTrackEnded();
+          }
+        }
       } catch (e) {
         console.warn('[PlaybackSync] checkSeekDiscontinuity error:', e);
       }
@@ -175,7 +195,7 @@ export function useTvPlaybackSync({
     return () => {
       clearInterval(checkInterval);
     };
-  }, [roomCode, playerInstance, isPlaying, onSyncCheckpoint]);
+  }, [roomCode, playerInstance, isPlaying, currentlyPlaying, onSyncCheckpoint, onTrackEnded]);
 
   return { syncPlaybackState };
 }
