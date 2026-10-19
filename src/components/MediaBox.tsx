@@ -92,14 +92,26 @@ export const MediaBox: React.FC = React.memo(() => {
 
   // Catch remote seek operations & ensure tight pause/resume alignment
   const lastSyncTimestampRef = useRef<number>(0);
+  const playbackStartGracePeriodUntilRef = useRef<number>(0);
   useEffect(() => {
     if (!playerInstance || typeof playerInstance.getCurrentTime !== 'function') return;
+    if (isLoadingState) return;
+
     const updatedAt = roomState?.playback?.updatedAt || 0;
     if (updatedAt && updatedAt !== lastSyncTimestampRef.current) {
       lastSyncTimestampRef.current = updatedAt;
+
+      // Suppress echo-seeking during the first 3s of starting a new track unless user seeked forward (> 3s)
+      if (Date.now() < playbackStartGracePeriodUntilRef.current) {
+        const targetSec = calculatePlaybackCurrentTimeSec(roomState?.playback);
+        if (targetSec < 3) {
+          return;
+        }
+      }
+
       const targetSec = calculatePlaybackCurrentTimeSec(roomState?.playback);
       const currentSec = playerInstance.getCurrentTime() || 0;
-      const threshold = isPlaying ? 0.5 : 0.3;
+      const threshold = isPlaying ? 0.6 : 0.4;
       if (Math.abs(currentSec - targetSec) > threshold) {
         try {
           playerInstance.seekTo(targetSec, true);
@@ -108,7 +120,7 @@ export const MediaBox: React.FC = React.memo(() => {
         }
       }
     }
-  }, [playerInstance, isPlaying, roomState?.playback?.positionMs, roomState?.playback?.updatedAt, roomState?.playback?.status]);
+  }, [playerInstance, isPlaying, isLoadingState, roomState?.playback?.positionMs, roomState?.playback?.updatedAt, roomState?.playback?.status]);
 
   const lyricsData = useLyrics(
     roomState?.currentlyPlaying,
@@ -139,10 +151,13 @@ export const MediaBox: React.FC = React.memo(() => {
       !lyricsData.isLoading || lyricsData.status === 'ready' || lyricsData.status === 'error';
 
     let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+    let maxWaitTimer: ReturnType<typeof setTimeout> | null = null;
 
     const triggerPlayback = () => {
       if (hasTriggeredPlayRef.current === roomState.currentlyPlaying) return;
       hasTriggeredPlayRef.current = roomState.currentlyPlaying;
+      playbackStartGracePeriodUntilRef.current = Date.now() + 3000;
+
       if (playerInstance && typeof playerInstance.playVideo === 'function') {
         try {
           playerInstance.playVideo();
@@ -170,10 +185,16 @@ export const MediaBox: React.FC = React.memo(() => {
       safetyTimer = setTimeout(() => {
         triggerPlayback();
       }, 3500);
+    } else {
+      // Overall fallback: if video player takes too long to report ready, force start after 4s
+      maxWaitTimer = setTimeout(() => {
+        triggerPlayback();
+      }, 4000);
     }
 
     return () => {
       if (safetyTimer) clearTimeout(safetyTimer);
+      if (maxWaitTimer) clearTimeout(maxWaitTimer);
     };
   }, [
     isLoadingState,
@@ -185,21 +206,6 @@ export const MediaBox: React.FC = React.memo(() => {
     playerInstance,
     reportPlaybackStatusMutation,
   ]);
-
-  const handlePlaybackStarted = useCallback(() => {
-    if (isLoadingState && roomId) {
-      const dur =
-        playerInstance && typeof playerInstance.getDuration === 'function'
-          ? Math.max(0, Math.round(playerInstance.getDuration() * 1000))
-          : undefined;
-      reportPlaybackStatusMutation({
-        roomId,
-        status: 'playing',
-        positionMs: 0,
-        durationMs: dur,
-      }).catch((e) => console.warn('[MediaBox] reportPlaybackStatus on start error:', e));
-    }
-  }, [isLoadingState, roomId, playerInstance, reportPlaybackStatusMutation]);
 
   const [localFullscreen, setLocalFullscreen] = useState<boolean>(false);
   const isFullscreen = roomCode ? Boolean(roomState?.isFullscreen) : localFullscreen;
@@ -362,7 +368,6 @@ export const MediaBox: React.FC = React.memo(() => {
                 onEnded={handlePlayNextInQueue}
                 onPlayerInstance={handlePlayerInstance}
                 onVideoReady={() => setIsVideoReady(true)}
-                onPlaybackStarted={handlePlaybackStarted}
                 hidden={lyricsData.shouldShowLyrics}
               />
 

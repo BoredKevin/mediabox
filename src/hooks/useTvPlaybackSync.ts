@@ -102,7 +102,7 @@ export function useTvPlaybackSync({
     }
   }, [isPlaying, roomCode, playerInstance, playbackPositionMs]);
 
-  // Reset & broadcast initial state when currentlyPlaying changes
+  // Reset initial anchor state when currentlyPlaying changes
   useEffect(() => {
     if (currentlyPlaying && currentlyPlaying !== prevVideoRef.current) {
       prevVideoRef.current = currentlyPlaying;
@@ -110,22 +110,8 @@ export function useTvPlaybackSync({
       const now = Date.now();
       lastReportedRef.current = { positionMs: 0, updatedAt: now };
       localAnchorRef.current = { positionMs: 0, localTime: performance.now() };
-
-      // Allow the player time to cue / load the new video, then sync duration and actual time
-      const timer = setTimeout(() => {
-        if (playerInstance && typeof playerInstance.getDuration === 'function') {
-          const durMs = Math.max(0, Math.round(playerInstance.getDuration() * 1000));
-          const curSec = typeof playerInstance.getCurrentTime === 'function' ? playerInstance.getCurrentTime() : 0;
-          const curMs = Math.max(0, Math.round(curSec * 1000));
-          if (durMs > 0 && onSyncCheckpoint) {
-            onSyncCheckpoint(curMs, durMs);
-          }
-        }
-      }, 1500);
-
-      return () => clearTimeout(timer);
     }
-  }, [currentlyPlaying, playerInstance, onSyncCheckpoint]);
+  }, [currentlyPlaying]);
 
   // TV manual seek detection: checks whether player jumped relative to expected linear playback
   useEffect(() => {

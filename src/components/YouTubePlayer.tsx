@@ -19,7 +19,6 @@ interface YouTubePlayerProps {
   onEnded?: () => void;
   onPlayerInstance?: (player: any) => void;
   onVideoReady?: () => void;
-  onPlaybackStarted?: () => void;
   hidden?: boolean;
 }
 
@@ -32,7 +31,6 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   onEnded,
   onPlayerInstance,
   onVideoReady,
-  onPlaybackStarted,
   hidden = false,
 }) => {
   const { t } = useTranslation();
@@ -40,8 +38,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   const playerRef = useRef<any>(null);
   const onEndedRef = useRef(onEnded);
   const isPlayingRef = useRef(isPlaying);
+  const isLoadingStateRef = useRef(isLoadingState);
   const onVideoReadyRef = useRef(onVideoReady);
-  const onPlaybackStartedRef = useRef(onPlaybackStarted);
   const [embedError, setEmbedError] = useState<string | null>(null);
   const [needsUserInteraction, setNeedsUserInteraction] = useState<boolean>(false);
 
@@ -56,12 +54,12 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   }, [isPlaying]);
 
   useEffect(() => {
-    onVideoReadyRef.current = onVideoReady;
-  }, [onVideoReady]);
+    isLoadingStateRef.current = isLoadingState;
+  }, [isLoadingState]);
 
   useEffect(() => {
-    onPlaybackStartedRef.current = onPlaybackStarted;
-  }, [onPlaybackStarted]);
+    onVideoReadyRef.current = onVideoReady;
+  }, [onVideoReady]);
 
   // Load YouTube IFrame API script dynamically if not present
   useEffect(() => {
@@ -87,8 +85,11 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
       try {
         if (onPlayerInstance) onPlayerInstance(playerRef.current);
-        if (isLoadingState) {
+        if (isLoadingStateRef.current) {
           playerRef.current.cueVideoById(videoId);
+          setTimeout(() => {
+            if (onVideoReadyRef.current) onVideoReadyRef.current();
+          }, 300);
         } else {
           const shouldPlay = isPlayingRef.current ?? isPlaying;
           if (shouldPlay) {
@@ -113,7 +114,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
 
     // Only pass origin parameter if on https protocol to avoid "origin cannot be verified" error on http/localhost
     const playerVars: Record<string, any> = {
-      autoplay: 1,
+      autoplay: 0,
       controls: 0,
       modestbranding: 1,
       rel: 0,
@@ -147,7 +148,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
               } else {
                 event.target.unMute();
               }
-              if (isLoadingState) {
+              if (isLoadingStateRef.current) {
                 event.target.cueVideoById(videoId);
                 if (onVideoReadyRef.current) onVideoReadyRef.current();
               } else if (isPlayingRef.current) {
@@ -180,14 +181,19 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             }
             // YT.PlayerState.PLAYING === 1
             if (event.data === 1) {
-              // Playing
-              setNeedsUserInteraction(false);
-              if (onPlaybackStartedRef.current) {
-                onPlaybackStartedRef.current();
+              // If video started playing prematurely while still in loading state (waiting for lyrics), pause it!
+              if (isLoadingStateRef.current) {
+                try {
+                  event.target.pauseVideo();
+                } catch (e) {
+                  console.warn('[YouTubePlayer] Premature autoplay paused:', e);
+                }
+                return;
               }
+              setNeedsUserInteraction(false);
             }
             // If YouTube iframe transitions to CUED (5) or UNSTARTED (-1) while TV expects playing:
-            if (!isLoadingState && isPlayingRef.current && (event.data === 5 || event.data === -1)) {
+            if (!isLoadingStateRef.current && isPlayingRef.current && (event.data === 5 || event.data === -1)) {
               try {
                 const playPromise = event.target.playVideo();
                 if (playPromise && typeof playPromise.catch === 'function') {
