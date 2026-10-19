@@ -3,7 +3,7 @@
 import { action, internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
-import { Innertube } from "youtubei.js";
+import { getInnertube } from "./innertube";
 
 function parseVideoId(url: string): string | null {
   if (!url) return null;
@@ -23,18 +23,6 @@ function isUnwantedTrackTitle(title: string): boolean {
     /\b(full\s*album|complete\s*album|discography|all\s*songs|greatest\s*hits\s*full)\b/.test(lower) ||
     /\b(compilation|mega\s*mix|megamix|mashup\s*mix|dj\s*mix|album\s*mix|live\s*stream|24\/7)\b/.test(lower)
   );
-}
-
-let defaultInnertubeInstance: Innertube | null = null;
-async function getInnertube(): Promise<Innertube> {
-  if (!defaultInnertubeInstance) {
-    defaultInnertubeInstance = await Innertube.create({
-      generate_session_locally: true,
-      retrieve_player: false,
-      retrieve_innertube_config: false,
-    });
-  }
-  return defaultInnertubeInstance;
 }
 
 async function verifyTurnstile(token: string | undefined): Promise<boolean> {
@@ -118,7 +106,10 @@ export const search = action({
           const s = rawSong?.primary || rawSong;
           const id = s.id || s.video_id || "";
           const title = s.title?.text || (typeof s.title === "string" ? s.title : s.title?.runs?.[0]?.text) || "Unknown Title";
-          const channelTitle = s.artists?.[0]?.name || s.author?.name || "";
+          const channelTitle =
+            Array.isArray(s.artists) && s.artists.length > 0
+              ? s.artists.map((a: any) => a.name || a.text).filter(Boolean).join(", ")
+              : (s.author?.name || "");
           const thumb =
             s.thumbnail?.contents?.[0]?.url ||
             s.thumbnail?.[0]?.url ||
@@ -179,7 +170,7 @@ function extractRadioTrack(rawItem: any, seedVideoId: string) {
 
   let channelTitle = "";
   if (Array.isArray(item.artists) && item.artists.length > 0) {
-    channelTitle = item.artists[0]?.name || item.artists[0]?.text || "";
+    channelTitle = item.artists.map((a: any) => a.name || a.text).filter(Boolean).join(", ");
   } else if (item.author?.name) {
     channelTitle = item.author.name;
   }

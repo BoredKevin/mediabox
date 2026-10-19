@@ -11,6 +11,8 @@ export type YouTubeMetaResult = {
   isYouTubeMusic: boolean;
   channelName: string;
   rawTitle: string;
+  album?: string;
+  altTitle?: string;
 };
 
 /**

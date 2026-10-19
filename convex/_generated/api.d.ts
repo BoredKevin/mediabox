@@ -10,6 +10,7 @@
 
 import type * as admins from "../admins.js";
 import type * as http from "../http.js";
+import type * as innertube from "../innertube.js";
 import type * as lyrics from "../lyrics.js";
 import type * as lyrics_meta from "../lyrics/meta.js";
 import type * as lyrics_providers from "../lyrics/providers.js";
@@ -33,6 +34,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   admins: typeof admins;
   http: typeof http;
+  innertube: typeof innertube;
   lyrics: typeof lyrics;
   "lyrics/meta": typeof lyrics_meta;
   "lyrics/providers": typeof lyrics_providers;

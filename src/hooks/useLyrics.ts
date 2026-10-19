@@ -4,7 +4,7 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { detectParser, type Lyric } from '@braccato/parsers';
 import { parseYouTubeVideoId } from '@/lib/roomUtils';
-import { parseTrackAndArtist, cleanArtistName } from '@/lib/trackParser';
+import { parseTrackAndArtist, cleanArtistName, isGenericTopic } from '@/lib/trackParser';
 import { isYouTubeMusicTrack } from '@/lib/ytmusicDetector';
 import { loadApiToken } from '@/lib/apiTokenStore';
 import { useLyricsColor } from './lyrics/useLyricsColor';
@@ -63,7 +63,8 @@ export function useLyrics(
     if (lyricsState.currentVideoId === (videoId || null)) return;
     const isTopic = Boolean(channelTitle && /\s*-\s*Topic$/i.test(channelTitle.trim()));
     const initialParsed = parseTrackAndArtist(videoTitle || '', channelTitle || '');
-    const cleanArtist = isTopic ? channelTitle!.replace(/\s*-\s*Topic$/i, '').trim() : (initialParsed.artist || '');
+    const rawTopicArtist = isTopic ? channelTitle!.replace(/\s*-\s*Topic$/i, '').trim() : '';
+    const cleanArtist = (isGenericTopic(rawTopicArtist) ? '' : rawTopicArtist) || initialParsed.artist || '';
     const cleanTrack = isTopic ? (videoTitle || '').trim() : (initialParsed.track || videoTitle || '');
     const isEagerYTMusic = Boolean(videoId && (isTopic || isYouTubeMusicTrack(videoUrl, channelTitle, videoTitle || '')));
 
@@ -161,7 +162,7 @@ export function useLyrics(
           isFromUnison: cachedLyricsDoc.sourceLabel === 'Unison',
           shouldShowLyrics: Boolean(parsedLyrics && parsedLyrics.length > 0) || isEagerYTMusic,
           trackTitle: cachedLyricsDoc.trackTitle || initialParsed.track || prev.trackTitle,
-          artistName: cachedLyricsDoc.artistName || initialParsed.artist || prev.artistName,
+          artistName: cachedLyricsDoc.artistName || (isGenericTopic(initialParsed.artist) ? '' : initialParsed.artist) || prev.artistName,
           sourceLabel: cachedLyricsDoc.sourceLabel,
           syncType: detectedSyncType,
           albumArt,
@@ -188,7 +189,11 @@ export function useLyrics(
 
     const isTopic = Boolean(channelTitle && /\s*-\s*Topic$/i.test(channelTitle.trim()));
     const initialParsed = parseTrackAndArtist(videoTitle || '', channelTitle || '');
-    const cleanArtist = isTopic ? channelTitle!.replace(/\s*-\s*Topic$/i, '').trim() : (initialParsed.artist || cleanArtistName(channelTitle || ''));
+    const rawTopicArtist = isTopic ? channelTitle!.replace(/\s*-\s*Topic$/i, '').trim() : '';
+    const cleanArtist =
+      (isGenericTopic(rawTopicArtist) ? '' : rawTopicArtist) ||
+      initialParsed.artist ||
+      (isGenericTopic(channelTitle) ? '' : cleanArtistName(channelTitle || ''));
     const cleanTrack = isTopic ? (videoTitle || '').trim() : (initialParsed.track || videoTitle || '');
     const duration = typeof playerInstance?.getDuration === 'function' ? playerInstance.getDuration() : undefined;
     const token = loadApiToken();

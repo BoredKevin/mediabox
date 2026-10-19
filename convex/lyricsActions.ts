@@ -73,7 +73,7 @@ export const resolveOrFetch = action({
     const logs: string[] = [];
     logs.push(`[Init] videoId="${videoId}"`);
 
-    // 3. Resolve metadata strictly from YouTube oEmbed API
+    // 3. Resolve metadata via Innertube / YouTube Music API
     const ytMeta = await fetchYouTubeVideoMeta(videoId);
     let song = "";
     let artist = "";
@@ -83,13 +83,25 @@ export const resolveOrFetch = action({
       song = ytMeta.song;
       artist = ytMeta.artist;
       isYouTubeMusic = ytMeta.isYouTubeMusic;
-      logs.push(`[YouTube oEmbed] title="${song}", artist="${artist}", isYouTubeMusic=${isYouTubeMusic}`);
+      logs.push(`[YouTube Meta] title="${song}", artist="${artist}", isYouTubeMusic=${isYouTubeMusic}`);
     } else {
       song = (args.trackTitle || "").trim();
       const rawArtist = (args.artistName || "").trim();
       isYouTubeMusic = /\s*-\s*Topic$/i.test(rawArtist) || rawArtist.toLowerCase().endsWith("- topic");
       artist = isYouTubeMusic ? rawArtist.replace(/\s*-\s*Topic$/i, "").trim() : rawArtist;
-      logs.push(`[YouTube oEmbed] Fallback: title="${song}", artist="${artist}", isYouTubeMusic=${isYouTubeMusic}`);
+      logs.push(`[YouTube Meta] Fallback: title="${song}", artist="${artist}", isYouTubeMusic=${isYouTubeMusic}`);
+    }
+
+    // Fall back to client artistName / trackTitle if Innertube did not yield them
+    if (!artist && args.artistName) {
+      artist = args.artistName.trim();
+    }
+    if (!song && args.trackTitle) {
+      song = args.trackTitle.trim();
+    }
+    // If client supplied artistName from built-in search, treat as YouTube Music
+    if (args.artistName && !isYouTubeMusic) {
+      isYouTubeMusic = true;
     }
 
     // STRICT FILTER: Non-YouTube Music videos do not play lyrics

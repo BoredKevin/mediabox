@@ -26,6 +26,15 @@ const NON_ALPHANUM_RE = /[^a-z0-9]/g;
 const HYPHENS = [' - ', ' – ', ' — ', ' : '];
 
 /**
+ * Identifies generic aggregator channel names like "Release" or "Various Artists".
+ */
+export const isGenericTopic = (name?: string | null): boolean => {
+  if (!name) return false;
+  const lower = name.trim().toLowerCase();
+  return lower === 'release' || lower === 'various artists' || lower === 'release - topic' || lower === 'various artists - topic';
+};
+
+/**
  * Cleans author/channel name (e.g. from YouTube oEmbed) by stripping "- Topic", "VEVO", etc.
  */
 export const cleanArtistName = (name: string): string => {
@@ -94,12 +103,12 @@ export const parseTrackAndArtist = (
   // 4. If no artist divider found in title, use cleanTitle as track and fall back to cleanChannel as artist
   if (!extractedTrack) {
     extractedTrack = cleanTitle;
-    extractedArtist = cleanChannel;
+    extractedArtist = isGenericTopic(cleanChannel) ? '' : cleanChannel;
   }
 
   // Final noise checks for artist and track
-  if (!extractedArtist || NOISE_FALLBACK_RE.test(extractedArtist)) {
-    extractedArtist = cleanChannel;
+  if (!extractedArtist || NOISE_FALLBACK_RE.test(extractedArtist) || isGenericTopic(extractedArtist)) {
+    extractedArtist = isGenericTopic(cleanChannel) ? '' : cleanChannel;
   }
 
   if (!extractedTrack || NOISE_FALLBACK_RE.test(extractedTrack)) {
