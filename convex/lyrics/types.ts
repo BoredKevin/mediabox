@@ -3,6 +3,8 @@ export type LyricsResult = {
   sourceLabel: string;
   syncType: "word" | "line" | "none";
   isrc?: string;
+  canonicalTitle?: string;
+  canonicalArtist?: string;
 };
 
 export type YouTubeMetaResult = {
@@ -20,8 +22,8 @@ export type YouTubeMetaResult = {
  */
 export function detectSyncType(data: string, explicitType?: string): "word" | "line" | "none" {
   if (explicitType === "word" || explicitType === "richsync") return "word";
-  if (explicitType === "line") return "line";
-  if (explicitType === "none" || explicitType === "unsynced") return "none";
+  if (explicitType === "line" || explicitType === "linesync") return "line";
+  if (explicitType === "none" || explicitType === "unsynced" || explicitType === "plain") return "none";
 
   if (!data) return "none";
 

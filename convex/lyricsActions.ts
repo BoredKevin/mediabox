@@ -137,13 +137,13 @@ export const resolveOrFetch = action({
     }
 
     // 5. Query providers via waterfall cascade
-    const result = await fetchLyricsWaterfall(videoId, song, artist, logs);
+    const result = await fetchLyricsWaterfall(videoId, song, artist, logs, args.duration);
 
     if (result) {
       const doc = {
         videoId,
-        trackTitle: song,
-        artistName: artist,
+        trackTitle: result.canonicalTitle || song,
+        artistName: result.canonicalArtist || artist,
         sourceLabel: result.sourceLabel,
         data: result.data,
         status: "ready" as const,
