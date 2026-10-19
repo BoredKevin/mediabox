@@ -53,6 +53,8 @@ export const SearchInputBar: React.FC<SearchInputBarProps> = ({
     };
   }, [inputRef, inputValue, onInputChange, onClearError]);
 
+  const isVerifyingHumanity = isVerifying && !isDetectedUrl;
+
   return (
     <form onSubmit={onSubmit} className="flex flex-col sm:flex-row items-stretch gap-2">
       <div className="relative flex-1 min-w-0">
@@ -72,7 +74,7 @@ export const SearchInputBar: React.FC<SearchInputBarProps> = ({
             onInputChange(e.target.value);
             if (onClearError) onClearError();
           }}
-          disabled={isLocked || isSearching || isVerifying || isSubmittingLink}
+          disabled={isLocked || isSearching || isSubmittingLink}
           placeholder={
             isLocked
               ? t('remote.searchQueueLocked')
@@ -101,10 +103,10 @@ export const SearchInputBar: React.FC<SearchInputBarProps> = ({
         chamfer="dual"
         data-tv-nav="true"
         data-tv-zone="E"
-        disabled={isLocked || isSearching || isVerifying || isSubmittingLink || !inputValue.trim()}
+        disabled={isLocked || isSearching || isVerifyingHumanity || isSubmittingLink || !inputValue.trim()}
         className="h-12 px-6 font-bold uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 flex-shrink-0 cursor-pointer tv-focus-target"
       >
-        {isVerifying ? (
+        {isVerifyingHumanity ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
             <span>{t('remote.verifying') || 'Verifying...'}</span>

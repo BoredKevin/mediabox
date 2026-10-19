@@ -11,14 +11,16 @@ interface UseYouTubeSearchProps {
   isProxyConfigured?: boolean;
   preferMusicVideos?: boolean;
   turnstileRef?: React.RefObject<TurnstileRef | null>;
+  isTurnstileVerifying?: boolean;
 }
 
 export function useYouTubeSearch({
   preferMusicVideos = true,
   turnstileRef,
+  isTurnstileVerifying = false,
 }: UseYouTubeSearchProps = {}) {
   const [isSearching, setIsSearching] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [isAcquiringToken, setIsAcquiringToken] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
 
@@ -31,6 +33,10 @@ export function useYouTubeSearch({
   );
 
   const isCleared = Boolean(tokenVerification?.valid);
+
+  // When cleared (e.g. host API token), Turnstile is bypassed.
+  // Otherwise, user is verifying if Turnstile is running or actively acquiring a token.
+  const isVerifying = !isCleared && (Boolean(isTurnstileVerifying) || isAcquiringToken);
 
   const performSearch = useCallback(
     async (cleanQuery: string) => {
@@ -50,12 +56,12 @@ export function useYouTubeSearch({
               : false;
 
           if (!hasCached) {
-            setIsVerifying(true);
+            setIsAcquiringToken(true);
           }
           try {
             turnstileToken = await turnstileRef.current.getToken();
           } finally {
-            setIsVerifying(false);
+            setIsAcquiringToken(false);
           }
         }
 
@@ -88,7 +94,7 @@ export function useYouTubeSearch({
         setSearchResults([]);
       } finally {
         setIsSearching(false);
-        setIsVerifying(false);
+        setIsAcquiringToken(false);
       }
     },
     [searchAction, isCleared, turnstileRef, apiToken, preferMusicVideos]

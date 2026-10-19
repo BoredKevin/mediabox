@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/card';
 import { ShieldCheck } from 'lucide-react';
@@ -40,6 +40,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isSubmittingLink, setIsSubmittingLink] = useState(false);
   const [addedVideoIds, setAddedVideoIds] = useState<Set<string>>(new Set());
+  const [isTurnstileVerifying, setIsTurnstileVerifying] = useState(false);
   const turnstileRef = useRef<TurnstileRef>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +58,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     user,
     preferMusicVideos: roomState?.preferMusicVideos ?? true,
     turnstileRef,
+    isTurnstileVerifying,
   });
 
   // Keep addedVideoIds synchronized with current room queue
@@ -113,7 +115,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       return;
     }
 
-    // Case 2: Keyword Search Query
+    // Case 2: Keyword Search Query (Blocked if Turnstile is verifying humanity)
+    if (isVerifying) return;
     performSearch(cleanInput);
   };
 
@@ -159,10 +162,19 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     setSearchError(null);
   };
 
+  const handleTurnstileError = useCallback((err: string) => {
+    setSearchError(err);
+  }, [setSearchError]);
+
   const content = (
     <div className="flex flex-col gap-4">
       {/* Invisible Cloudflare Turnstile Verification Widget */}
-      <TurnstileWidget ref={turnstileRef} />
+      <TurnstileWidget
+        ref={turnstileRef}
+        onVerifyingChange={setIsTurnstileVerifying}
+        isCleared={isCleared}
+        onError={handleTurnstileError}
+      />
 
       {/* Search / Paste URL Form */}
       <SearchInputBar
@@ -206,7 +218,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
       {/* YouTube Video Grid Search Results & Skeletons */}
       <SearchResultsGrid
-        isSearching={isSearching || isVerifying}
+        isSearching={isSearching}
         searchResults={searchResults}
         addedVideoIds={addedVideoIds}
         isLocked={isLocked}
