@@ -16,8 +16,7 @@ export { isAuthorized };
 export const create = mutation({
   args: {
     hostUid: v.string(),
-    tvUid: v.string(),
-    tvUuid: v.optional(v.string()),
+    tvUuid: v.string(),
     preferMusicVideos: v.optional(v.boolean()),
     lyricsOffsetMs: v.optional(v.number()),
     lyricsWordSync: v.optional(v.boolean()),
@@ -36,7 +35,6 @@ export const create = mutation({
     const roomId = await ctx.db.insert("rooms", {
       code,
       hostUid: args.hostUid,
-      tvUid: args.tvUid,
       tvUuid: args.tvUuid,
       isLocked: false,
       isAutoplay: true,
@@ -81,7 +79,7 @@ export const getRoom = query({
     let tvOnline = false;
     try {
       const activePresence = await presence.listRoom(ctx, room.code, true);
-      tvOnline = activePresence.some((p) => p.userId === room.tvUid);
+      tvOnline = activePresence.some((p) => p.userId === room.tvUuid);
     } catch {
       tvOnline = true;
     }
@@ -102,7 +100,7 @@ export const getRoomById = query({
     let tvOnline = false;
     try {
       const activePresence = await presence.listRoom(ctx, room.code, true);
-      tvOnline = activePresence.some((p) => p.userId === room.tvUid);
+      tvOnline = activePresence.some((p) => p.userId === room.tvUuid);
     } catch {
       tvOnline = true;
     }
@@ -279,7 +277,7 @@ export const joinRoom = mutation({
     const room = await ctx.db.get(args.roomId);
     if (!room) throw new Error("Room not found");
 
-    if (room.hostUid === room.tvUid && args.callerUid !== room.tvUid) {
+    if (room.hostUid === room.tvUuid && args.callerUid !== room.tvUuid) {
       await ctx.db.patch(args.roomId, { hostUid: args.callerUid });
       return { isHost: true };
     }
@@ -287,7 +285,7 @@ export const joinRoom = mutation({
     try {
       const activePresence = await presence.listRoom(ctx, room.code, true);
       const isCurrentHostOnline = activePresence.some((p) => p.userId === room.hostUid);
-      if (!isCurrentHostOnline && args.callerUid !== room.tvUid) {
+      if (!isCurrentHostOnline && args.callerUid !== room.tvUuid) {
         await ctx.db.patch(args.roomId, { hostUid: args.callerUid });
         return { isHost: true };
       }
@@ -311,7 +309,7 @@ export const claimHost = mutation({
     const room = await ctx.db.get(args.roomId);
     if (!room) throw new Error("Room not found");
 
-    if (room.hostUid === room.tvUid || room.hostUid === args.callerUid) {
+    if (room.hostUid === room.tvUuid || room.hostUid === args.callerUid) {
       await ctx.db.patch(args.roomId, { hostUid: args.callerUid });
       return { isHost: true };
     }

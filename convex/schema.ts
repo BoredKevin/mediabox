@@ -6,8 +6,7 @@ export default defineSchema({
   rooms: defineTable({
     code: v.string(), // 6-digit room PIN, e.g. "481920"
     hostUid: v.string(),
-    tvUid: v.string(),
-    tvUuid: v.optional(v.string()),
+    tvUuid: v.string(),
     tvOnline: v.optional(v.boolean()),
     isFullscreen: v.optional(v.boolean()),
     isLocked: v.boolean(),

@@ -35,7 +35,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     memberCount,
     membersList,
     isTvOnline,
-    tvUid,
+    tvUuid,
     isAdmin,
     adminsList,
     isHost,
@@ -134,7 +134,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
           user={user}
           effectiveUid={effectiveUid}
           isHostOrAdmin={isHostOrAdmin}
-          tvUid={tvUid}
+          tvUuid={tvUuid}
           queue={queue}
           radioQueue={radioQueue}
           membersList={membersList}
@@ -189,7 +189,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         membersList={membersList}
         adminsList={adminsList}
         hostUid={roomState?.hostUid}
-        tvUid={tvUid}
+        tvUuid={tvUuid}
         user={user}
         currentUid={effectiveUid}
         isHostOrAdmin={isHostOrAdmin}

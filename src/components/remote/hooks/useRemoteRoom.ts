@@ -68,7 +68,7 @@ export function useRemoteRoom({
 
   const isHost = Boolean(room?.hostUid && room.hostUid === effectiveUid);
   const isHostOrAdmin = isHost || isAdmin;
-  const tvUid = room?.tvUid || null;
+  const tvUuid = room?.tvUuid || null;
 
   // Track room closure
   useEffect(() => {
@@ -84,18 +84,18 @@ export function useRemoteRoom({
   const presenceList = useSafePresence(activeRoomCode, effectiveUid, 10000);
 
   const isTvOnline = useMemo(() => {
-    if (presenceList && room?.tvUid) {
-      return presenceList.some((p) => p.userId === room.tvUid && p.online);
+    if (presenceList && tvUuid) {
+      return presenceList.some((p) => p.userId === tvUuid && p.online);
     }
     return Boolean(room?.tvOnline);
-  }, [presenceList, room?.tvUid, room?.tvOnline]);
+  }, [presenceList, tvUuid, room?.tvOnline]);
 
   const membersList: MemberInfo[] = useMemo(() => {
     const list: MemberInfo[] = [];
 
-    if (room?.tvUid) {
+    if (tvUuid) {
       list.push({
-        uid: room.tvUid,
+        uid: tvUuid,
         nickname: 'Mediabox TV',
         online: isTvOnline,
         joinedAt: 0,
@@ -106,7 +106,7 @@ export function useRemoteRoom({
 
     if (presenceList) {
       for (const p of presenceList) {
-        if (p.userId === room?.tvUid) continue;
+        if (p.userId === tvUuid) continue;
         const isMe = p.userId === effectiveUid;
         const customNick = (p.data as any)?.nickname;
         const nickname = customNick || (isMe ? myNickname || 'You' : 'Guest');
@@ -122,7 +122,7 @@ export function useRemoteRoom({
     }
 
     return list;
-  }, [presenceList, room?.tvUid, isTvOnline, effectiveUid, myNickname]);
+  }, [presenceList, tvUuid, isTvOnline, effectiveUid, myNickname]);
 
   const memberCount = useMemo(() => {
     return Math.max(1, membersList.filter((m) => m.online !== false).length);
@@ -224,7 +224,7 @@ export function useRemoteRoom({
     memberCount,
     membersList,
     isTvOnline,
-    tvUid,
+    tvUuid,
     isAdmin,
     adminsList,
     isHost,

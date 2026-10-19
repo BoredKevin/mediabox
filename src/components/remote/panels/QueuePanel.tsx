@@ -12,7 +12,7 @@ interface QueuePanelProps {
   user: DeviceUser | null;
   currentUid?: string;
   isHostOrAdmin: boolean;
-  tvUid?: string | null;
+  tvUuid?: string | null;
   membersList: { uid: string; nickname?: string; isTv?: boolean }[];
   onRemoveItem: (itemId: string, itemAddedBy?: string) => Promise<void>;
   onMoveItem: (index: number, direction: 'up' | 'down') => void;
@@ -26,7 +26,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   user,
   currentUid,
   isHostOrAdmin,
-  tvUid,
+  tvUuid,
   membersList,
   onRemoveItem,
   onMoveItem,
@@ -69,7 +69,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
                 const canDelete = isMyEntry || isHostOrAdmin;
                 const addedByMember = membersList.find((m) => m.uid === item.addedBy);
                 const isTvEntry = Boolean(
-                  (tvUid && item.addedBy === tvUid) || item.addedBy === 'tv' || addedByMember?.isTv
+                  (tvUuid && item.addedBy === tvUuid) || item.addedBy === 'tv' || addedByMember?.isTv
                 );
 
                 const addedByLabel = isMyEntry

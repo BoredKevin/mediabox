@@ -21,7 +21,7 @@ interface RoomTabContentProps {
   user: DeviceUser | null;
   effectiveUid: string;
   isHostOrAdmin: boolean;
-  tvUid: string | null;
+  tvUuid: string | null;
   queue: QueueItem[];
   radioQueue: SearchResultItem[];
   membersList: MemberInfo[];
@@ -44,7 +44,7 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
   user,
   effectiveUid,
   isHostOrAdmin,
-  tvUid,
+  tvUuid,
   queue,
   radioQueue,
   membersList,
@@ -115,7 +115,7 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
                 user={user}
                 currentUid={effectiveUid}
                 isHostOrAdmin={isHostOrAdmin}
-                tvUid={tvUid}
+                tvUuid={tvUuid}
                 membersList={membersList}
                 onRemoveItem={handleRemoveQueueItem}
                 onMoveItem={handleMoveQueueItem}
@@ -132,7 +132,7 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
                 membersList={membersList}
                 adminsList={adminsList}
                 hostUid={roomState?.hostUid}
-                tvUid={tvUid}
+                tvUuid={tvUuid}
                 user={user}
                 currentUid={effectiveUid}
                 isHostOrAdmin={isHostOrAdmin}

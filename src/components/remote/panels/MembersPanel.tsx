@@ -19,7 +19,7 @@ interface MembersPanelProps {
   membersList: MemberInfo[];
   adminsList: string[];
   hostUid?: string;
-  tvUid?: string | null;
+  tvUuid?: string | null;
   user: DeviceUser | null;
   currentUid?: string;
   isHostOrAdmin: boolean;
@@ -33,7 +33,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
   membersList,
   adminsList,
   hostUid,
-  tvUid,
+  tvUuid,
   user,
   currentUid,
   isHostOrAdmin,
@@ -64,7 +64,7 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
           const isMemberAdmin = adminsList.includes(member.uid);
           const isHostUser = member.uid === hostUid;
           const isSelf = Boolean(effectiveCurrentUid && member.uid === effectiveCurrentUid);
-          const isTvUser = Boolean(member.isTv || (tvUid && member.uid === tvUid));
+          const isTvUser = Boolean(member.isTv || (tvUuid && member.uid === tvUuid));
           const isOnline = member.online !== false;
           const memberRequests = queue.filter((item) => item.addedBy === member.uid);
           const displayName = isTvUser

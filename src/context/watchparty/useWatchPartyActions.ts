@@ -77,7 +77,6 @@ export function useWatchPartyActions({
 
       const result = await createRoomMutation({
         hostUid: hostId,
-        tvUid: hostId,
         tvUuid: deviceCreds.uuid,
         preferMusicVideos: effectiveSettings.preferMusicVideos,
         lyricsOffsetMs: getSavedLyricsOffset(),
@@ -153,13 +152,13 @@ export function useWatchPartyActions({
   const handleRemoveQueueItem = useCallback(
     async (itemId: string) => {
       if (!room?._id) return;
-      const callerId = room?.tvUid || creds.uuid;
+      const callerId = room?.tvUuid || creds.uuid;
       await removeQueueMutation({
         queueId: itemId as Id<'queue'>,
         callerUid: callerId,
       });
     },
-    [room?._id, room?.tvUid, creds.uuid, removeQueueMutation]
+    [room?._id, room?.tvUuid, creds.uuid, removeQueueMutation]
   );
 
   const handlePlayQueueItem = useCallback(
@@ -199,7 +198,7 @@ export function useWatchPartyActions({
         videoTitle = info.title || '';
       }
 
-      const callerId = room?.tvUid || creds.uuid;
+      const callerId = room?.tvUuid || creds.uuid;
       await addQueueMutation({
         roomId: room._id,
         url: videoUrl,
@@ -209,7 +208,7 @@ export function useWatchPartyActions({
       });
       return true;
     },
-    [room?._id, room?.tvUid, creds.uuid, addQueueMutation]
+    [room?._id, room?.tvUuid, creds.uuid, addQueueMutation]
   );
 
   const handleToggleFullscreen = useCallback(async () => {
@@ -219,49 +218,49 @@ export function useWatchPartyActions({
 
   const handleToggleRoomLock = useCallback(async () => {
     if (!room?._id) return;
-    const callerId = room?.tvUid || creds.uuid;
+    const callerId = room?.tvUuid || creds.uuid;
     await toggleLockMutation({ roomId: room._id, callerUid: callerId });
-  }, [room?._id, room?.tvUid, creds.uuid, toggleLockMutation]);
+  }, [room?._id, room?.tvUuid, creds.uuid, toggleLockMutation]);
 
   const handleToggleAutoplay = useCallback(async () => {
     if (!room?._id) return;
-    const callerId = room?.tvUid || creds.uuid;
+    const callerId = room?.tvUuid || creds.uuid;
     await toggleAutoplayMutation({ roomId: room._id, callerUid: callerId });
-  }, [room?._id, room?.tvUid, creds.uuid, toggleAutoplayMutation]);
+  }, [room?._id, room?.tvUuid, creds.uuid, toggleAutoplayMutation]);
 
   const handleToggleCountdown = useCallback(async () => {
     if (!room?._id) return;
-    const callerId = room?.tvUid || creds.uuid;
+    const callerId = room?.tvUuid || creds.uuid;
     await toggleCountdownMutation({ roomId: room._id, callerUid: callerId });
-  }, [room?._id, room?.tvUid, creds.uuid, toggleCountdownMutation]);
+  }, [room?._id, room?.tvUuid, creds.uuid, toggleCountdownMutation]);
 
   const handleSetLyricsOffset = useCallback(
     async (offsetMs: number) => {
       const clamped = Math.min(5000, Math.max(-5000, Math.round(offsetMs)));
       saveLyricsOffset(clamped);
       if (!room?._id) return;
-      const callerId = room?.tvUid || creds.uuid;
+      const callerId = room?.tvUuid || creds.uuid;
       await updateSettingsMutation({
         roomId: room._id,
         callerUid: callerId,
         settings: { lyricsOffsetMs: clamped },
       });
     },
-    [room?._id, room?.tvUid, creds.uuid, updateSettingsMutation]
+    [room?._id, room?.tvUuid, creds.uuid, updateSettingsMutation]
   );
 
   const handleSetLyricsWordSync = useCallback(
     async (enabled: boolean) => {
       saveLyricsWordSync(enabled);
       if (!room?._id) return;
-      const callerId = room?.tvUid || creds.uuid;
+      const callerId = room?.tvUuid || creds.uuid;
       await updateSettingsMutation({
         roomId: room._id,
         callerUid: callerId,
         settings: { lyricsWordSync: enabled },
       });
     },
-    [room?._id, room?.tvUid, creds.uuid, updateSettingsMutation]
+    [room?._id, room?.tvUuid, creds.uuid, updateSettingsMutation]
   );
 
   const handleAdjustVolume = useCallback(
@@ -307,7 +306,7 @@ export function useWatchPartyActions({
       const effective = getEffectiveSearchSettings();
       setSearchSettings(effective);
       if (room?._id) {
-        const callerId = room?.tvUid || creds.uuid;
+        const callerId = room?.tvUuid || creds.uuid;
         await updateSettingsMutation({
           roomId: room._id,
           callerUid: callerId,
@@ -317,7 +316,7 @@ export function useWatchPartyActions({
         });
       }
     },
-    [room?._id, room?.tvUid, creds.uuid, updateSettingsMutation, setSearchSettings]
+    [room?._id, room?.tvUuid, creds.uuid, updateSettingsMutation, setSearchSettings]
   );
 
   const copyRemoteLink = useCallback(() => {

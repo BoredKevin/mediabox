@@ -111,7 +111,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [roomCode, room]);
 
   // TV Presence via safe presence hook
-  const tvUserId = room?.tvUid || creds.uuid;
+  const tvUserId = room?.tvUuid || creds.uuid;
   const presenceList = useSafePresence(roomCode, tvUserId, 10000);
 
   const memberCount = useMemo(() => {

@@ -17,7 +17,7 @@ interface SideDrawerProps {
   user: DeviceUser | null;
   currentUid?: string;
   isHostOrAdmin: boolean;
-  tvUid?: string | null;
+  tvUuid?: string | null;
   membersList: { uid: string; joinedAt: number; nickname?: string; isTv?: boolean }[];
   adminsList: string[];
   hostUid?: string;
@@ -36,7 +36,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
   user,
   currentUid,
   isHostOrAdmin,
-  tvUid,
+  tvUuid,
   membersList,
   adminsList,
   hostUid,
@@ -96,7 +96,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               user={user}
               currentUid={currentUid}
               isHostOrAdmin={isHostOrAdmin}
-              tvUid={tvUid}
+              tvUuid={tvUuid}
               membersList={membersList}
               onRemoveItem={onRemoveQueueItem}
               onMoveItem={onMoveQueueItem}
@@ -113,7 +113,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               membersList={membersList}
               adminsList={adminsList}
               hostUid={hostUid}
-              tvUid={tvUid}
+              tvUuid={tvUuid}
               user={user}
               currentUid={currentUid}
               isHostOrAdmin={isHostOrAdmin}
