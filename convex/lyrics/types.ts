@@ -29,11 +29,14 @@ export function detectSyncType(data: string, explicitType?: string): "word" | "l
 
   // Syllable / word timing indicators
   if (/<span\b[^>]*\bbegin=/i.test(data) || /<span\b[^>]*\bend=/i.test(data)) return "word";
+  if (/timing(?:_type)?=["'](?:word|richsync)["']/i.test(data)) return "word";
   if (/<\d+,\d+,\d+>/.test(data)) return "word";
   if (/\(\d+,\d+,\d+\)/.test(data)) return "word";
 
-  // Line-synced timestamp: [00:12.34]
+  // Line-synced timestamp: [00:12.34] or TTML paragraph begin timestamp <p begin="00:15.200"
   if (/\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]/.test(data)) return "line";
+  if (/<p\b[^>]*\bbegin=/i.test(data)) return "line";
+  if (/timing(?:_type)?=["'](?:line|linesync)["']/i.test(data)) return "line";
 
   return "none";
 }

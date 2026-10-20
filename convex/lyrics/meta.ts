@@ -134,13 +134,14 @@ export async function fetchYouTubeVideoMeta(
       }
     }
 
-    // 3. If topic or aggregator channel (e.g. "Release - Topic"), search YouTube Music by title to resolve real artist
-    if (isTopic || isAggregator || !cleanOEmbedAuthor) {
+    // 3. If generic aggregator channel (e.g. "Release - Topic"), search YouTube Music by title to resolve real artist
+    if (isAggregator || !cleanOEmbedAuthor) {
       const searchQuery = oEmbedTitle || videoId;
       try {
         const searchRes = await yt.music.search(searchQuery, { type: "song" });
         const songs = searchRes.songs?.contents || [];
-        const m: any = songs.find((s: any) => (s.id || s.video_id) === videoId) || songs[0];
+        // STRICT: Only match if videoId is an exact match. NEVER fall back to songs[0]!
+        const m: any = songs.find((s: any) => (s.id || s.video_id) === videoId);
         if (m) {
           const title =
             (typeof m.title === "string" ? m.title : m.title?.text || m.title?.runs?.[0]?.text) ||

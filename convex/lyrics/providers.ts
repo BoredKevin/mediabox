@@ -59,33 +59,107 @@ export function getPrimaryArtist(artist: string): string {
 }
 
 /**
- * Normalizes artist string for fuzzy comparison by stripping non-alphanumeric chars.
+ * Splits artist string into distinct artist names by common delimiters.
  */
-function normalizeArtistForMatch(str: string): string {
-  return str.toLowerCase().replace(/&/g, " and ").replace(/\b(feat\.?|ft\.?)\b/g, " and ").replace(/[^a-z0-9]/g, "");
+export function splitArtists(artist: string): string[] {
+  if (!artist) return [];
+  return artist
+    .split(/[,/&+]|\b(?:and|feat\.?|ft\.?|featuring|with|vs\.?)\b/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 /**
- * Matches query artist and candidate artist with delimiter tolerance.
+ * Normalizes artist or title string for comparison by stripping punctuation and normalizing Unicode.
  */
-export function matchArtist(query: string, candidate: string): boolean {
+export function normalizeSimple(str: string): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const TRIBUTE_RE = /\b(tribute|karaoke|cover|soundtrack|orchestral|in the style of)\b/i;
+
+/**
+ * Matches query artist and candidate artist with strict entity boundaries and tribute rejection.
+ */
+export function matchArtistStrict(query: string, candidate: string): boolean {
   if (!query || !candidate) return false;
-  const q = query.toLowerCase().trim();
-  const c = candidate.toLowerCase().trim();
-  if (q === c || q.includes(c) || c.includes(q)) return true;
+  const qNorm = normalizeSimple(query);
+  const cNorm = normalizeSimple(candidate);
+  if (!qNorm || !cNorm) return false;
 
-  const nq = normalizeArtistForMatch(q);
-  const nc = normalizeArtistForMatch(c);
-  if (nq === nc || nq.includes(nc) || nc.includes(nq)) return true;
-
-  const splitRe = /[,/&+]|\b(?:and|feat\.?|ft\.?|vs\.?)\b/i;
-  const qParts = q.split(splitRe).map((s) => normalizeArtistForMatch(s)).filter(Boolean);
-  const cParts = c.split(splitRe).map((s) => normalizeArtistForMatch(s)).filter(Boolean);
-
-  if (qParts[0] && cParts[0] && (qParts[0] === cParts[0] || qParts[0].includes(cParts[0]) || cParts[0].includes(qParts[0]))) {
-    return true;
+  // Reject tribute / karaoke / cover candidates if query did not specify them
+  if (!TRIBUTE_RE.test(qNorm) && TRIBUTE_RE.test(cNorm)) {
+    return false;
   }
+
+  // Exact normalized match
+  if (qNorm === cNorm) return true;
+
+  // Split into distinct artist entities
+  const qList = splitArtists(query).map(normalizeSimple).filter(Boolean);
+  const cList = splitArtists(candidate).map(normalizeSimple).filter(Boolean);
+
+  // If candidate artist list contains the query artist entity exactly
+  if (cList.some((c) => c === qNorm)) return true;
+  if (qList.some((q) => q === cNorm)) return true;
+
+  // If primary artist matches exactly
+  if (qList[0] && cList[0] && qList[0] === cList[0]) return true;
+
+  // Multi-artist overlap (e.g. "Lady Gaga & Bruno Mars" vs "Bruno Mars, Lady Gaga")
+  if (qList.length > 1 && cList.length > 1) {
+    const allQueryInCand = qList.every((q) => cList.includes(q));
+    if (allQueryInCand) return true;
+  }
+
   return false;
+}
+
+// Backward compatibility alias
+export const matchArtist = matchArtistStrict;
+
+/**
+ * Cleans track title for matching: strips parentheticals/brackets, punctuation, and extra whitespace.
+ */
+export function cleanTitleForMatch(title: string): string {
+  if (!title) return "";
+  return title
+    .replace(/\s*[\(\[][^\)\]]+[\)\]]/g, "") // strip parentheticals
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Matches query song title and candidate track title with token overlap and parenthetical tolerance.
+ */
+export function matchTitleStrict(query: string, candidate: string): boolean {
+  if (!query || !candidate) return false;
+  const qClean = cleanTitleForMatch(query);
+  const cClean = cleanTitleForMatch(candidate);
+  if (!qClean || !cClean) return false;
+
+  if (qClean === cClean) return true;
+
+  const qTokens = qClean.split(" ").filter(Boolean);
+  const cTokens = cClean.split(" ").filter(Boolean);
+
+  if (qTokens.length === 0 || cTokens.length === 0) return false;
+
+  // Single-word title (e.g. "Jefferson"): candidate base title must match exactly
+  if (qTokens.length === 1) {
+    return cTokens.length === 1 && cTokens[0] === qTokens[0];
+  }
+
+  // Multi-word title: check token overlap (at least 75% of query tokens must be present in candidate)
+  const common = qTokens.filter((t) => cTokens.includes(t));
+  return common.length / qTokens.length >= 0.75;
 }
 
 /**
@@ -177,13 +251,19 @@ export async function fetchDeezerIsrc(
       return null;
     }
 
-    // Filter by artist match (reject tribute/karaoke bands)
-    const artistMatches = data.filter((item) => {
+    // Filter strictly by artist and title match (reject tribute/karaoke bands and mismatched tracks)
+    const candidates = data.filter((item) => {
       const candArtist = item?.artist?.name || "";
-      return matchArtist(artist, candArtist) || matchArtist(primary, candArtist);
+      const candTitle = item?.title || "";
+      const artistOk = matchArtistStrict(artist, candArtist) || matchArtistStrict(primary, candArtist);
+      const titleOk = matchTitleStrict(cleanSong, candTitle);
+      return artistOk && titleOk;
     });
 
-    const candidates = artistMatches.length > 0 ? artistMatches : data;
+    if (candidates.length === 0) {
+      logs.push(`[Deezer] 0 candidates strictly matched artist & title for "${query}"`);
+      return null;
+    }
 
     // Duration Guard: Match candidate within ±7 seconds of YouTube video
     let best = candidates[0];
@@ -326,16 +406,14 @@ export async function fetchLrcRed(
     // Filter and score candidates in memory (0ms)
     const valid = results.filter((r) => {
       const candArtist = r.artist_name || "";
-      const candTrack = (r.track_name || "").toLowerCase();
-      const baseLower = baseQueryTrack.toLowerCase();
-      return (
-        (candTrack.includes(baseLower) || baseLower.includes(candTrack)) &&
-        (matchArtist(artist, candArtist) || matchArtist(primary, candArtist))
-      );
+      const candTrack = r.track_name || "";
+      const artistOk = matchArtistStrict(artist, candArtist) || matchArtistStrict(primary, candArtist);
+      const titleOk = matchTitleStrict(cleanSong, candTrack);
+      return artistOk && titleOk;
     });
 
     if (valid.length === 0) {
-      logs.push(`[LRC.red Search] 0 candidates matched artist & title in memory`);
+      logs.push(`[LRC.red Search] 0 candidates strictly matched artist & title in memory`);
       return null;
     }
 
@@ -487,6 +565,16 @@ export async function fetchLrclib(
 
       if (res.ok) {
         const json = await res.json();
+        const candArtist = json?.artistName || "";
+        const candTrack = json?.trackName || "";
+        if (candArtist && !matchArtistStrict(artist, candArtist)) {
+          logs.push(`[LRCLib] Rejected candidate due to artist mismatch: "${candArtist}"`);
+          continue;
+        }
+        if (candTrack && !matchTitleStrict(song, candTrack)) {
+          logs.push(`[LRCLib] Rejected candidate due to title mismatch: "${candTrack}"`);
+          continue;
+        }
         if (json.syncedLyrics && typeof json.syncedLyrics === "string" && json.syncedLyrics.trim().length > 0) {
           logs.push(`[LRCLib] Hit: resolved line-synced lyrics for "${song}" by "${artistQuery}"`);
           return {

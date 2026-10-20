@@ -142,8 +142,8 @@ export const resolveOrFetch = action({
     if (result) {
       const doc = {
         videoId,
-        trackTitle: result.canonicalTitle || song,
-        artistName: result.canonicalArtist || artist,
+        trackTitle: song,
+        artistName: artist,
         sourceLabel: result.sourceLabel,
         data: result.data,
         status: "ready" as const,
