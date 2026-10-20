@@ -26,7 +26,6 @@ declare global {
       execute: (container?: HTMLElement | string | null, params?: any) => void;
       remove: (widgetId: string) => void;
     };
-    onloadTurnstileCallback?: () => void;
   }
 }
 
@@ -48,13 +47,60 @@ interface TurnstileWidgetProps {
   isCleared?: boolean;
 }
 
+// Module-level singleton script loader to ensure api.js is only injected once
+let turnstileLoadPromise: Promise<void> | null = null;
+
+export function loadTurnstileScript(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+  if (window.turnstile) return Promise.resolve();
+  if (turnstileLoadPromise) return turnstileLoadPromise;
+
+  turnstileLoadPromise = new Promise<void>((resolve, reject) => {
+    // Unique global callback name so onload can notify this exact loader
+    const callbackName = 'onTurnstileLoaded_' + Math.random().toString(36).substring(2, 9);
+    (window as any)[callbackName] = () => {
+      try {
+        delete (window as any)[callbackName];
+      } catch (_) {}
+      resolve();
+    };
+
+    const existingScript = document.getElementById('cf-turnstile-script') as HTMLScriptElement | null;
+    if (existingScript) {
+      if (window.turnstile) {
+        resolve();
+      } else {
+        existingScript.addEventListener('load', () => resolve(), { once: true });
+      }
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'cf-turnstile-script';
+    script.src = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${callbackName}`;
+    script.async = true;
+    script.defer = true;
+    script.onerror = (err) => {
+      turnstileLoadPromise = null; // Allow retry on network failure
+      try {
+        delete (window as any)[callbackName];
+      } catch (_) {}
+      reject(err);
+    };
+
+    document.head.appendChild(script);
+  });
+
+  return turnstileLoadPromise;
+}
+
 export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
   ({ onToken, onVerifyingChange, onStatusChange, onError, siteKey, isCleared = false }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<string | null>(null);
     const tokenRef = useRef<string | null>(null);
     const pendingResolversRef = useRef<Array<(token: string) => void>>([]);
-    const [isVerifyingState, setIsVerifyingState] = useState(!isCleared);
+    const [isVerifyingState, setIsVerifyingState] = useState(false);
     const [isInteractive, setIsInteractive] = useState(false);
 
     const effectiveSiteKey =
@@ -62,14 +108,12 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
       import.meta.env.VITE_TURNSTILE_SITE_KEY ||
       '1x00000000000000000000AA'; // Cloudflare official test key (always passes)
 
-    // Store callbacks in refs to decouple them from the widget lifecycle effect.
-    // This prevents parent re-renders from recreating the Turnstile widget in an infinite loop.
     const onTokenRef = useRef(onToken);
     const onVerifyingChangeRef = useRef(onVerifyingChange);
     const onStatusChangeRef = useRef(onStatusChange);
     const onErrorRef = useRef(onError);
     const isClearedRef = useRef(isCleared);
-    const isVerifyingRef = useRef(!isCleared);
+    const isVerifyingRef = useRef(false);
 
     useEffect(() => {
       onTokenRef.current = onToken;
@@ -110,8 +154,6 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
         return;
       }
 
-      updateVerifying(true, 'verifying');
-
       const initTurnstile = () => {
         if (!containerRef.current || !window.turnstile || widgetIdRef.current || !isMounted) return;
 
@@ -119,9 +161,10 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
           const id = window.turnstile.render(containerRef.current, {
             sitekey: effectiveSiteKey,
             action: 'mediabox-search',
+            execution: 'execute',
             appearance: 'interaction-only',
             theme: 'dark',
-            size: 'flexible',
+            size: 'normal',
             callback: (token: string) => {
               if (!isMounted) return;
               tokenRef.current = token;
@@ -132,17 +175,9 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
               if (pendingResolversRef.current.length > 0) {
                 const resolvers = [...pendingResolversRef.current];
                 pendingResolversRef.current = [];
-                // Token consumed by waiting caller -> trigger background renewal
+                // Tokens are single-use; consume it for the waiting resolver
                 tokenRef.current = null;
                 resolvers.forEach((resolve) => resolve(token));
-                if (!isClearedRef.current) {
-                  updateVerifying(true, 'verifying');
-                }
-                if (widgetIdRef.current && window.turnstile) {
-                  try {
-                    window.turnstile.reset(widgetIdRef.current);
-                  } catch (_) {}
-                }
               }
             },
             'error-callback': (code) => {
@@ -161,7 +196,8 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
             'expired-callback': () => {
               if (!isMounted) return;
               tokenRef.current = null;
-              updateVerifying(true, 'expired');
+              updateVerifying(false, 'expired');
+              // Auto-reset when expired so the next execute will request a fresh token
               if (widgetIdRef.current && window.turnstile) {
                 try {
                   window.turnstile.reset(widgetIdRef.current);
@@ -177,6 +213,11 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
                   window.turnstile.reset(widgetIdRef.current);
                 } catch (_) {}
               }
+              if (pendingResolversRef.current.length > 0) {
+                const resolvers = [...pendingResolversRef.current];
+                pendingResolversRef.current = [];
+                resolvers.forEach((resolve) => resolve(''));
+              }
             },
             'before-interactive-callback': () => {
               if (!isMounted) return;
@@ -188,6 +229,7 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
             },
           });
           widgetIdRef.current = id;
+          updateVerifying(false, 'ready');
         } catch (err: any) {
           console.warn('[Turnstile] Render error:', err);
           if (!isMounted) return;
@@ -202,36 +244,22 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
         }
       };
 
-      if (window.turnstile) {
-        initTurnstile();
-      } else {
-        const existingScript = document.getElementById('cf-turnstile-script') as HTMLScriptElement | null;
-        if (!existingScript) {
-          const script = document.createElement('script');
-          script.id = 'cf-turnstile-script';
-          script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-          script.async = true;
-          script.defer = true;
-          script.onload = () => {
-            initTurnstile();
-          };
-          script.onerror = () => {
-            console.warn('[Turnstile] Failed to load Cloudflare Turnstile script (possibly blocked by ad-blocker).');
-            if (isMounted) {
-              updateVerifying(false, 'error');
-              onErrorRef.current?.('Security verification script could not be loaded.');
-              if (pendingResolversRef.current.length > 0) {
-                const resolvers = [...pendingResolversRef.current];
-                pendingResolversRef.current = [];
-                resolvers.forEach((resolve) => resolve(''));
-              }
+      loadTurnstileScript()
+        .then(() => {
+          if (isMounted) initTurnstile();
+        })
+        .catch((err) => {
+          console.warn('[Turnstile] Script loading error:', err);
+          if (isMounted) {
+            updateVerifying(false, 'error');
+            onErrorRef.current?.('Security verification script could not be loaded.');
+            if (pendingResolversRef.current.length > 0) {
+              const resolvers = [...pendingResolversRef.current];
+              pendingResolversRef.current = [];
+              resolvers.forEach((resolve) => resolve(''));
             }
-          };
-          document.head.appendChild(script);
-        } else {
-          existingScript.addEventListener('load', initTurnstile);
-        }
-      }
+          }
+        });
 
       return () => {
         isMounted = false;
@@ -253,22 +281,14 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
       hasToken: () => Boolean(tokenRef.current),
       isVerifying: () => isVerifyingState,
       getToken: async (): Promise<string> => {
-        // If we already have a cached token, consume it and trigger background renewal
+        // If we already have a valid unexpired token, consume it immediately
         if (tokenRef.current) {
           const token = tokenRef.current;
           tokenRef.current = null;
-          if (!isCleared) {
-            updateVerifying(true, 'verifying');
-          }
-          if (widgetIdRef.current && window.turnstile) {
-            try {
-              window.turnstile.reset(widgetIdRef.current);
-            } catch (_) {}
-          }
           return token;
         }
 
-        // Otherwise execute challenge and wait for token
+        // Otherwise execute challenge on-demand and wait for token
         updateVerifying(true, 'verifying');
         return new Promise<string>((resolve) => {
           let timer: any = null;
@@ -280,16 +300,28 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
 
           pendingResolversRef.current.push(wrappedResolve);
 
-          // Only reset to start a challenge if not already verifying
-          if (widgetIdRef.current && window.turnstile && !isVerifyingRef.current) {
+          if (widgetIdRef.current && window.turnstile) {
             try {
               window.turnstile.reset(widgetIdRef.current);
+              window.turnstile.execute(widgetIdRef.current);
             } catch (err) {
-              console.warn('[Turnstile] Reset error:', err);
+              console.warn('[Turnstile] Execute error:', err);
             }
+          } else {
+            // Widget not rendered yet; wait for load or fallback
+            loadTurnstileScript()
+              .then(() => {
+                if (widgetIdRef.current && window.turnstile) {
+                  window.turnstile.reset(widgetIdRef.current);
+                  window.turnstile.execute(widgetIdRef.current);
+                }
+              })
+              .catch(() => {
+                wrappedResolve('');
+              });
           }
 
-          // Safety timeout after 10s to prevent indefinite freeze
+          // Safety timeout after 12s to prevent indefinite UI freeze
           timer = setTimeout(() => {
             const index = pendingResolversRef.current.indexOf(wrappedResolve);
             if (index !== -1) {
@@ -297,14 +329,11 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
               updateVerifying(false, 'error');
               resolve('');
             }
-          }, 10000);
+          }, 12000);
         });
       },
       reset: () => {
         tokenRef.current = null;
-        if (!isCleared) {
-          updateVerifying(true, 'verifying');
-        }
         if (widgetIdRef.current && window.turnstile) {
           try {
             window.turnstile.reset(widgetIdRef.current);
@@ -313,44 +342,45 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
       },
     }));
 
-    if (isInteractive) {
-      return (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Security Verification"
-          className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-        >
-          <div className="bg-card border border-primary/40 rounded-lg p-5 max-w-sm w-full shadow-2xl flex flex-col items-center gap-3 text-center">
-            <div className="flex items-center gap-2 text-primary font-bold text-sm tracking-wider uppercase">
-              <ShieldCheck className="w-5 h-5 text-primary animate-pulse" />
-              <span>Security Check</span>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Please complete the Cloudflare challenge below to verify your connection.
-            </p>
-            <div ref={containerRef} className="w-full flex justify-center py-2" />
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div
-        ref={containerRef}
-        aria-hidden="true"
-        style={{
-          position: 'fixed',
-          bottom: 10,
-          right: 10,
-          zIndex: -1,
-          opacity: 0,
-          pointerEvents: 'none',
-        }}
-      />
+        aria-hidden={!isInteractive}
+        className={
+          isInteractive
+            ? 'fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200'
+            : 'fixed bottom-4 right-4 z-10 pointer-events-none'
+        }
+      >
+        <div
+          className={
+            isInteractive
+              ? 'bg-card border border-primary/40 rounded-lg p-5 max-w-sm w-full shadow-2xl flex flex-col items-center gap-3 text-center pointer-events-auto'
+              : 'w-[300px] min-h-[65px] flex items-center justify-center'
+          }
+        >
+          {isInteractive && (
+            <>
+              <div className="flex items-center gap-2 text-primary font-bold text-sm tracking-wider uppercase">
+                <ShieldCheck className="w-5 h-5 text-primary animate-pulse" />
+                <span>Security Check</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Please complete the Cloudflare challenge below to verify your connection.
+              </p>
+            </>
+          )}
+
+          {/* Stable DOM node - never reparented across renders to prevent challenge reset */}
+          <div
+            ref={containerRef}
+            className={`w-[300px] min-h-[65px] flex justify-center items-center ${
+              isInteractive ? 'py-2 pointer-events-auto' : ''
+            }`}
+          />
+        </div>
+      </div>
     );
   }
 );
 
 TurnstileWidget.displayName = 'TurnstileWidget';
-
