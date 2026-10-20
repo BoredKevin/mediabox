@@ -22,6 +22,7 @@ export interface RemoteActions {
   toggleAutoplay: () => Promise<void>;
   toggleCountdown: () => Promise<void>;
   toggleFullscreen: () => Promise<void>;
+  toggleFullscreenQr: () => Promise<void>;
   claimHost: () => Promise<void>;
   startRadio: () => Promise<void>;
   beamTokenToTv: (token: string) => Promise<void>;
@@ -64,6 +65,7 @@ export function useRemoteActions({
   const toggleAutoplayMutation = useMutation(api.rooms.toggleAutoplay);
   const toggleCountdownMutation = useMutation(api.rooms.toggleCountdown);
   const toggleFullscreenMutation = useMutation(api.rooms.toggleFullscreen);
+  const toggleFullscreenQrMutation = useMutation(api.rooms.toggleFullscreenQr);
   const updateSettingsMutation = useMutation(api.rooms.updateSettings);
   const beamTokenToTvMutation = useMutation(api.rooms.beamTokenToTv);
   const fetchAndPlayNextRadioAction = useAction(api.youtube.fetchAndPlayNextRadio);
@@ -185,6 +187,14 @@ export function useRemoteActions({
         await toggleFullscreenMutation({ roomId: room._id });
       },
 
+      toggleFullscreenQr: async () => {
+        if (!room?._id || !isHostOrAdmin) return;
+        await toggleFullscreenQrMutation({
+          roomId: room._id,
+          callerUid: effectiveUid,
+        });
+      },
+
       claimHost: async () => {
         if (!room?._id) return;
         await claimHostMutation({
@@ -241,6 +251,7 @@ export function useRemoteActions({
     toggleAutoplayMutation,
     toggleCountdownMutation,
     toggleFullscreenMutation,
+    toggleFullscreenQrMutation,
     claimHostMutation,
     fetchAndPlayNextRadioAction,
     beamTokenToTvMutation,

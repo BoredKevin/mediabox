@@ -73,11 +73,17 @@ export function useRoomAdminActions({
     actions.toggleLock();
   };
 
+  const handleToggleFullscreenQrAdmin = () => {
+    if (!isHostOrAdmin) return;
+    actions.toggleFullscreenQr();
+  };
+
   return {
     handleKickMember,
     handleRemoveQueueItem,
     handleMoveQueueItem,
     handleClearQueueAdmin,
     handleToggleRoomLockAdmin,
+    handleToggleFullscreenQrAdmin,
   };
 }

@@ -373,6 +373,8 @@ export const MediaBox: React.FC = React.memo(() => {
                     roomCode={roomCode}
                     lyricsOffsetMs={roomState?.lyricsOffsetMs ?? getSavedLyricsOffset()}
                     isWordSync={roomState?.lyricsWordSync ?? getSavedLyricsWordSync()}
+                    showQrCode={Boolean(roomState?.showFullscreenQr)}
+                    qrUrl={remoteUrl}
                   />
                 ) : (
                   <MediaBoxLyricsView

@@ -9,6 +9,7 @@ export default defineSchema({
     tvUuid: v.string(),
     tvOnline: v.optional(v.boolean()),
     isFullscreen: v.optional(v.boolean()),
+    showFullscreenQr: v.optional(v.boolean()),
     isLocked: v.boolean(),
     isAutoplay: v.boolean(),
     isCountdownEnabled: v.boolean(),

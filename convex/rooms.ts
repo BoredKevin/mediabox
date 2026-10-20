@@ -266,6 +266,26 @@ export const toggleFullscreen = mutation({
 });
 
 /**
+ * Toggles fullscreen join QR code display mode on the TV (Host/Admin only).
+ */
+export const toggleFullscreenQr = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    callerUid: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+    if (args.callerUid && !(await isAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Unauthorized to toggle TV QR code");
+    }
+    await ctx.db.patch(args.roomId, {
+      showFullscreenQr: !room.showFullscreenQr,
+    });
+  },
+});
+
+/**
  * Joins a room as a client.
  */
 export const joinRoom = mutation({

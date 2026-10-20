@@ -137,6 +137,7 @@ export function useRemoteRoom({
       playback: room.playback,
       hostUid: room.hostUid,
       isFullscreen: room.isFullscreen,
+      showFullscreenQr: room.showFullscreenQr,
       isLocked: room.isLocked,
       isAutoplay: room.isAutoplay,
       isCountdownEnabled: room.isCountdownEnabled,

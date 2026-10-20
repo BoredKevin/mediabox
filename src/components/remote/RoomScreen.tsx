@@ -96,6 +96,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     handleMoveQueueItem,
     handleClearQueueAdmin,
     handleToggleRoomLockAdmin,
+    handleToggleFullscreenQrAdmin,
   } = useRoomAdminActions({
     isHostOrAdmin,
     effectiveUid,
@@ -123,6 +124,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         onSaveNickname={handleSaveNickname}
         onOpenHostSettings={() => setShowHostSettings(true)}
         onToggleRoomLock={handleToggleRoomLockAdmin}
+        onToggleFullscreenQr={handleToggleFullscreenQrAdmin}
         onOpenSideDrawer={() => setShowSideDrawer(true)}
       />
 

@@ -3,7 +3,7 @@ import { DeviceUser } from '@/lib/deviceAuth';
 import { RoomState } from '@/lib/roomUtils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, Crown, Lock, Unlock, Settings, Users, LogOut } from 'lucide-react';
+import { Shield, Crown, Lock, Unlock, Settings, Users, LogOut, QrCode } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from '@/context/LanguageContext';
 import { ProfileDropdown } from './ProfileDropdown';
@@ -23,6 +23,7 @@ interface RoomHeaderProps {
   onSaveNickname: (name: string) => Promise<void>;
   onOpenHostSettings: () => void;
   onToggleRoomLock: () => void;
+  onToggleFullscreenQr: () => void;
   onOpenSideDrawer: () => void;
 }
 
@@ -41,6 +42,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
   onSaveNickname,
   onOpenHostSettings,
   onToggleRoomLock,
+  onToggleFullscreenQr,
   onOpenSideDrawer,
 }) => {
   const { t } = useTranslation();
@@ -170,6 +172,21 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
                 ) : (
                   <Unlock className="w-4 h-4" />
                 )}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onToggleFullscreenQr}
+                title={roomState?.showFullscreenQr ? t('remote.hideQrCode') : t('remote.showQrCode')}
+                aria-label={roomState?.showFullscreenQr ? t('remote.hideQrCode') : t('remote.showQrCode')}
+                className={`h-11 w-11 cursor-pointer transition-colors ${
+                  roomState?.showFullscreenQr
+                    ? 'border-primary/60 bg-primary/15 text-primary hover:bg-primary/25'
+                    : 'text-muted-foreground hover:text-primary'
+                }`}
+              >
+                <QrCode className="w-4 h-4" />
               </Button>
             </>
           )}

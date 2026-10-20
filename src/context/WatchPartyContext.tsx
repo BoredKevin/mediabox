@@ -47,6 +47,7 @@ interface WatchPartyContextType {
   setShowSearchModal: (show: boolean) => void;
   handleAddUrlHost: (url: string, explicitTitle?: string) => Promise<boolean>;
   handleToggleFullscreen: () => Promise<void>;
+  handleToggleFullscreenQr: () => Promise<void>;
   handleToggleRoomLock: () => Promise<void>;
   handleToggleAutoplay: () => Promise<void>;
   handleToggleCountdown: () => Promise<void>;
@@ -129,6 +130,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       playback: room.playback,
       hostUid: room.hostUid,
       isFullscreen: room.isFullscreen,
+      showFullscreenQr: room.showFullscreenQr,
       isLocked: room.isLocked,
       isAutoplay: room.isAutoplay,
       isCountdownEnabled: room.isCountdownEnabled,
@@ -227,6 +229,7 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleRemoveQueueItem: actions.handleRemoveQueueItem,
         handleAddUrlHost: actions.handleAddUrlHost,
         handleToggleFullscreen: actions.handleToggleFullscreen,
+        handleToggleFullscreenQr: actions.handleToggleFullscreenQr,
         handleToggleRoomLock: actions.handleToggleRoomLock,
         handleToggleAutoplay: actions.handleToggleAutoplay,
         handleToggleCountdown: actions.handleToggleCountdown,

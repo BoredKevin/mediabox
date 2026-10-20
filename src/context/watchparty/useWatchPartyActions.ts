@@ -60,6 +60,7 @@ export function useWatchPartyActions({
   const removeQueueMutation = useMutation(api.queue.remove);
   const playQueueItemMutation = useMutation(api.playback.playQueueItem);
   const toggleFullscreenMutation = useMutation(api.rooms.toggleFullscreen);
+  const toggleFullscreenQrMutation = useMutation(api.rooms.toggleFullscreenQr);
   const toggleLockMutation = useMutation(api.rooms.toggleLock);
   const toggleAutoplayMutation = useMutation(api.rooms.toggleAutoplay);
   const toggleCountdownMutation = useMutation(api.rooms.toggleCountdown);
@@ -216,6 +217,12 @@ export function useWatchPartyActions({
     await toggleFullscreenMutation({ roomId: room._id });
   }, [room?._id, toggleFullscreenMutation]);
 
+  const handleToggleFullscreenQr = useCallback(async () => {
+    if (!room?._id) return;
+    const callerId = room?.tvUuid || creds.uuid;
+    await toggleFullscreenQrMutation({ roomId: room._id, callerUid: callerId });
+  }, [room?._id, room?.tvUuid, creds.uuid, toggleFullscreenQrMutation]);
+
   const handleToggleRoomLock = useCallback(async () => {
     if (!room?._id) return;
     const callerId = room?.tvUuid || creds.uuid;
@@ -336,6 +343,7 @@ export function useWatchPartyActions({
       handleRemoveQueueItem,
       handleAddUrlHost,
       handleToggleFullscreen,
+      handleToggleFullscreenQr,
       handleToggleRoomLock,
       handleToggleAutoplay,
       handleToggleCountdown,
@@ -359,6 +367,7 @@ export function useWatchPartyActions({
       handleRemoveQueueItem,
       handleAddUrlHost,
       handleToggleFullscreen,
+      handleToggleFullscreenQr,
       handleToggleRoomLock,
       handleToggleAutoplay,
       handleToggleCountdown,

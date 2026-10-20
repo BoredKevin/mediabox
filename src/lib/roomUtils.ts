@@ -21,6 +21,7 @@ export interface RoomState {
   playback: PlaybackState;
   hostUid?: string;
   isFullscreen?: boolean;
+  showFullscreenQr?: boolean;
   isLocked?: boolean;
   isAutoplay?: boolean;
   isCountdownEnabled?: boolean;

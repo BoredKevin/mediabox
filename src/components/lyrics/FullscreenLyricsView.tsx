@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Lyric } from '@braccato/parsers';
+import { QRCodeSVG } from 'qrcode.react';
 import { BraccatoLyricsRenderer } from './BraccatoLyricsRenderer';
 import { LyricsLoadingSequence } from './LyricsLoadingSequence';
 import { Music, Disc } from 'lucide-react';
@@ -20,6 +21,8 @@ interface FullscreenLyricsViewProps {
   roomCode?: string | null;
   lyricsOffsetMs?: number;
   isWordSync?: boolean;
+  showQrCode?: boolean;
+  qrUrl?: string;
 }
 
 export const FullscreenLyricsView: React.FC<FullscreenLyricsViewProps> = ({
@@ -38,6 +41,8 @@ export const FullscreenLyricsView: React.FC<FullscreenLyricsViewProps> = ({
   roomCode,
   lyricsOffsetMs = 0,
   isWordSync = false,
+  showQrCode = false,
+  qrUrl,
 }) => {
   const hasLyrics = Boolean(lyrics && lyrics.length > 0);
   const isFetching = isLoading || status === 'fetching';
@@ -138,10 +143,19 @@ export const FullscreenLyricsView: React.FC<FullscreenLyricsViewProps> = ({
             </div>
           )}
 
-          {/* Album Artwork Card */}
+          {/* Album Artwork Card / Join QR Code */}
           <div className="relative group w-56 h-56 sm:w-68 sm:h-68 md:w-80 md:h-80 lg:w-92 lg:h-92 rounded-2xl md:rounded-3xl p-1 bg-white/10 border border-white/25">
             <div className="w-full h-full rounded-[14px] md:rounded-[22px] overflow-hidden bg-black/50 relative flex items-center justify-center">
-              {albumArt ? (
+              {showQrCode && qrUrl ? (
+                <div className="w-full h-full bg-white flex items-center justify-center p-4 sm:p-5 md:p-6 transition-all duration-300">
+                  <QRCodeSVG
+                    value={qrUrl}
+                    size={260}
+                    level="M"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ) : albumArt ? (
                 <img
                   src={albumArt}
                   alt={trackTitle || 'Track cover'}
@@ -172,13 +186,21 @@ export const FullscreenLyricsView: React.FC<FullscreenLyricsViewProps> = ({
             </span>
           )}
 
-          {/* Room Code */}
-          {roomCode && (
-            <div className="mt-3 flex items-center justify-center font-mono pointer-events-none select-none">
-              <span className="text-base sm:text-2lg md:text-3xl font-normal tracking-widest text-white/90 leading-none">
-                {roomCode}
+          {/* Room Code or Scan for Song Request Callout */}
+          {showQrCode ? (
+            <div className="mt-3 flex items-center justify-center pointer-events-none select-none text-center">
+              <span className="text-base sm:text-xl md:text-2xl font-bold tracking-wide text-white leading-none">
+                Scan untuk request lagu
               </span>
             </div>
+          ) : (
+            roomCode && (
+              <div className="mt-3 flex items-center justify-center font-mono pointer-events-none select-none">
+                <span className="text-base sm:text-2lg md:text-3xl font-normal tracking-widest text-white/90 leading-none">
+                  {roomCode}
+                </span>
+              </div>
+            )
           )}
         </div>
       </div>
