@@ -3,7 +3,7 @@ import { DeviceUser } from '@/lib/deviceAuth';
 import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ChevronUp, ChevronDown, Trash2, Radio, Tv } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2, Radio, Tv, Plus } from 'lucide-react';
 import { QueueItem, SearchResultItem, parseYouTubeVideoId } from '@/lib/roomUtils';
 
 interface QueuePanelProps {
@@ -17,6 +17,8 @@ interface QueuePanelProps {
   onRemoveItem: (itemId: string, itemAddedBy?: string) => Promise<void>;
   onMoveItem: (index: number, direction: 'up' | 'down') => void;
   onStartRadio?: () => void;
+  onAddRadioTrackToQueue?: (trackId: string) => Promise<void>;
+  onDeleteRadioTrack?: (trackId: string) => Promise<void>;
   embedded?: boolean;
 }
 
@@ -31,6 +33,8 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   onRemoveItem,
   onMoveItem,
   onStartRadio,
+  onAddRadioTrackToQueue,
+  onDeleteRadioTrack,
   embedded = false,
 }) => {
   const { t } = useTranslation();
@@ -206,6 +210,28 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
                           <div className="truncate text-[9px] text-muted-foreground">
                             {rTrack.channelTitle}
                           </div>
+                        )}
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {onAddRadioTrackToQueue && (
+                          <button
+                            onClick={() => onAddRadioTrackToQueue(rTrack.id)}
+                            className="p-1 text-muted-foreground hover:text-primary hover:bg-card border border-transparent hover:border-primary/40 rounded transition-colors cursor-pointer"
+                            title={t('remote.addToQueue')}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onDeleteRadioTrack && (
+                          <button
+                            onClick={() => onDeleteRadioTrack(rTrack.id)}
+                            className="p-1 text-muted-foreground hover:text-destructive hover:bg-card border border-transparent hover:border-destructive/40 rounded transition-colors cursor-pointer"
+                            title={t('remote.removeFromRadio')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         )}
                       </div>
                     </div>

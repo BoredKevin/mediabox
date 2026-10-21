@@ -105,6 +105,24 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     showToast,
   });
 
+  const handleAddRadioTrackToQueue = async (trackId: string) => {
+    try {
+      await actions.addRadioTrackToQueue(trackId);
+      showToast(t('toasts.videoAddedQueue'), 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to add radio track', 'error');
+    }
+  };
+
+  const handleDeleteRadioTrack = async (trackId: string) => {
+    try {
+      await actions.deleteRadioTrack(trackId);
+      showToast(t('toasts.radioTrackRemoved'), 'info');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to remove radio track', 'error');
+    }
+  };
+
   return (
     <div className="relative z-10 flex flex-col h-screen overflow-hidden bg-background text-foreground">
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
@@ -150,6 +168,8 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
           handleRemoveQueueItem={handleRemoveQueueItem}
           handleMoveQueueItem={handleMoveQueueItem}
           handleKickMember={handleKickMember}
+          onAddRadioTrackToQueue={handleAddRadioTrackToQueue}
+          onDeleteRadioTrack={handleDeleteRadioTrack}
         />
       </main>
 
@@ -199,6 +219,8 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         onMoveQueueItem={handleMoveQueueItem}
         onKickMember={handleKickMember}
         onStartRadio={actions.startRadio}
+        onAddRadioTrackToQueue={handleAddRadioTrackToQueue}
+        onDeleteRadioTrack={handleDeleteRadioTrack}
       />
     </div>
   );

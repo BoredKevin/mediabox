@@ -25,6 +25,8 @@ interface SideDrawerProps {
   onMoveQueueItem: (index: number, direction: 'up' | 'down') => void;
   onKickMember: (targetUid: string) => void;
   onStartRadio?: () => void;
+  onAddRadioTrackToQueue?: (trackId: string) => Promise<void>;
+  onDeleteRadioTrack?: (trackId: string) => Promise<void>;
 }
 
 export const SideDrawer: React.FC<SideDrawerProps> = ({
@@ -44,6 +46,8 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
   onMoveQueueItem,
   onKickMember,
   onStartRadio,
+  onAddRadioTrackToQueue,
+  onDeleteRadioTrack,
 }) => {
   const { t } = useTranslation();
 
@@ -101,6 +105,8 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               onRemoveItem={onRemoveQueueItem}
               onMoveItem={onMoveQueueItem}
               onStartRadio={onStartRadio}
+              onAddRadioTrackToQueue={onAddRadioTrackToQueue}
+              onDeleteRadioTrack={onDeleteRadioTrack}
               embedded
             />
           </TabsContent>

@@ -41,6 +41,8 @@ interface WatchPartyContextType {
   handlePlayQueueItem: (queueId: string) => Promise<void>;
   canGoPrevious: boolean;
   handleRemoveQueueItem: (itemId: string) => Promise<void>;
+  handleAddRadioTrackToQueue?: (trackId: string) => Promise<void>;
+  handleDeleteRadioTrack?: (trackId: string) => Promise<void>;
   showSettingsModal: boolean;
   setShowSettingsModal: (show: boolean) => void;
   showSearchModal: boolean;
@@ -227,6 +229,8 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handlePlayQueueItem: actions.handlePlayQueueItem,
         canGoPrevious: Boolean(room && room.playedHistory && room.playedHistory.length > 0),
         handleRemoveQueueItem: actions.handleRemoveQueueItem,
+        handleAddRadioTrackToQueue: actions.handleAddRadioTrackToQueue,
+        handleDeleteRadioTrack: actions.handleDeleteRadioTrack,
         handleAddUrlHost: actions.handleAddUrlHost,
         handleToggleFullscreen: actions.handleToggleFullscreen,
         handleToggleFullscreenQr: actions.handleToggleFullscreenQr,
