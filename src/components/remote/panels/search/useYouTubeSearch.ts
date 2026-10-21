@@ -63,6 +63,12 @@ export function useYouTubeSearch({
           } finally {
             setIsAcquiringToken(false);
           }
+
+          // If humanity check failed or timed out without a token, notify the user gracefully
+          if (!turnstileToken) {
+            setSearchError('Security verification in progress. Please try searching again in a moment.');
+            return;
+          }
         }
 
         setIsSearching(true);

@@ -38,7 +38,13 @@ async function verifyTurnstile(token: string | undefined): Promise<boolean> {
       headers: { "content-type": "application/x-www-form-urlencoded" },
       signal: AbortSignal.timeout(4000),
     });
-    const data = (await res.json()) as { success: boolean };
+    const data = (await res.json()) as { success: boolean; "error-codes"?: string[] };
+    if (!data.success) {
+      console.warn("[HTTP Turnstile] siteverify rejected token:", {
+        errorCodes: data["error-codes"],
+        tokenPrefix: token.substring(0, 15) + "...",
+      });
+    }
     return data.success === true;
   } catch (err) {
     console.error("[HTTP Turnstile] Verification error:", err);

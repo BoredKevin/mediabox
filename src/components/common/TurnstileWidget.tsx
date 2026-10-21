@@ -20,6 +20,10 @@ declare global {
           'timeout-callback'?: () => void;
           'before-interactive-callback'?: () => void;
           'after-interactive-callback'?: () => void;
+          'refresh-expired'?: 'auto' | 'manual' | 'never';
+          'refresh-timeout'?: 'auto' | 'manual' | 'never';
+          retry?: 'auto' | 'never';
+          'retry-interval'?: number;
         }
       ) => string;
       reset: (widgetId: string) => void;
@@ -161,10 +165,14 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
           const id = window.turnstile.render(containerRef.current, {
             sitekey: effectiveSiteKey,
             action: 'mediabox-search',
-            execution: 'execute',
+            execution: 'render',
             appearance: 'interaction-only',
             theme: 'dark',
             size: 'normal',
+            'refresh-expired': 'auto',
+            'refresh-timeout': 'auto',
+            retry: 'auto',
+            'retry-interval': 4000,
             callback: (token: string) => {
               if (!isMounted) return;
               tokenRef.current = token;
@@ -175,9 +183,15 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
               if (pendingResolversRef.current.length > 0) {
                 const resolvers = [...pendingResolversRef.current];
                 pendingResolversRef.current = [];
-                // Tokens are single-use; consume it for the waiting resolver
+                // Tokens are single-use; consume for waiting caller and pre-solve next token
                 tokenRef.current = null;
                 resolvers.forEach((resolve) => resolve(token));
+                // Proactively pre-solve next token for subsequent searches
+                if (widgetIdRef.current && window.turnstile) {
+                  try {
+                    window.turnstile.reset(widgetIdRef.current);
+                  } catch (_) {}
+                }
               }
             },
             'error-callback': (code) => {
@@ -196,8 +210,8 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
             'expired-callback': () => {
               if (!isMounted) return;
               tokenRef.current = null;
-              updateVerifying(false, 'expired');
-              // Auto-reset when expired so the next execute will request a fresh token
+              updateVerifying(true, 'expired');
+              // Proactively re-acquire a fresh token
               if (widgetIdRef.current && window.turnstile) {
                 try {
                   window.turnstile.reset(widgetIdRef.current);
@@ -229,7 +243,10 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
             },
           });
           widgetIdRef.current = id;
-          updateVerifying(false, 'ready');
+          // In 'render' execution mode, Turnstile immediately begins pre-verifying in the background
+          if (!tokenRef.current) {
+            updateVerifying(true, 'verifying');
+          }
         } catch (err: any) {
           console.warn('[Turnstile] Render error:', err);
           if (!isMounted) return;
@@ -281,14 +298,20 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
       hasToken: () => Boolean(tokenRef.current),
       isVerifying: () => isVerifyingState,
       getToken: async (): Promise<string> => {
-        // If we already have a valid unexpired token, consume it immediately
+        // If we already have a pre-solved valid token, consume it immediately and trigger background renewal
         if (tokenRef.current) {
           const token = tokenRef.current;
           tokenRef.current = null;
+          // Immediately pre-solve the next token in the background for subsequent searches
+          if (widgetIdRef.current && window.turnstile) {
+            try {
+              window.turnstile.reset(widgetIdRef.current);
+            } catch (_) {}
+          }
           return token;
         }
 
-        // Otherwise execute challenge on-demand and wait for token
+        // Token not ready yet (e.g. user clicked Search instantly within 0-1s of opening panel)
         updateVerifying(true, 'verifying');
         return new Promise<string>((resolve) => {
           let timer: any = null;
@@ -302,18 +325,17 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
 
           if (widgetIdRef.current && window.turnstile) {
             try {
+              // If challenge is stuck or not running, trigger a reset to prompt evaluation
               window.turnstile.reset(widgetIdRef.current);
-              window.turnstile.execute(widgetIdRef.current);
             } catch (err) {
-              console.warn('[Turnstile] Execute error:', err);
+              console.warn('[Turnstile] Reset error on demand:', err);
             }
           } else {
-            // Widget not rendered yet; wait for load or fallback
+            // Widget not rendered yet; wait for load
             loadTurnstileScript()
               .then(() => {
                 if (widgetIdRef.current && window.turnstile) {
                   window.turnstile.reset(widgetIdRef.current);
-                  window.turnstile.execute(widgetIdRef.current);
                 }
               })
               .catch(() => {
@@ -321,7 +343,7 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
               });
           }
 
-          // Safety timeout after 12s to prevent indefinite UI freeze
+          // Safety timeout after 10s to prevent indefinite UI freeze
           timer = setTimeout(() => {
             const index = pendingResolversRef.current.indexOf(wrappedResolve);
             if (index !== -1) {
@@ -329,7 +351,7 @@ export const TurnstileWidget = forwardRef<TurnstileRef, TurnstileWidgetProps>(
               updateVerifying(false, 'error');
               resolve('');
             }
-          }, 12000);
+          }, 10000);
         });
       },
       reset: () => {
