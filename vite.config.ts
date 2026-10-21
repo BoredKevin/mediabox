@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -22,33 +22,45 @@ const getCommitHash = () => {
 
 const commitHash = getCommitHash();
 
-export default defineConfig({
-  plugins: [react()],
-  define: {
-    __COMMIT_HASH__: JSON.stringify(commitHash),
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+// Fallback to active production Turnstile sitekey if Cloudflare Pages build environment variable is omitted
+const PRODUCTION_TURNSTILE_SITE_KEY = '0x4AAAAAAFZcBY46Tlp-sHr7';
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const turnstileSiteKey =
+    process.env.VITE_TURNSTILE_SITE_KEY ||
+    env.VITE_TURNSTILE_SITE_KEY ||
+    PRODUCTION_TURNSTILE_SITE_KEY;
+
+  return {
+    plugins: [react()],
+    define: {
+      __COMMIT_HASH__: JSON.stringify(commitHash),
+      'import.meta.env.VITE_TURNSTILE_SITE_KEY': JSON.stringify(turnstileSiteKey),
     },
-  },
-  server: {
-    port: 5173,
-    host: true,
-    allowedHosts: ['winware.ts.bkev.in'],
-  },
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-    chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-qr': ['qrcode.react'],
-          'vendor-youtubei': ['youtubei.js'],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
+    server: {
+      port: 5173,
+      host: true,
+      allowedHosts: ['winware.ts.bkev.in'],
+    },
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-qr': ['qrcode.react'],
+            'vendor-youtubei': ['youtubei.js'],
+          },
         },
       },
     },
-  },
+  };
 });
