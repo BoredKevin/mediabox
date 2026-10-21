@@ -66,6 +66,8 @@ export function useWatchPartyActions({
   const toggleCountdownMutation = useMutation(api.rooms.toggleCountdown);
   const updateSettingsMutation = useMutation(api.rooms.updateSettings);
   const fetchAndPlayNextRadioAction = useAction(api.youtube.fetchAndPlayNextRadio);
+  const addRadioTrackToQueueMutation = useMutation(api.playback.addRadioTrackToQueue);
+  const deleteRadioTrackMutation = useMutation(api.playback.deleteRadioTrack);
 
   const handleCreateRoom = useCallback(async () => {
     setCreating(true);
@@ -160,6 +162,33 @@ export function useWatchPartyActions({
       });
     },
     [room?._id, room?.tvUuid, creds.uuid, removeQueueMutation]
+  );
+
+  const handleAddRadioTrackToQueue = useCallback(
+    async (trackId: string) => {
+      if (!room?._id) return;
+      const callerId = room?.tvUuid || creds.uuid;
+      await addRadioTrackToQueueMutation({
+        roomId: room._id,
+        trackId,
+        callerUid: callerId,
+        callerName: 'TV Host',
+      });
+    },
+    [room?._id, room?.tvUuid, creds.uuid, addRadioTrackToQueueMutation]
+  );
+
+  const handleDeleteRadioTrack = useCallback(
+    async (trackId: string) => {
+      if (!room?._id) return;
+      const callerId = room?.tvUuid || creds.uuid;
+      await deleteRadioTrackMutation({
+        roomId: room._id,
+        trackId,
+        callerUid: callerId,
+      });
+    },
+    [room?._id, room?.tvUuid, creds.uuid, deleteRadioTrackMutation]
   );
 
   const handlePlayQueueItem = useCallback(
@@ -341,6 +370,8 @@ export function useWatchPartyActions({
       handlePlayPreviousTrack,
       handlePlayQueueItem,
       handleRemoveQueueItem,
+      handleAddRadioTrackToQueue,
+      handleDeleteRadioTrack,
       handleAddUrlHost,
       handleToggleFullscreen,
       handleToggleFullscreenQr,
@@ -365,6 +396,8 @@ export function useWatchPartyActions({
       handlePlayPreviousTrack,
       handlePlayQueueItem,
       handleRemoveQueueItem,
+      handleAddRadioTrackToQueue,
+      handleDeleteRadioTrack,
       handleAddUrlHost,
       handleToggleFullscreen,
       handleToggleFullscreenQr,

@@ -25,6 +25,8 @@ export interface RemoteActions {
   toggleFullscreenQr: () => Promise<void>;
   claimHost: () => Promise<void>;
   startRadio: () => Promise<void>;
+  addRadioTrackToQueue: (trackId: string) => Promise<void>;
+  deleteRadioTrack: (trackId: string) => Promise<void>;
   beamTokenToTv: (token: string) => Promise<void>;
   updateSettings: (settings: {
     lyricsOffsetMs?: number;
@@ -69,6 +71,8 @@ export function useRemoteActions({
   const updateSettingsMutation = useMutation(api.rooms.updateSettings);
   const beamTokenToTvMutation = useMutation(api.rooms.beamTokenToTv);
   const fetchAndPlayNextRadioAction = useAction(api.youtube.fetchAndPlayNextRadio);
+  const addRadioTrackToQueueMutation = useMutation(api.playback.addRadioTrackToQueue);
+  const deleteRadioTrackMutation = useMutation(api.playback.deleteRadioTrack);
 
   return useMemo<RemoteActions>(() => {
     const checkLocked = () => {
@@ -212,6 +216,25 @@ export function useRemoteActions({
         });
       },
 
+      addRadioTrackToQueue: async (trackId: string) => {
+        if (!room?._id || !checkLocked()) return;
+        await addRadioTrackToQueueMutation({
+          roomId: room._id,
+          trackId,
+          callerUid: effectiveUid,
+          callerName: myNickname || 'Guest',
+        });
+      },
+
+      deleteRadioTrack: async (trackId: string) => {
+        if (!room?._id || !checkLocked()) return;
+        await deleteRadioTrackMutation({
+          roomId: room._id,
+          trackId,
+          callerUid: effectiveUid,
+        });
+      },
+
       beamTokenToTv: async (token: string) => {
         if (!room?._id || !isHostOrAdmin) return;
         await beamTokenToTvMutation({
@@ -254,6 +277,8 @@ export function useRemoteActions({
     toggleFullscreenQrMutation,
     claimHostMutation,
     fetchAndPlayNextRadioAction,
+    addRadioTrackToQueueMutation,
+    deleteRadioTrackMutation,
     beamTokenToTvMutation,
     updateSettingsMutation,
   ]);

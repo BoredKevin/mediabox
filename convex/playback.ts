@@ -1,5 +1,7 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { isAuthorized } from "./rooms/auth";
 import {
   handleNextTrackTransition,
   handlePreviousTrackTransition,
@@ -339,5 +341,171 @@ export const playQueueItem = mutation({
         updatedAt: now,
       },
     });
+  },
+});
+
+/**
+ * Promotes a track from the algorithmic radioQueue into the prioritized user queue.
+ * Removes it from radio recommendations and starts playback if idle.
+ */
+export const addRadioTrackToQueue = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    trackId: v.string(),
+    callerUid: v.string(),
+    callerName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+
+    if (room.isLocked && !(await isAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Room is locked by host");
+    }
+
+    const radioDoc = await ctx.db
+      .query("radioQueue")
+      .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
+      .first();
+
+    if (!radioDoc) throw new Error("Radio queue not found");
+
+    const trackIndex = radioDoc.items.findIndex(
+      (item) => item.id === args.trackId || item.url.includes(args.trackId)
+    );
+    if (trackIndex === -1) {
+      throw new Error("Track not found in radio queue");
+    }
+
+    const track = radioDoc.items[trackIndex];
+    const remaining = [
+      ...radioDoc.items.slice(0, trackIndex),
+      ...radioDoc.items.slice(trackIndex + 1),
+    ];
+    await ctx.db.patch(radioDoc._id, { items: remaining });
+
+    const now = Date.now();
+
+    // If room is completely idle, start playing immediately
+    if (!room.currentlyPlaying && room.playback.status !== "playing") {
+      await ctx.db.patch(args.roomId, {
+        currentlyPlaying: track.url,
+        currentlyPlayingTitle: track.title,
+        playback: {
+          ...room.playback,
+          status: "loading",
+          positionMs: 0,
+          updatedAt: now,
+        },
+      });
+      return { instantPlay: true };
+    }
+
+    // Otherwise append to active user queue
+    const currentQueue = await ctx.db
+      .query("queue")
+      .withIndex("by_room_order", (q) => q.eq("roomId", args.roomId))
+      .collect();
+
+    const maxOrder = currentQueue.reduce((max, item) => Math.max(max, item.order), 0);
+    const queueId = await ctx.db.insert("queue", {
+      roomId: args.roomId,
+      url: track.url,
+      title: track.title,
+      addedBy: args.callerUid,
+      addedByName: args.callerName,
+      order: maxOrder + 1,
+      createdAt: now,
+    });
+
+    // Check prefetch trigger if automix buffer is running low
+    if (remaining.length <= 3 && room.isAutoplay && room.currentlyPlaying) {
+      await ctx.scheduler.runAfter(0, internal.youtube.prefetchRadio, {
+        roomId: args.roomId,
+        seedVideoUrl: room.currentlyPlaying,
+      });
+    }
+
+    return { queueId, instantPlay: false };
+  },
+});
+
+/**
+ * Removes a track from the algorithmic radio queue.
+ */
+export const deleteRadioTrack = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    trackId: v.string(),
+    callerUid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+
+    if (room.isLocked && !(await isAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Room is locked by host");
+    }
+
+    const radioDoc = await ctx.db
+      .query("radioQueue")
+      .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
+      .first();
+
+    if (!radioDoc) return { success: false };
+
+    const remaining = radioDoc.items.filter(
+      (item) => item.id !== args.trackId && !item.url.includes(args.trackId)
+    );
+    await ctx.db.patch(radioDoc._id, { items: remaining });
+
+    // Check prefetch trigger if automix buffer is running low
+    if (remaining.length <= 3 && room.isAutoplay && room.currentlyPlaying) {
+      await ctx.scheduler.runAfter(0, internal.youtube.prefetchRadio, {
+        roomId: args.roomId,
+        seedVideoUrl: room.currentlyPlaying,
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * Manually appends a track to the algorithmic radio queue.
+ */
+export const addToRadioQueue = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    track: v.object({
+      id: v.string(),
+      url: v.string(),
+      title: v.string(),
+      channelTitle: v.string(),
+      durationSeconds: v.optional(v.number()),
+      thumbnailUrl: v.optional(v.string()),
+      thumbnail: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const radioDoc = await ctx.db
+      .query("radioQueue")
+      .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
+      .first();
+
+    if (radioDoc) {
+      if (!radioDoc.items.some((i) => i.id === args.track.id)) {
+        await ctx.db.patch(radioDoc._id, {
+          items: [...radioDoc.items, args.track],
+        });
+      }
+    } else {
+      await ctx.db.insert("radioQueue", {
+        roomId: args.roomId,
+        items: [args.track],
+      });
+    }
+
+    return { success: true };
   },
 });

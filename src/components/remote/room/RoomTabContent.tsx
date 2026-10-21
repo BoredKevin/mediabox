@@ -35,6 +35,8 @@ interface RoomTabContentProps {
   handleRemoveQueueItem: (itemId: string, itemAddedBy?: string) => Promise<void>;
   handleMoveQueueItem: (index: number, direction: 'up' | 'down') => void;
   handleKickMember: (uid: string) => Promise<void>;
+  onAddRadioTrackToQueue?: (trackId: string) => Promise<void>;
+  onDeleteRadioTrack?: (trackId: string) => Promise<void>;
 }
 
 export const RoomTabContent: React.FC<RoomTabContentProps> = ({
@@ -58,6 +60,8 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
   handleRemoveQueueItem,
   handleMoveQueueItem,
   handleKickMember,
+  onAddRadioTrackToQueue,
+  onDeleteRadioTrack,
 }) => {
   const { t } = useTranslation();
 
@@ -120,6 +124,8 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
                 onRemoveItem={handleRemoveQueueItem}
                 onMoveItem={handleMoveQueueItem}
                 onStartRadio={actions.startRadio}
+                onAddRadioTrackToQueue={onAddRadioTrackToQueue}
+                onDeleteRadioTrack={onDeleteRadioTrack}
                 embedded
               />
             </TabsContent>
