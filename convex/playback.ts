@@ -1,7 +1,7 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { isAuthorized } from "./rooms/auth";
+import { isAuthorized, isPlaybackAuthorized } from "./rooms/auth";
 import {
   handleNextTrackTransition,
   handlePreviousTrackTransition,
@@ -18,8 +18,14 @@ export const nextTrack = mutation({
   args: {
     roomId: v.id("rooms"),
     expectedUrl: v.optional(v.string()),
+    callerUid: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+    if (args.callerUid && !(await isPlaybackAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Playback controls are locked to approved members");
+    }
     return await handleNextTrackTransition(ctx, args.roomId, args.expectedUrl);
   },
 });
@@ -31,8 +37,14 @@ export const previousTrack = mutation({
   args: {
     roomId: v.id("rooms"),
     forcePrevious: v.optional(v.boolean()),
+    callerUid: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+    if (args.callerUid && !(await isPlaybackAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Playback controls are locked to approved members");
+    }
     return await handlePreviousTrackTransition(ctx, args.roomId, args.forcePrevious);
   },
 });
@@ -69,10 +81,15 @@ export const togglePlayPause = mutation({
   args: {
     roomId: v.id("rooms"),
     positionMs: v.optional(v.number()),
+    callerUid: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.roomId);
     if (!room) throw new Error("Room not found");
+
+    if (args.callerUid && !(await isPlaybackAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Playback controls are locked to approved members");
+    }
 
     const now = Date.now();
     const newStatus = room.playback.status === "playing" ? "paused" : "playing";
@@ -109,10 +126,15 @@ export const setVolume = mutation({
   args: {
     roomId: v.id("rooms"),
     volume: v.number(),
+    callerUid: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.roomId);
     if (!room) return;
+
+    if (args.callerUid && !(await isPlaybackAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Playback controls are locked to approved members");
+    }
 
     await ctx.db.patch(args.roomId, {
       playback: {
@@ -130,10 +152,15 @@ export const seek = mutation({
   args: {
     roomId: v.id("rooms"),
     positionMs: v.number(),
+    callerUid: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.roomId);
     if (!room) return;
+
+    if (args.callerUid && !(await isPlaybackAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Playback controls are locked to approved members");
+    }
 
     const currentSeq = room.playback.seekSeq ?? 0;
     await ctx.db.patch(args.roomId, {
@@ -314,10 +341,16 @@ export const playQueueItem = mutation({
   args: {
     roomId: v.id("rooms"),
     queueId: v.id("queue"),
+    callerUid: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.roomId);
     if (!room) throw new Error("Room not found");
+
+    if (args.callerUid && !(await isPlaybackAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Playback controls are locked to approved members");
+    }
+
     const item = await ctx.db.get(args.queueId);
     if (!item) return;
 

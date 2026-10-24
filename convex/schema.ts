@@ -40,6 +40,10 @@ export default defineSchema({
     lyricsOffsetMs: v.optional(v.number()),
     lyricsWordSync: v.optional(v.boolean()),
     preferMusicVideos: v.optional(v.boolean()),
+    approvedMembers: v.optional(v.array(v.string())),
+    approvalRequests: v.optional(v.array(v.string())),
+    lockPlaybackControls: v.optional(v.boolean()),
+    isHostPinned: v.optional(v.boolean()),
   }).index("by_code", ["code"]),
 
   // Queued items per room

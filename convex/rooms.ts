@@ -53,6 +53,10 @@ export const create = mutation({
       lyricsOffsetMs: args.lyricsOffsetMs,
       lyricsWordSync: args.lyricsWordSync,
       preferMusicVideos: args.preferMusicVideos,
+      approvedMembers: [],
+      approvalRequests: [],
+      lockPlaybackControls: false,
+      isHostPinned: false,
     });
 
     await ctx.db.insert("radioQueue", {
@@ -183,6 +187,7 @@ export const updateSettings = mutation({
       isLocked: v.optional(v.boolean()),
       isAutoplay: v.optional(v.boolean()),
       isCountdownEnabled: v.optional(v.boolean()),
+      lockPlaybackControls: v.optional(v.boolean()),
     }),
   },
   handler: async (ctx, args) => {
@@ -199,6 +204,7 @@ export const updateSettings = mutation({
       ...(args.settings.isLocked !== undefined ? { isLocked: args.settings.isLocked } : {}),
       ...(args.settings.isAutoplay !== undefined ? { isAutoplay: args.settings.isAutoplay } : {}),
       ...(args.settings.isCountdownEnabled !== undefined ? { isCountdownEnabled: args.settings.isCountdownEnabled } : {}),
+      ...(args.settings.lockPlaybackControls !== undefined ? { lockPlaybackControls: args.settings.lockPlaybackControls } : {}),
     });
   },
 });
@@ -297,6 +303,11 @@ export const joinRoom = mutation({
     const room = await ctx.db.get(args.roomId);
     if (!room) throw new Error("Room not found");
 
+    // If host privileges are pinned by admin, never transfer host automatically
+    if (room.isHostPinned) {
+      return { isHost: room.hostUid === args.callerUid };
+    }
+
     if (room.hostUid === room.tvUuid && args.callerUid !== room.tvUuid) {
       await ctx.db.patch(args.roomId, { hostUid: args.callerUid });
       return { isHost: true };
@@ -329,6 +340,10 @@ export const claimHost = mutation({
     const room = await ctx.db.get(args.roomId);
     if (!room) throw new Error("Room not found");
 
+    if (room.isHostPinned && room.hostUid !== args.callerUid) {
+      throw new Error("Host privileges are pinned by an admin. Host transfer is disabled for this room.");
+    }
+
     if (room.hostUid === room.tvUuid || room.hostUid === args.callerUid) {
       await ctx.db.patch(args.roomId, { hostUid: args.callerUid });
       return { isHost: true };
@@ -346,6 +361,213 @@ export const claimHost = mutation({
     }
 
     return { isHost: room.hostUid === args.callerUid };
+  },
+});
+
+/**
+ * Toggles pinned host privileges for a room (Admin only).
+ * When pinned, host privileges will never transfer automatically or be claimed.
+ */
+export const toggleHostPin = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    callerUid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+
+    const admin = await ctx.db
+      .query("admins")
+      .withIndex("by_uid", (q) => q.eq("uid", args.callerUid))
+      .first();
+    if (!admin) {
+      throw new Error("Only an administrator can pin or unpin host privileges");
+    }
+
+    const nextPinned = !room.isHostPinned;
+    await ctx.db.patch(args.roomId, {
+      isHostPinned: nextPinned,
+    });
+    return { isHostPinned: nextPinned };
+  },
+});
+
+/**
+ * Directly reassigns host privileges to a specific member (Admin only).
+ */
+export const adminTransferHost = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    callerUid: v.string(),
+    newHostUid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+
+    const admin = await ctx.db
+      .query("admins")
+      .withIndex("by_uid", (q) => q.eq("uid", args.callerUid))
+      .first();
+    if (!admin) {
+      throw new Error("Only an administrator can reassign host privileges");
+    }
+
+    await ctx.db.patch(args.roomId, {
+      hostUid: args.newHostUid,
+    });
+    return { success: true };
+  },
+});
+
+/**
+ * Toggles transport playback controls lock (Host/Admin only).
+ * When locked, only host, admins, TV, and approved members can use transport controls.
+ */
+export const toggleLockPlaybackControls = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    callerUid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+    if (!(await isAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Unauthorized to lock playback controls");
+    }
+
+    const nextLock = !room.lockPlaybackControls;
+    await ctx.db.patch(args.roomId, {
+      lockPlaybackControls: nextLock,
+    });
+    return { lockPlaybackControls: nextLock };
+  },
+});
+
+/**
+ * Member requests playback control approval from the host.
+ */
+export const requestPlaybackApproval = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    callerUid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+
+    if (
+      room.hostUid === args.callerUid ||
+      (room.tvUuid && room.tvUuid === args.callerUid) ||
+      room.approvedMembers?.includes(args.callerUid)
+    ) {
+      return { status: "already_approved" };
+    }
+
+    const currentRequests = room.approvalRequests || [];
+    if (!currentRequests.includes(args.callerUid)) {
+      await ctx.db.patch(args.roomId, {
+        approvalRequests: [...currentRequests, args.callerUid],
+      });
+    }
+    return { status: "requested" };
+  },
+});
+
+/**
+ * Toggles approval status for a specific member (Host/Admin only).
+ */
+export const toggleApproveMember = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    callerUid: v.string(),
+    targetUid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+    if (!(await isAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Unauthorized to approve members");
+    }
+
+    const approved = new Set(room.approvedMembers || []);
+    const requests = new Set(room.approvalRequests || []);
+    let isNowApproved = false;
+
+    if (approved.has(args.targetUid)) {
+      approved.delete(args.targetUid);
+      isNowApproved = false;
+    } else {
+      approved.add(args.targetUid);
+      requests.delete(args.targetUid);
+      isNowApproved = true;
+    }
+
+    await ctx.db.patch(args.roomId, {
+      approvedMembers: Array.from(approved),
+      approvalRequests: Array.from(requests),
+    });
+
+    return { targetUid: args.targetUid, isApproved: isNowApproved };
+  },
+});
+
+/**
+ * Bulk approves all provided member UIDs (Host/Admin only).
+ */
+export const approveAllMembers = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    callerUid: v.string(),
+    memberUids: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+    if (!(await isAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Unauthorized to approve members");
+    }
+
+    const approved = new Set(room.approvedMembers || []);
+    const requests = new Set(room.approvalRequests || []);
+
+    for (const uid of args.memberUids) {
+      if (uid && uid !== room.tvUuid) {
+        approved.add(uid);
+        requests.delete(uid);
+      }
+    }
+
+    await ctx.db.patch(args.roomId, {
+      approvedMembers: Array.from(approved),
+      approvalRequests: Array.from(requests),
+    });
+
+    return { approvedCount: approved.size };
+  },
+});
+
+/**
+ * Revokes all member approvals for a room (Host/Admin only).
+ */
+export const revokeAllApprovedMembers = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    callerUid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) throw new Error("Room not found");
+    if (!(await isAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Unauthorized to revoke member approvals");
+    }
+
+    await ctx.db.patch(args.roomId, {
+      approvedMembers: [],
+    });
+
+    return { success: true };
   },
 });
 
