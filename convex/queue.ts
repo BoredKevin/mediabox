@@ -25,6 +25,9 @@ export const add = mutation({
     title: v.string(),
     addedBy: v.string(),
     addedByName: v.string(),
+    channelTitle: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+    thumbnailUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.roomId);
@@ -66,6 +69,9 @@ export const add = mutation({
       addedByName: args.addedByName,
       order: maxOrder + 1,
       createdAt: now,
+      channelTitle: args.channelTitle,
+      durationSeconds: args.durationSeconds,
+      thumbnailUrl: args.thumbnailUrl,
     });
 
     return { queueId, instantPlay: false };

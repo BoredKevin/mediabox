@@ -255,6 +255,7 @@ export const appendRadioBatch = internalMutation({
         channelTitle: v.string(),
         durationSeconds: v.optional(v.number()),
         thumbnailUrl: v.optional(v.string()),
+        thumbnail: v.optional(v.string()),
       })
     ),
   },
@@ -416,6 +417,9 @@ export const addRadioTrackToQueue = mutation({
       addedByName: args.callerName,
       order: maxOrder + 1,
       createdAt: now,
+      channelTitle: track.channelTitle,
+      durationSeconds: track.durationSeconds,
+      thumbnailUrl: track.thumbnailUrl || track.thumbnail,
     });
 
     // Check prefetch trigger if automix buffer is running low

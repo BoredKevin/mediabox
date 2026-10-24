@@ -39,6 +39,9 @@ export interface QueueItem {
   addedByName?: string;
   addedAt: number;
   title?: string;
+  channelTitle?: string;
+  durationSeconds?: number;
+  thumbnailUrl?: string;
 }
 
 export interface SearchResultItem {

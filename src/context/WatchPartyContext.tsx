@@ -156,7 +156,11 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       url: item.url,
       title: item.title,
       addedBy: item.addedBy,
+      addedByName: item.addedByName,
       addedAt: item.createdAt,
+      channelTitle: item.channelTitle,
+      durationSeconds: item.durationSeconds,
+      thumbnailUrl: item.thumbnailUrl,
     }));
   }, [rawQueue]);
 

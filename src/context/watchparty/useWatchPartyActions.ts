@@ -223,8 +223,8 @@ export function useWatchPartyActions({
 
       const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
       let videoTitle = explicitTitle?.trim() || '';
+      const info = await fetchVideoTitle(videoUrl);
       if (!videoTitle) {
-        const info = await fetchVideoTitle(videoUrl);
         videoTitle = info.title || '';
       }
 
@@ -235,6 +235,8 @@ export function useWatchPartyActions({
         title: videoTitle,
         addedBy: callerId,
         addedByName: 'TV Host',
+        channelTitle: info.channelTitle,
+        thumbnailUrl: info.thumbnailUrl,
       });
       return true;
     },

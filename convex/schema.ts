@@ -51,6 +51,9 @@ export default defineSchema({
     addedByName: v.string(),
     order: v.number(),
     createdAt: v.number(),
+    channelTitle: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+    thumbnailUrl: v.optional(v.string()),
   }).index("by_room_order", ["roomId", "order"]),
 
   // Algorithmic YouTube Music radio recommendations
