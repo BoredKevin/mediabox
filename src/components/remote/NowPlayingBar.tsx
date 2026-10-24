@@ -3,15 +3,20 @@ import { RoomState, parseYouTubeVideoId } from '@/lib/roomUtils';
 import { NowPlayingTrackInfo } from './now-playing/NowPlayingTrackInfo';
 import { NowPlayingMobileControls } from './now-playing/NowPlayingMobileControls';
 import { NowPlayingDesktopControls } from './now-playing/NowPlayingDesktopControls';
+import { NowPlayingSeekBar } from './now-playing/NowPlayingSeekBar';
 
 interface NowPlayingBarProps {
   roomState: RoomState | null;
   isHostOrAdmin: boolean;
+  canControlPlayback?: boolean;
+  hasRequestedApproval?: boolean;
+  onRequestApproval?: () => Promise<void>;
   onTogglePlayPause: () => Promise<void>;
   onNextTrack: () => Promise<void>;
   onPreviousTrack: () => Promise<void>;
   onStartRadio: () => Promise<void>;
   onToggleAutoplay: () => Promise<void>;
+  onSeek: (positionMs: number) => Promise<void>;
   displayVolume: number;
   handleVolumeValueChange: (val: number[]) => void;
   handleVolumeValueCommit: (val: number[]) => void;
@@ -24,11 +29,15 @@ interface NowPlayingBarProps {
 export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
   roomState,
   isHostOrAdmin,
+  canControlPlayback,
+  hasRequestedApproval,
+  onRequestApproval,
   onTogglePlayPause,
   onNextTrack,
   onPreviousTrack,
   onStartRadio,
   onToggleAutoplay,
+  onSeek,
   displayVolume,
   handleVolumeValueChange,
   handleVolumeValueCommit,
@@ -40,7 +49,9 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
   const [volumeTooltipOpen, setVolumeTooltipOpen] = useState<boolean>(false);
   const isPlaying = roomState?.playback?.status === 'playing';
   const isLoading = roomState?.playback?.status === 'loading';
-  const isLocked = Boolean(roomState?.isLocked) && !isHostOrAdmin;
+  const isLocked = canControlPlayback !== undefined
+    ? !canControlPlayback
+    : (Boolean(roomState?.isLocked) && !isHostOrAdmin);
   const currentVideo = roomState?.currentlyPlaying;
   const videoId = currentVideo ? parseYouTubeVideoId(currentVideo) : null;
   const videoTitle = roomState?.currentlyPlayingTitle || currentVideo;
@@ -67,12 +78,25 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
           onForceSkip={onNextTrack}
         />
 
+        {videoId && (
+          <NowPlayingSeekBar
+            positionMs={roomState?.playback?.positionMs ?? 0}
+            durationMs={roomState?.playback?.durationMs ?? 0}
+            status={roomState?.playback?.status ?? 'paused'}
+            updatedAt={roomState?.playback?.updatedAt ?? 0}
+            isLocked={isLocked}
+            onSeek={onSeek}
+          />
+        )}
+
         <div className="w-full">
           <NowPlayingMobileControls
             isPlaying={isPlaying}
             isLoading={isLoading}
             isLocked={isLocked}
             isHostOrAdmin={isHostOrAdmin}
+            hasRequestedApproval={hasRequestedApproval}
+            onRequestApproval={onRequestApproval}
             isAutoplay={roomState?.isAutoplay}
             isFullscreen={roomState?.isFullscreen}
             fullscreenCooldown={fullscreenCooldown}
@@ -95,6 +119,8 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
             isLoading={isLoading}
             isLocked={isLocked}
             isHostOrAdmin={isHostOrAdmin}
+            hasRequestedApproval={hasRequestedApproval}
+            onRequestApproval={onRequestApproval}
             isAutoplay={roomState?.isAutoplay}
             isFullscreen={roomState?.isFullscreen}
             fullscreenCooldown={fullscreenCooldown}

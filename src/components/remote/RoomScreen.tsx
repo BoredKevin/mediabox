@@ -40,6 +40,9 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
     adminsList,
     isHost,
     isHostOrAdmin,
+    isApprovedMember,
+    hasRequestedApproval,
+    canControlPlayback,
     myNickname,
     actions,
     handleSaveNickname,
@@ -154,6 +157,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
           user={user}
           effectiveUid={effectiveUid}
           isHostOrAdmin={isHostOrAdmin}
+          isAdmin={isAdmin}
           tvUuid={tvUuid}
           queue={queue}
           radioQueue={radioQueue}
@@ -170,17 +174,22 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
           handleKickMember={handleKickMember}
           onAddRadioTrackToQueue={handleAddRadioTrackToQueue}
           onDeleteRadioTrack={handleDeleteRadioTrack}
+          onReorderQueue={actions.reorderQueue}
         />
       </main>
 
       <NowPlayingBar
         roomState={roomState}
         isHostOrAdmin={isHostOrAdmin}
+        canControlPlayback={canControlPlayback}
+        hasRequestedApproval={hasRequestedApproval}
+        onRequestApproval={actions.requestPlaybackApproval}
         onTogglePlayPause={actions.togglePlayPause}
         onNextTrack={actions.nextTrack}
         onPreviousTrack={actions.previousTrack}
         onStartRadio={actions.startRadio}
         onToggleAutoplay={actions.toggleAutoplay}
+        onSeek={actions.seek}
         displayVolume={displayVolume}
         handleVolumeValueChange={handleVolumeValueChange}
         handleVolumeValueCommit={handleVolumeValueCommit}
@@ -195,7 +204,7 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         onOpenChange={setShowHostSettings}
         roomCode={activeRoomCode}
         roomState={roomState}
-        isAdmin={isHostOrAdmin}
+        isAdmin={isAdmin}
         queueLength={queue.length}
         actions={actions}
         handleClearQueueAdmin={handleClearQueueAdmin}
@@ -215,12 +224,25 @@ export const RoomScreen: React.FC<RoomScreenProps> = ({
         user={user}
         currentUid={effectiveUid}
         isHostOrAdmin={isHostOrAdmin}
+        isAdmin={isAdmin}
+        isHostPinned={roomState?.isHostPinned}
+        lockPlaybackControls={roomState?.lockPlaybackControls}
+        approvedMembers={roomState?.approvedMembers}
+        approvalRequests={roomState?.approvalRequests}
         onRemoveQueueItem={handleRemoveQueueItem}
         onMoveQueueItem={handleMoveQueueItem}
         onKickMember={handleKickMember}
+        onToggleApproveMember={actions.toggleApproveMember}
+        onApproveAllMembers={actions.approveAllMembers}
+        onRevokeAllApprovedMembers={actions.revokeAllApprovedMembers}
+        onToggleHostPin={actions.toggleHostPin}
+        onAdminTransferHost={actions.adminTransferHost}
+        onToggleLockPlaybackControls={actions.toggleLockPlaybackControls}
         onStartRadio={actions.startRadio}
         onAddRadioTrackToQueue={handleAddRadioTrackToQueue}
         onDeleteRadioTrack={handleDeleteRadioTrack}
+        onReorderQueue={actions.reorderQueue}
+        playback={roomState?.playback}
       />
     </div>
   );

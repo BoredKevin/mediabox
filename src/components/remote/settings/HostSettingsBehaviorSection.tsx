@@ -8,6 +8,7 @@ import {
   Mic2,
   RotateCcw,
   Type,
+  ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState } from '@/lib/roomUtils';
@@ -128,6 +129,29 @@ export const HostSettingsBehaviorSection: React.FC<HostSettingsBehaviorSectionPr
               className="h-7 px-2.5 text-[10px] font-mono font-bold uppercase cursor-pointer flex-shrink-0"
             >
               {roomState?.lyricsWordSync ? t('remote.autoplayOn') : t('remote.autoplayOff')}
+            </Button>
+          </div>
+
+          {/* Lock Playback Controls Toggle */}
+          <div className="p-3 bg-card border border-border flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-foreground truncate">
+                  {t('remote.lockPlaybackTitle')}
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate">
+                  {t('remote.lockPlaybackDesc')}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant={roomState?.lockPlaybackControls ? 'destructive' : 'outline'}
+              size="sm"
+              onClick={actions.toggleLockPlaybackControls}
+              className="h-7 px-2.5 text-[10px] font-mono font-bold uppercase cursor-pointer flex-shrink-0"
+            >
+              {roomState?.lockPlaybackControls ? t('remote.playbackControlsLocked') : t('watchParty.unlockBtn')}
             </Button>
           </div>
         </div>

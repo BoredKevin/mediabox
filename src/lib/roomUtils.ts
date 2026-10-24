@@ -30,6 +30,10 @@ export interface RoomState {
   lyricsWordSync?: boolean;
   preferMusicVideos?: boolean;
   tvOnline?: boolean;
+  approvedMembers?: string[];
+  approvalRequests?: string[];
+  lockPlaybackControls?: boolean;
+  isHostPinned?: boolean;
 }
 
 export interface QueueItem {
@@ -39,6 +43,9 @@ export interface QueueItem {
   addedByName?: string;
   addedAt: number;
   title?: string;
+  channelTitle?: string;
+  durationSeconds?: number;
+  thumbnailUrl?: string;
 }
 
 export interface SearchResultItem {

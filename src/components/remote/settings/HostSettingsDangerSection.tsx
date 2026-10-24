@@ -1,12 +1,14 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Lock, Unlock, Trash2 } from 'lucide-react';
+import { Lock, Unlock, Trash2, Pin } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { RoomState } from '@/lib/roomUtils';
 
 interface HostSettingsDangerSectionProps {
   roomState: RoomState | null;
   queueLength: number;
+  isAdmin?: boolean;
+  onToggleHostPin?: () => void;
   handleToggleRoomLockAdmin: () => void;
   handleClearQueueAdmin: () => void;
 }
@@ -14,6 +16,8 @@ interface HostSettingsDangerSectionProps {
 export const HostSettingsDangerSection: React.FC<HostSettingsDangerSectionProps> = ({
   roomState,
   queueLength,
+  isAdmin = false,
+  onToggleHostPin,
   handleToggleRoomLockAdmin,
   handleClearQueueAdmin,
 }) => {
@@ -76,6 +80,31 @@ export const HostSettingsDangerSection: React.FC<HostSettingsDangerSectionProps>
             {t('remote.clearQueueBtn')}
           </Button>
         </div>
+
+        {/* Pin Host Privileges (Admin Only) */}
+        {isAdmin && onToggleHostPin && (
+          <div className="p-3 bg-card border border-border flex items-center justify-between gap-3 sm:col-span-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Pin className={`w-4 h-4 flex-shrink-0 ${roomState?.isHostPinned ? 'text-purple-400 fill-purple-400' : 'text-muted-foreground'}`} />
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-foreground truncate">
+                  {t('remote.pinHostTitle')}
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate">
+                  {t('remote.pinHostDesc')}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant={roomState?.isHostPinned ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={onToggleHostPin}
+              className="h-7 px-2.5 text-[10px] font-mono font-bold uppercase cursor-pointer flex-shrink-0"
+            >
+              {roomState?.isHostPinned ? t('remote.unpinHostBtn') : t('remote.pinHostBtn')}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

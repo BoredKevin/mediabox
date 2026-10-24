@@ -3,7 +3,23 @@ import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, User, Shield, Crown, UserX, Trash2, Tv } from 'lucide-react';
+import {
+  Users,
+  User,
+  Shield,
+  Crown,
+  UserX,
+  Trash2,
+  Tv,
+  Pin,
+  Check,
+  CheckCircle,
+  X,
+  XCircle,
+  Lock,
+  Unlock,
+  Sparkles,
+} from 'lucide-react';
 import { QueueItem } from '@/lib/roomUtils';
 
 export interface MemberInfo {
@@ -23,9 +39,20 @@ interface MembersPanelProps {
   user: DeviceUser | null;
   currentUid?: string;
   isHostOrAdmin: boolean;
+  isAdmin?: boolean;
+  isHostPinned?: boolean;
+  lockPlaybackControls?: boolean;
+  approvedMembers?: string[];
+  approvalRequests?: string[];
   queue: QueueItem[];
   onKickMember: (targetUid: string) => void;
   onRemoveQueueItem: (itemId: string, itemAddedBy?: string) => Promise<void>;
+  onToggleApproveMember?: (targetUid: string) => void;
+  onApproveAllMembers?: (memberUids: string[]) => void;
+  onRevokeAllApprovedMembers?: () => void;
+  onToggleHostPin?: () => void;
+  onAdminTransferHost?: (newHostUid: string) => void;
+  onToggleLockPlaybackControls?: () => void;
   embedded?: boolean;
 }
 
@@ -37,26 +64,89 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
   user,
   currentUid,
   isHostOrAdmin,
+  isAdmin = false,
+  isHostPinned = false,
+  lockPlaybackControls = false,
+  approvedMembers = [],
+  approvalRequests = [],
   queue,
   onKickMember,
   onRemoveQueueItem,
+  onToggleApproveMember,
+  onApproveAllMembers,
+  onRevokeAllApprovedMembers,
+  onToggleHostPin,
+  onAdminTransferHost,
+  onToggleLockPlaybackControls,
   embedded = false,
 }) => {
   const { t } = useTranslation();
 
   const effectiveCurrentUid = currentUid || user?.uid;
   const onlineCount = membersList.filter((m) => m.online !== false).length;
+  const guestMembers = membersList.filter((m) => !m.isTv && m.uid !== hostUid && !adminsList.includes(m.uid));
+  const guestUids = guestMembers.map((m) => m.uid);
 
   const content = (
     <>
-      <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-2 flex items-center justify-between">
-        <span className="flex items-center gap-2">
+      <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
           <Users className="w-4 h-4 text-primary" />
-          {t('remote.roomMembersAndRequests')}
-        </span>
-        <span className="text-muted-foreground font-mono text-[11px]">
-          {onlineCount} {t('remote.onlineBadge').toLowerCase()} • {t('remote.membersCount', { count: membersList.length })}
-        </span>
+          <span>{t('remote.roomMembersAndRequests')}</span>
+          <span className="text-muted-foreground font-mono text-[11px] ml-1">
+            {onlineCount} {t('remote.onlineBadge').toLowerCase()} • {t('remote.membersCount', { count: membersList.length })}
+          </span>
+        </div>
+
+        {/* Header Controls for Host / Admin */}
+        {isHostOrAdmin && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {onToggleLockPlaybackControls && (
+              <Button
+                variant={lockPlaybackControls ? 'destructive' : 'outline'}
+                size="sm"
+                onClick={onToggleLockPlaybackControls}
+                className="h-6 px-2 text-[10px] font-mono font-bold uppercase flex items-center gap-1 cursor-pointer"
+                title={t('remote.lockPlaybackDesc')}
+              >
+                {lockPlaybackControls ? (
+                  <Lock className="w-3 h-3 text-amber-300" />
+                ) : (
+                  <Unlock className="w-3 h-3 text-muted-foreground" />
+                )}
+                <span>
+                  {lockPlaybackControls
+                    ? t('remote.playbackControlsLocked')
+                    : t('remote.lockPlaybackTitle')}
+                </span>
+              </Button>
+            )}
+
+            {onApproveAllMembers && guestUids.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onApproveAllMembers(guestUids)}
+                className="h-6 px-2 text-[10px] font-mono font-bold uppercase flex items-center gap-1 cursor-pointer text-emerald-400 border-emerald-800/60 hover:bg-emerald-950/40"
+              >
+                <CheckCircle className="w-3 h-3" />
+                <span>{t('remote.approveAllBtn')}</span>
+              </Button>
+            )}
+
+            {onRevokeAllApprovedMembers && approvedMembers.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRevokeAllApprovedMembers}
+                className="h-6 px-2 text-[10px] font-mono font-bold uppercase flex items-center gap-1 cursor-pointer text-muted-foreground hover:text-destructive"
+              >
+                <XCircle className="w-3 h-3" />
+                <span>{t('remote.revokeAllBtn')}</span>
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className={`flex flex-col gap-3 ${embedded ? 'flex-1 min-h-0 overflow-y-auto pr-1' : ''}`}>
@@ -66,6 +156,8 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
           const isSelf = Boolean(effectiveCurrentUid && member.uid === effectiveCurrentUid);
           const isTvUser = Boolean(member.isTv || (tvUuid && member.uid === tvUuid));
           const isOnline = member.online !== false;
+          const hasRequested = Boolean(approvalRequests.includes(member.uid));
+          const isApproved = Boolean(approvedMembers.includes(member.uid));
           const memberRequests = queue.filter((item) => item.addedBy === member.uid);
           const displayName = isTvUser
             ? (member.nickname || 'MediaBox TV')
@@ -74,9 +166,13 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
           return (
             <div
               key={member.uid}
-              className="bg-muted/20 border border-border p-3 flex flex-col gap-2 rounded-md"
+              className={`p-3 flex flex-col gap-2 rounded-md transition-all ${
+                hasRequested
+                  ? 'bg-amber-500/10 border-2 border-amber-500/70 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                  : 'bg-muted/20 border border-border'
+              }`}
             >
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-xs flex-wrap gap-2">
                 <div className="flex items-center gap-2 font-mono flex-wrap">
                   <User className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                   <span className="font-bold text-foreground">{displayName}</span>
@@ -103,6 +199,28 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                     </Badge>
                   )}
 
+                  {/* Approval requested badge (pulsing amber) */}
+                  {hasRequested && !isApproved && (
+                    <Badge
+                      variant="outline"
+                      className="px-1.5 py-0.5 text-[9px] bg-amber-500/20 text-amber-300 border-amber-500 font-bold uppercase flex items-center gap-1 rounded-md animate-pulse"
+                    >
+                      <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                      <span>{t('remote.requestedBadge')}</span>
+                    </Badge>
+                  )}
+
+                  {/* Approved controller badge */}
+                  {isApproved && (
+                    <Badge
+                      variant="outline"
+                      className="px-1.5 py-0.5 text-[9px] bg-emerald-950 text-emerald-300 border-emerald-700 font-bold uppercase flex items-center gap-1 rounded-md"
+                    >
+                      <Check className="w-2.5 h-2.5 text-emerald-400" />
+                      <span>{t('remote.approvedBadge')}</span>
+                    </Badge>
+                  )}
+
                   {isMemberAdmin && (
                     <Badge
                       variant="outline"
@@ -123,11 +241,24 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                   {isHostUser && !isMemberAdmin && !isTvUser && (
                     <Badge
                       variant="outline"
-                      className="px-1.5 py-0.5 text-[9px] bg-amber-950 text-amber-300 border-amber-800 font-bold uppercase rounded-md"
+                      className="px-1.5 py-0.5 text-[9px] bg-amber-950 text-amber-300 border-amber-800 font-bold uppercase rounded-md flex items-center gap-1"
                     >
                       {t('remote.hostBadge')}
                     </Badge>
                   )}
+
+                  {/* Pinned Host Badge */}
+                  {isHostUser && isHostPinned && (
+                    <Badge
+                      variant="outline"
+                      className="px-1.5 py-0.5 text-[9px] bg-purple-950 text-purple-300 border-purple-700 font-bold uppercase rounded-md flex items-center gap-1"
+                      title={t('remote.hostPinnedBadge')}
+                    >
+                      <Pin className="w-2.5 h-2.5 text-purple-400 fill-purple-400" />
+                      <span>{t('remote.hostPinnedBadge')}</span>
+                    </Badge>
+                  )}
+
                   {isSelf && (
                     <Badge
                       variant="outline"
@@ -138,7 +269,79 @@ export const MembersPanel: React.FC<MembersPanelProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Pin / Unpin Host Action (Admin Only) */}
+                  {isAdmin && isHostUser && onToggleHostPin && (
+                    <Button
+                      variant={isHostPinned ? 'secondary' : 'outline'}
+                      size="sm"
+                      chamfer="top-right"
+                      onClick={onToggleHostPin}
+                      className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 h-auto cursor-pointer"
+                      title={isHostPinned ? t('remote.unpinHostBtn') : t('remote.pinHostBtn')}
+                    >
+                      <Pin className={`w-3 h-3 ${isHostPinned ? 'text-purple-400 fill-purple-400' : ''}`} />
+                      <span>{isHostPinned ? t('remote.unpinHostBtn') : t('remote.pinHostBtn')}</span>
+                    </Button>
+                  )}
+
+                  {/* Transfer Host Action (Admin Only) */}
+                  {isAdmin && !isHostUser && !isTvUser && onAdminTransferHost && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      chamfer="top-right"
+                      onClick={() => onAdminTransferHost(member.uid)}
+                      className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 h-auto cursor-pointer text-muted-foreground hover:text-amber-400 hover:border-amber-500/50"
+                      title={t('remote.makeHostBtn')}
+                    >
+                      <Crown className="w-3 h-3 text-amber-400" />
+                      <span>{t('remote.makeHostBtn')}</span>
+                    </Button>
+                  )}
+
+                  {/* Approve / Revoke Member Action (Host or Admin) */}
+                  {isHostOrAdmin && !isSelf && !isMemberAdmin && !isTvUser && onToggleApproveMember && (
+                    <>
+                      {hasRequested && !isApproved ? (
+                        <Button
+                          variant="cyber"
+                          size="sm"
+                          chamfer="top-right"
+                          onClick={() => onToggleApproveMember(member.uid)}
+                          className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 h-auto cursor-pointer bg-amber-500 hover:bg-amber-400 text-black border-amber-400 font-mono"
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>{t('remote.approveMemberBtn')}</span>
+                        </Button>
+                      ) : isApproved ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          chamfer="top-right"
+                          onClick={() => onToggleApproveMember(member.uid)}
+                          className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 h-auto cursor-pointer text-muted-foreground hover:text-destructive"
+                          title={t('remote.revokeApprovalBtn')}
+                        >
+                          <X className="w-3 h-3" />
+                          <span>{t('remote.revokeApprovalBtn')}</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          chamfer="top-right"
+                          onClick={() => onToggleApproveMember(member.uid)}
+                          className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 h-auto cursor-pointer text-emerald-400 hover:text-emerald-300 border-emerald-800/60 hover:bg-emerald-950/40"
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>{t('remote.approveMemberBtn')}</span>
+                        </Button>
+                      )}
+                    </>
+                  )}
+
+                  {/* Kick Member Action */}
                   {isHostOrAdmin && !isSelf && !isMemberAdmin && !isTvUser && (
                     <Button
                       variant="destructive"

@@ -19,6 +19,7 @@ import {
   Sparkles,
   Mic2,
   Loader2,
+  Hourglass,
 } from 'lucide-react';
 import { useTranslation } from '@/context/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,8 @@ interface NowPlayingMobileControlsProps {
   isLoading?: boolean;
   isLocked: boolean;
   isHostOrAdmin: boolean;
+  hasRequestedApproval?: boolean;
+  onRequestApproval?: () => Promise<void>;
   isAutoplay?: boolean;
   isFullscreen?: boolean;
   fullscreenCooldown: boolean;
@@ -50,6 +53,8 @@ export const NowPlayingMobileControls: React.FC<NowPlayingMobileControlsProps> =
   isLoading = false,
   isLocked,
   isHostOrAdmin,
+  hasRequestedApproval = false,
+  onRequestApproval,
   isAutoplay,
   isFullscreen,
   fullscreenCooldown,
@@ -67,6 +72,80 @@ export const NowPlayingMobileControls: React.FC<NowPlayingMobileControlsProps> =
   handleVolumeValueCommit,
 }) => {
   const { t } = useTranslation();
+
+  // Clean member controls when playback is locked
+  if (isLocked) {
+    return (
+      <div className="flex lg:hidden items-center gap-2 sm:gap-2.5 w-full">
+        {/* Fullscreen Button - Small square icon-only button */}
+        <Button
+          variant="outline"
+          chamfer="top-right"
+          onClick={onToggleFullscreenClick}
+          disabled={fullscreenCooldown}
+          className={cn(
+            "h-11 w-10 min-[380px]:w-11 p-0 flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer",
+            isFullscreen
+              ? "border-primary bg-primary/15 text-primary hover:bg-primary/20 shadow-[0_0_10px_rgba(255,255,255,0.08)]"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+          title={isFullscreen ? t('remote.exitFullscreen') : t('remote.fullscreenTv')}
+          aria-label={isFullscreen ? t('remote.exitFullscreen') : t('remote.fullscreenTv')}
+        >
+          {isFullscreen ? <Minimize className="w-4 h-4 text-primary" /> : <Maximize className="w-4 h-4 text-foreground/80" />}
+        </Button>
+
+        {/* Split 50/50: Lyrics Button */}
+        {onToggleLyrics && (
+          <Button
+            variant="outline"
+            chamfer="top-right"
+            onClick={onToggleLyrics}
+            className={cn(
+              "flex-1 min-w-0 h-11 px-2.5 sm:px-3 flex items-center justify-center gap-1.5 cursor-pointer transition-colors",
+              isLyricsActive
+                ? "border-primary bg-primary/15 text-primary hover:bg-primary/20 shadow-[0_0_12px_rgba(255,255,255,0.1)]"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title={isLyricsActive ? (t('remote.hideLyricsBtn') || 'Hide Lyrics') : (t('remote.lyricsBtn') || 'Lyrics')}
+            aria-label={isLyricsActive ? (t('remote.hideLyricsBtn') || 'Hide Lyrics') : (t('remote.lyricsBtn') || 'Lyrics')}
+          >
+            <Mic2 className={cn("w-4 h-4 flex-shrink-0", isLyricsActive ? "text-primary" : "text-muted-foreground")} />
+            <span className="font-mono font-bold text-xs truncate">
+              {isLyricsActive ? (t('remote.hideLyricsBtn') || 'Hide Lyrics') : (t('remote.lyricsBtn') || 'Lyrics')}
+            </span>
+          </Button>
+        )}
+
+        {/* Split 50/50: Big 'Ask for Control' button */}
+        {onRequestApproval && (
+          <Button
+            variant={hasRequestedApproval ? "outline" : "cyber"}
+            chamfer="dual"
+            onClick={onRequestApproval}
+            disabled={hasRequestedApproval}
+            className={cn(
+              "flex-1 min-w-0 h-11 px-2.5 sm:px-3 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer",
+              hasRequestedApproval ? "text-amber-400/90 border-amber-500/40 bg-amber-500/10 cursor-default" : ""
+            )}
+            title={hasRequestedApproval ? t('remote.requestSentToast') : t('remote.askForControlBtn')}
+          >
+            {hasRequestedApproval ? (
+              <>
+                <Hourglass className="w-4 h-4 text-amber-400 animate-pulse flex-shrink-0" />
+                <span className="font-mono font-bold text-xs truncate">{t('remote.requestSentBtn')}</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span className="font-mono font-bold text-xs truncate">{t('remote.askForControlBtn')}</span>
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex lg:hidden items-center justify-between gap-2 sm:gap-2.5 w-full">

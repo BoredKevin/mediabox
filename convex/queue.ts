@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { isAuthorized } from "./rooms/auth";
+import { isAuthorized, isPlaybackAuthorized } from "./rooms/auth";
 
 /**
  * Returns all queued songs for a room, ordered by queue sequence.
@@ -25,6 +25,9 @@ export const add = mutation({
     title: v.string(),
     addedBy: v.string(),
     addedByName: v.string(),
+    channelTitle: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+    thumbnailUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.roomId);
@@ -66,6 +69,9 @@ export const add = mutation({
       addedByName: args.addedByName,
       order: maxOrder + 1,
       createdAt: now,
+      channelTitle: args.channelTitle,
+      durationSeconds: args.durationSeconds,
+      thumbnailUrl: args.thumbnailUrl,
     });
 
     return { queueId, instantPlay: false };
@@ -112,8 +118,8 @@ export const reorder = mutation({
     const room = await ctx.db.get(args.roomId);
     if (!room) throw new Error("Room not found");
 
-    if (!(await isAuthorized(ctx, room, args.callerUid))) {
-      throw new Error("Only host or admin can reorder the queue");
+    if (!(await isPlaybackAuthorized(ctx, room, args.callerUid))) {
+      throw new Error("Only host, admin, or approved members can reorder the queue");
     }
 
     for (let i = 0; i < args.orderedIds.length; i++) {

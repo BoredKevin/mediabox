@@ -9,6 +9,7 @@ interface HostSettingsRoomTabProps {
   roomCode: string;
   roomState: RoomState | null;
   queueLength: number;
+  isAdmin?: boolean;
   actions: RemoteActions;
   handleClearQueueAdmin: () => void;
   handleToggleRoomLockAdmin: () => void;
@@ -19,6 +20,7 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
   roomCode,
   roomState,
   queueLength,
+  isAdmin = false,
   actions,
   handleClearQueueAdmin,
   handleToggleRoomLockAdmin,
@@ -39,6 +41,8 @@ export const HostSettingsRoomTab: React.FC<HostSettingsRoomTabProps> = ({
       <HostSettingsDangerSection
         roomState={roomState}
         queueLength={queueLength}
+        isAdmin={isAdmin}
+        onToggleHostPin={actions.toggleHostPin}
         handleToggleRoomLockAdmin={handleToggleRoomLockAdmin}
         handleClearQueueAdmin={handleClearQueueAdmin}
       />

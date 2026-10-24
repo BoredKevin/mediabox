@@ -40,6 +40,10 @@ export default defineSchema({
     lyricsOffsetMs: v.optional(v.number()),
     lyricsWordSync: v.optional(v.boolean()),
     preferMusicVideos: v.optional(v.boolean()),
+    approvedMembers: v.optional(v.array(v.string())),
+    approvalRequests: v.optional(v.array(v.string())),
+    lockPlaybackControls: v.optional(v.boolean()),
+    isHostPinned: v.optional(v.boolean()),
   }).index("by_code", ["code"]),
 
   // Queued items per room
@@ -51,6 +55,9 @@ export default defineSchema({
     addedByName: v.string(),
     order: v.number(),
     createdAt: v.number(),
+    channelTitle: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+    thumbnailUrl: v.optional(v.string()),
   }).index("by_room_order", ["roomId", "order"]),
 
   // Algorithmic YouTube Music radio recommendations

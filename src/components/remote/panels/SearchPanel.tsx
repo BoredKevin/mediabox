@@ -17,7 +17,11 @@ interface SearchPanelProps {
   roomState: RoomState | null;
   user: any;
   isHostOrAdmin: boolean;
-  onAddToQueue: (url: string, title?: string) => Promise<void>;
+  onAddToQueue: (
+    url: string,
+    title?: string,
+    metadata?: { channelTitle?: string; durationSeconds?: number; thumbnailUrl?: string }
+  ) => Promise<void>;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   embedded?: boolean;
   onOpenHostSettings?: () => void;
@@ -136,14 +140,21 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       if (result.url) next.add(result.url);
       return next;
     });
-    onAddToQueue(result.url, result.title);
+    onAddToQueue(result.url, result.title, {
+      channelTitle: result.channelTitle,
+      durationSeconds: result.durationSeconds,
+      thumbnailUrl: result.thumbnail,
+    });
   };
 
   const handleAddDirectPreview = async () => {
     if (!previewInfo || isLocked) return;
     setIsSubmittingLink(true);
     try {
-      await onAddToQueue(previewInfo.url, previewInfo.info?.title);
+      await onAddToQueue(previewInfo.url, previewInfo.info?.title, {
+        channelTitle: previewInfo.info?.channelTitle,
+        thumbnailUrl: previewInfo.info?.thumbnailUrl,
+      });
       setInputValue('');
       if (inputRef.current) inputRef.current.value = '';
       setPreviewInfo(null);

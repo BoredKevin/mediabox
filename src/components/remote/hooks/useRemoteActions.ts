@@ -13,7 +13,11 @@ export interface RemoteActions {
   previousTrack: () => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   seek: (positionMs: number) => Promise<void>;
-  addToQueue: (url: string, title?: string) => Promise<void>;
+  addToQueue: (
+    url: string,
+    title?: string,
+    metadata?: { channelTitle?: string; durationSeconds?: number; thumbnailUrl?: string }
+  ) => Promise<void>;
   removeFromQueue: (queueId: string) => Promise<void>;
   reorderQueue: (orderedIds: string[]) => Promise<void>;
   clearQueue: () => Promise<void>;
@@ -24,6 +28,13 @@ export interface RemoteActions {
   toggleFullscreen: () => Promise<void>;
   toggleFullscreenQr: () => Promise<void>;
   claimHost: () => Promise<void>;
+  toggleHostPin: () => Promise<void>;
+  adminTransferHost: (newHostUid: string) => Promise<void>;
+  toggleLockPlaybackControls: () => Promise<void>;
+  requestPlaybackApproval: () => Promise<void>;
+  toggleApproveMember: (targetUid: string) => Promise<void>;
+  approveAllMembers: (memberUids: string[]) => Promise<void>;
+  revokeAllApprovedMembers: () => Promise<void>;
   startRadio: () => Promise<void>;
   addRadioTrackToQueue: (trackId: string) => Promise<void>;
   deleteRadioTrack: (trackId: string) => Promise<void>;
@@ -32,6 +43,7 @@ export interface RemoteActions {
     lyricsOffsetMs?: number;
     lyricsWordSync?: boolean;
     preferMusicVideos?: boolean;
+    lockPlaybackControls?: boolean;
   }) => Promise<void>;
 }
 
@@ -39,6 +51,7 @@ interface UseRemoteActionsProps {
   room: any;
   effectiveUid: string;
   isHostOrAdmin: boolean;
+  canControlPlayback?: boolean;
   myNickname: string;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -47,12 +60,20 @@ export function useRemoteActions({
   room,
   effectiveUid,
   isHostOrAdmin,
+  canControlPlayback = true,
   myNickname,
   showToast,
 }: UseRemoteActionsProps): RemoteActions {
   const { t } = useTranslation();
 
   const claimHostMutation = useMutation(api.rooms.claimHost);
+  const toggleHostPinMutation = useMutation(api.rooms.toggleHostPin);
+  const adminTransferHostMutation = useMutation(api.rooms.adminTransferHost);
+  const toggleLockPlaybackControlsMutation = useMutation(api.rooms.toggleLockPlaybackControls);
+  const requestPlaybackApprovalMutation = useMutation(api.rooms.requestPlaybackApproval);
+  const toggleApproveMemberMutation = useMutation(api.rooms.toggleApproveMember);
+  const approveAllMembersMutation = useMutation(api.rooms.approveAllMembers);
+  const revokeAllApprovedMembersMutation = useMutation(api.rooms.revokeAllApprovedMembers);
   const togglePlayPauseMutation = useMutation(api.playback.togglePlayPause);
   const nextTrackMutation = useMutation(api.playback.nextTrack);
   const previousTrackMutation = useMutation(api.playback.previousTrack);
@@ -83,40 +104,56 @@ export function useRemoteActions({
       return true;
     };
 
+    const checkPlaybackLocked = () => {
+      if (!canControlPlayback) {
+        showToast(t('remote.playbackLockedToast') || 'Playback controls are locked to approved members', 'error');
+        return false;
+      }
+      return true;
+    };
+
     return {
       togglePlayPause: async () => {
-        if (!room?._id || !checkLocked()) return;
-        await togglePlayPauseMutation({ roomId: room._id });
+        if (!room?._id || !checkPlaybackLocked()) return;
+        await togglePlayPauseMutation({ roomId: room._id, callerUid: effectiveUid });
       },
 
       nextTrack: async () => {
-        if (!room?._id || !checkLocked()) return;
-        await nextTrackMutation({ roomId: room._id });
+        if (!room?._id || !checkPlaybackLocked()) return;
+        await nextTrackMutation({ roomId: room._id, callerUid: effectiveUid });
       },
 
       previousTrack: async () => {
-        if (!room?._id || !checkLocked()) return;
-        await previousTrackMutation({ roomId: room._id });
+        if (!room?._id || !checkPlaybackLocked()) return;
+        await previousTrackMutation({ roomId: room._id, callerUid: effectiveUid });
       },
 
       setVolume: async (volume: number) => {
-        if (!room?._id || !checkLocked()) return;
-        await setVolumeMutation({ roomId: room._id, volume });
+        if (!room?._id || !checkPlaybackLocked()) return;
+        await setVolumeMutation({ roomId: room._id, volume, callerUid: effectiveUid });
       },
 
       seek: async (positionMs: number) => {
-        if (!room?._id || !checkLocked()) return;
-        await seekMutation({ roomId: room._id, positionMs });
+        if (!room?._id || !checkPlaybackLocked()) return;
+        await seekMutation({ roomId: room._id, positionMs, callerUid: effectiveUid });
       },
 
-      addToQueue: async (url: string, title?: string) => {
+      addToQueue: async (
+        url: string,
+        title?: string,
+        metadata?: { channelTitle?: string; durationSeconds?: number; thumbnailUrl?: string }
+      ) => {
         if (!room?._id || !checkLocked()) return;
         let finalTitle = title;
-        if (!finalTitle) {
+        let finalChannel = metadata?.channelTitle;
+        let finalThumb = metadata?.thumbnailUrl;
+        if (!finalTitle || !finalChannel || !finalThumb) {
           const ytId = parseYouTubeVideoId(url);
           if (ytId) {
             const info = await fetchVideoTitle(`https://www.youtube.com/watch?v=${ytId}`);
-            finalTitle = info.title || 'Untitled Track';
+            if (!finalTitle) finalTitle = info.title || 'Untitled Track';
+            if (!finalChannel) finalChannel = info.channelTitle;
+            if (!finalThumb) finalThumb = info.thumbnailUrl;
           }
         }
         await addQueueMutation({
@@ -125,6 +162,9 @@ export function useRemoteActions({
           title: finalTitle || 'Untitled Track',
           addedBy: effectiveUid,
           addedByName: myNickname || 'Guest',
+          channelTitle: finalChannel,
+          durationSeconds: metadata?.durationSeconds,
+          thumbnailUrl: finalThumb,
         });
       },
 
@@ -137,7 +177,7 @@ export function useRemoteActions({
       },
 
       reorderQueue: async (orderedIds: string[]) => {
-        if (!room?._id || !checkLocked()) return;
+        if (!room?._id || !checkPlaybackLocked()) return;
         await reorderQueueMutation({
           roomId: room._id,
           orderedIds: orderedIds as Id<'queue'>[],
@@ -207,6 +247,97 @@ export function useRemoteActions({
         });
       },
 
+      toggleHostPin: async () => {
+        if (!room?._id) return;
+        try {
+          await toggleHostPinMutation({
+            roomId: room._id,
+            callerUid: effectiveUid,
+          });
+        } catch (err: any) {
+          showToast(err.message || 'Failed to toggle host pin', 'error');
+        }
+      },
+
+      adminTransferHost: async (newHostUid: string) => {
+        if (!room?._id) return;
+        try {
+          await adminTransferHostMutation({
+            roomId: room._id,
+            callerUid: effectiveUid,
+            newHostUid,
+          });
+          showToast(t('remote.hostTransferredToast') || 'Host transferred successfully', 'success');
+        } catch (err: any) {
+          showToast(err.message || 'Failed to transfer host', 'error');
+        }
+      },
+
+      toggleLockPlaybackControls: async () => {
+        if (!room?._id || !isHostOrAdmin) return;
+        try {
+          await toggleLockPlaybackControlsMutation({
+            roomId: room._id,
+            callerUid: effectiveUid,
+          });
+        } catch (err: any) {
+          showToast(err.message || 'Failed to toggle playback lock', 'error');
+        }
+      },
+
+      requestPlaybackApproval: async () => {
+        if (!room?._id) return;
+        try {
+          await requestPlaybackApprovalMutation({
+            roomId: room._id,
+            callerUid: effectiveUid,
+          });
+          showToast(t('remote.requestSentToast') || 'Approval request sent to host', 'info');
+        } catch (err: any) {
+          showToast(err.message || 'Failed to request playback control', 'error');
+        }
+      },
+
+      toggleApproveMember: async (targetUid: string) => {
+        if (!room?._id || !isHostOrAdmin) return;
+        try {
+          await toggleApproveMemberMutation({
+            roomId: room._id,
+            callerUid: effectiveUid,
+            targetUid,
+          });
+        } catch (err: any) {
+          showToast(err.message || 'Failed to update member approval', 'error');
+        }
+      },
+
+      approveAllMembers: async (memberUids: string[]) => {
+        if (!room?._id || !isHostOrAdmin) return;
+        try {
+          await approveAllMembersMutation({
+            roomId: room._id,
+            callerUid: effectiveUid,
+            memberUids,
+          });
+          showToast(t('remote.allMembersApprovedToast') || 'All members approved', 'success');
+        } catch (err: any) {
+          showToast(err.message || 'Failed to approve all members', 'error');
+        }
+      },
+
+      revokeAllApprovedMembers: async () => {
+        if (!room?._id || !isHostOrAdmin) return;
+        try {
+          await revokeAllApprovedMembersMutation({
+            roomId: room._id,
+            callerUid: effectiveUid,
+          });
+          showToast(t('remote.allApprovalsRevokedToast') || 'All approvals revoked', 'info');
+        } catch (err: any) {
+          showToast(err.message || 'Failed to revoke approvals', 'error');
+        }
+      },
+
       startRadio: async () => {
         if (!room?._id || !checkLocked()) return;
         const apiToken = loadApiToken();
@@ -256,6 +387,7 @@ export function useRemoteActions({
   }, [
     room,
     isHostOrAdmin,
+    canControlPlayback,
     effectiveUid,
     myNickname,
     t,
@@ -276,6 +408,13 @@ export function useRemoteActions({
     toggleFullscreenMutation,
     toggleFullscreenQrMutation,
     claimHostMutation,
+    toggleHostPinMutation,
+    adminTransferHostMutation,
+    toggleLockPlaybackControlsMutation,
+    requestPlaybackApprovalMutation,
+    toggleApproveMemberMutation,
+    approveAllMembersMutation,
+    revokeAllApprovedMembersMutation,
     fetchAndPlayNextRadioAction,
     addRadioTrackToQueueMutation,
     deleteRadioTrackMutation,

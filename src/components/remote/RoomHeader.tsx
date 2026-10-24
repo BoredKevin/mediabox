@@ -3,7 +3,7 @@ import { DeviceUser } from '@/lib/deviceAuth';
 import { RoomState } from '@/lib/roomUtils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, Crown, Lock, Unlock, Settings, Users, LogOut, QrCode } from 'lucide-react';
+import { Shield, Crown, Lock, Unlock, Settings, Users, LogOut, QrCode, Pin, Sliders } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from '@/context/LanguageContext';
 import { ProfileDropdown } from './ProfileDropdown';
@@ -115,6 +115,30 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
             >
               <Lock className="w-2.5 h-2.5 text-amber-400" />
               <span>Locked</span>
+            </Badge>
+          )}
+
+          {/* Playback Controls Locked */}
+          {roomState?.lockPlaybackControls && !roomState?.isLocked && (
+            <Badge
+              variant="outline"
+              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md bg-blue-950/60 text-blue-300 border-blue-800/80"
+              title={t('remote.playbackControlsLocked')}
+            >
+              <Sliders className="w-2.5 h-2.5 text-blue-400" />
+              <span>{t('remote.playbackControlsLocked')}</span>
+            </Badge>
+          )}
+
+          {/* Pinned Host status */}
+          {roomState?.isHostPinned && (
+            <Badge
+              variant="outline"
+              className="h-5 px-1.5 py-0 inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase leading-none rounded-md bg-purple-950/60 text-purple-300 border-purple-800/80"
+              title={t('remote.hostPinnedBadge')}
+            >
+              <Pin className="w-2.5 h-2.5 text-purple-400 fill-purple-400" />
+              <span>{t('remote.hostPinnedBadge')}</span>
             </Badge>
           )}
         </div>
