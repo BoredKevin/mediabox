@@ -21,6 +21,7 @@ interface RoomTabContentProps {
   user: DeviceUser | null;
   effectiveUid: string;
   isHostOrAdmin: boolean;
+  isAdmin?: boolean;
   tvUuid: string | null;
   queue: QueueItem[];
   radioQueue: SearchResultItem[];
@@ -37,6 +38,7 @@ interface RoomTabContentProps {
   handleKickMember: (uid: string) => Promise<void>;
   onAddRadioTrackToQueue?: (trackId: string) => Promise<void>;
   onDeleteRadioTrack?: (trackId: string) => Promise<void>;
+  onReorderQueue?: (orderedIds: string[]) => void;
 }
 
 export const RoomTabContent: React.FC<RoomTabContentProps> = ({
@@ -46,6 +48,7 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
   user,
   effectiveUid,
   isHostOrAdmin,
+  isAdmin = false,
   tvUuid,
   queue,
   radioQueue,
@@ -62,6 +65,7 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
   handleKickMember,
   onAddRadioTrackToQueue,
   onDeleteRadioTrack,
+  onReorderQueue,
 }) => {
   const { t } = useTranslation();
 
@@ -100,11 +104,17 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
         {/* Right Column: Tabbed Queue & Members */}
         <Card cornerLines className="h-full flex flex-col p-5 bg-card border-border overflow-hidden">
           <Tabs defaultValue="queue" className="h-full flex flex-col min-h-0">
-            <TabsList className="grid w-full grid-cols-2 mb-4 flex-shrink-0">
-              <TabsTrigger value="queue" className="text-xs uppercase font-bold tracking-wider">
+            <TabsList className="grid h-9 w-full grid-cols-2 rounded-lg bg-zinc-900/90 p-1 mb-4 flex-shrink-0">
+              <TabsTrigger
+                value="queue"
+                className="rounded-md text-xs font-medium text-zinc-400 shadow-sm data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+              >
                 {t('remote.activeQueueTab')} ({queue.length})
               </TabsTrigger>
-              <TabsTrigger value="members" className="text-xs uppercase font-bold tracking-wider">
+              <TabsTrigger
+                value="members"
+                className="rounded-md text-xs font-medium text-zinc-400 shadow-sm data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+              >
                 {t('remote.activeMembersTab')} ({membersList.length})
               </TabsTrigger>
             </TabsList>
@@ -123,9 +133,11 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
                 membersList={membersList}
                 onRemoveItem={handleRemoveQueueItem}
                 onMoveItem={handleMoveQueueItem}
+                onReorderQueue={onReorderQueue || actions.reorderQueue}
                 onStartRadio={actions.startRadio}
                 onAddRadioTrackToQueue={onAddRadioTrackToQueue}
                 onDeleteRadioTrack={onDeleteRadioTrack}
+                playback={roomState?.playback}
                 embedded
               />
             </TabsContent>
@@ -142,9 +154,20 @@ export const RoomTabContent: React.FC<RoomTabContentProps> = ({
                 user={user}
                 currentUid={effectiveUid}
                 isHostOrAdmin={isHostOrAdmin}
+                isAdmin={isAdmin}
+                isHostPinned={roomState?.isHostPinned}
+                lockPlaybackControls={roomState?.lockPlaybackControls}
+                approvedMembers={roomState?.approvedMembers}
+                approvalRequests={roomState?.approvalRequests}
                 queue={queue}
                 onKickMember={handleKickMember}
                 onRemoveQueueItem={handleRemoveQueueItem}
+                onToggleApproveMember={actions.toggleApproveMember}
+                onApproveAllMembers={actions.approveAllMembers}
+                onRevokeAllApprovedMembers={actions.revokeAllApprovedMembers}
+                onToggleHostPin={actions.toggleHostPin}
+                onAdminTransferHost={actions.adminTransferHost}
+                onToggleLockPlaybackControls={actions.toggleLockPlaybackControls}
                 embedded
               />
             </TabsContent>

@@ -70,6 +70,18 @@ export function useRemoteRoom({
   const isHostOrAdmin = isHost || isAdmin;
   const tvUuid = room?.tvUuid || null;
 
+  const isApprovedMember = useMemo(() => {
+    return Boolean(room?.approvedMembers && room.approvedMembers.includes(effectiveUid));
+  }, [room?.approvedMembers, effectiveUid]);
+
+  const hasRequestedApproval = useMemo(() => {
+    return Boolean(room?.approvalRequests && room.approvalRequests.includes(effectiveUid));
+  }, [room?.approvalRequests, effectiveUid]);
+
+  const canControlPlayback = useMemo(() => {
+    return isHostOrAdmin || isApprovedMember || (!room?.lockPlaybackControls && !room?.isLocked);
+  }, [isHostOrAdmin, isApprovedMember, room?.lockPlaybackControls, room?.isLocked]);
+
   // Track room closure
   useEffect(() => {
     if (room) {
@@ -144,6 +156,10 @@ export function useRemoteRoom({
       lyricsOffsetMs: room.lyricsOffsetMs,
       lyricsWordSync: room.lyricsWordSync,
       tvOnline: room.tvOnline,
+      approvedMembers: room.approvedMembers,
+      approvalRequests: room.approvalRequests,
+      lockPlaybackControls: room.lockPlaybackControls,
+      isHostPinned: room.isHostPinned,
       roomId: room._id,
       searchSettings: {
         maxResults: 20,
@@ -164,6 +180,9 @@ export function useRemoteRoom({
       addedBy: item.addedBy,
       addedByName: item.addedByName,
       addedAt: item.createdAt,
+      channelTitle: item.channelTitle,
+      durationSeconds: item.durationSeconds,
+      thumbnailUrl: item.thumbnailUrl,
     }));
   }, [rawQueue]);
 
@@ -196,6 +215,7 @@ export function useRemoteRoom({
     room,
     effectiveUid,
     isHostOrAdmin,
+    canControlPlayback,
     myNickname,
     showToast,
   });
@@ -230,6 +250,9 @@ export function useRemoteRoom({
     adminsList,
     isHost,
     isHostOrAdmin,
+    isApprovedMember,
+    hasRequestedApproval,
+    canControlPlayback,
     myNickname,
     actions,
     handleSaveNickname,

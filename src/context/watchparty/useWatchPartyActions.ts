@@ -119,14 +119,15 @@ export function useWatchPartyActions({
     await togglePlayPauseMutation({
       roomId: room._id,
       positionMs: posMs,
+      callerUid: creds.uuid,
     });
-  }, [room?._id, playerInstanceRef, togglePlayPauseMutation]);
+  }, [room?._id, creds.uuid, playerInstanceRef, togglePlayPauseMutation]);
 
   const handlePlayNextInQueue = useCallback(async (expectedUrl?: string) => {
     if (!room?._id || isTransitioningRef.current) return;
     isTransitioningRef.current = true;
     try {
-      await nextTrackMutation({ roomId: room._id, expectedUrl });
+      await nextTrackMutation({ roomId: room._id, expectedUrl, callerUid: creds.uuid });
     } catch (err) {
       console.error('[WatchParty] Error transitioning to next track:', err);
     } finally {
@@ -134,13 +135,13 @@ export function useWatchPartyActions({
         isTransitioningRef.current = false;
       }, 500);
     }
-  }, [room?._id, nextTrackMutation]);
+  }, [room?._id, creds.uuid, nextTrackMutation]);
 
   const handlePlayPreviousTrack = useCallback(async (): Promise<boolean> => {
     if (!room?._id || isTransitioningRef.current) return false;
     isTransitioningRef.current = true;
     try {
-      await previousTrackMutation({ roomId: room._id });
+      await previousTrackMutation({ roomId: room._id, callerUid: creds.uuid });
       return true;
     } catch (err) {
       console.error('[WatchParty] Error transitioning to previous track:', err);
@@ -150,7 +151,7 @@ export function useWatchPartyActions({
         isTransitioningRef.current = false;
       }, 500);
     }
-  }, [room?._id, previousTrackMutation]);
+  }, [room?._id, creds.uuid, previousTrackMutation]);
 
   const handleRemoveQueueItem = useCallback(
     async (itemId: string) => {
@@ -199,6 +200,7 @@ export function useWatchPartyActions({
         await playQueueItemMutation({
           roomId: room._id,
           queueId: queueId as Id<'queue'>,
+          callerUid: creds.uuid,
         });
       } catch (err) {
         console.error('[WatchParty] Error playing queue item:', err);
@@ -304,9 +306,9 @@ export function useWatchPartyActions({
   const handleAdjustVolume = useCallback(
     async (volume: number) => {
       if (!room?._id) return;
-      await setVolumeMutation({ roomId: room._id, volume });
+      await setVolumeMutation({ roomId: room._id, volume, callerUid: creds.uuid });
     },
-    [room?._id, setVolumeMutation]
+    [room?._id, creds.uuid, setVolumeMutation]
   );
 
   const handleSyncPlaybackCheckpoint = useCallback(

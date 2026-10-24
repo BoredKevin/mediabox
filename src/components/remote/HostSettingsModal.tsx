@@ -110,6 +110,7 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
                 roomCode={roomCode}
                 roomState={roomState}
                 queueLength={queueLength}
+                isAdmin={isAdmin}
                 actions={actions}
                 handleClearQueueAdmin={handleClearQueueAdmin}
                 handleToggleRoomLockAdmin={handleToggleRoomLockAdmin}
