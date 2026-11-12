@@ -37,12 +37,7 @@
     },
     {
       "start": "15:10",
-      "sub": "Bimbel TKA"
-    },
-    {
-      "start": "16:10",
-      "sub": "Pulang",
-      "countdown": true
+      "sub": "Pulang"
     }
   ],
   "Selasa": [
@@ -86,12 +81,7 @@
     },
     {
       "start": "15:10",
-      "sub": "Bimbel TKA"
-    },
-    {
-      "start": "16:10",
-      "sub": "Pulang",
-      "countdown": true
+      "sub": "Pulang"
     }
   ],
   "Rabu": [
@@ -131,12 +121,7 @@
     },
     {
       "start": "15:10",
-      "sub": "Bimbel TKA"
-    },
-    {
-      "start": "16:10",
-      "sub": "Pulang",
-      "countdown": true
+      "sub": "Pulang"
     }
   ],
   "Kamis": [
@@ -180,12 +165,7 @@
     },
     {
       "start": "15:10",
-      "sub": "Bimbel TKA"
-    },
-    {
-      "start": "16:10",
-      "sub": "Pulang",
-      "countdown": true
+      "sub": "Pulang"
     }
   ],
   "Jumat": [
@@ -229,12 +209,7 @@
     },
     {
       "start": "15:10",
-      "sub": "Bimbel TKA"
-    },
-    {
-      "start": "16:10",
-      "sub": "Pulang",
-      "countdown": true
+      "sub": "Pulang"
     }
   ],
   "Sabtu": [
